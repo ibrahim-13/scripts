@@ -1,6 +1,4 @@
-$============================$
-$= Some Unnecessary Scripts =$
-$============================$
+# **Some Unnecessary Scripts** #
 
 Some scripts.
 
