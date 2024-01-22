@@ -1,42 +1,50 @@
 #!/bin/sh
 
-# Can not run as root, use `sudo` for system commands
+# This script can not run as root, use `sudo` for system commands
 # If the script is running as root, `gh` command can not find the login information of the user
-# if [ $(id -u) -ne 0 ]
-# then
-	# echo "Error! This script requires root priviledges to run"
-	# exit 1
-# fi
 
 # Shared Variables
+GH_AUTH_TOKEN=""
 GH_RESPONSE=""
 GH_CREATED_AT=""
-DESKTOP_FILE="[Desktop Entry]\n
-Name=MarkText\n
-Comment=Next generation markdown editor\n
-Exec=marktext %F\n
-Terminal=false\n
-Type=Application\n
-Icon=marktext\n
-Categories=Office;TextEditor;Utility;\n
-MimeType=text/markdown;\n
-Keywords=marktext;\n
-StartupWMClass=marktext\n
-Actions=NewWindow;\n
-\n
-[Desktop Action NewWindow]\n
-Name=New Window\n
-Exec=marktext --new-window %F\n
-Icon=marktext\n"
+
+# GitHub functions
+func_gh_http() {
+	GH_RESPONSE="$(wget --header="Accept: application/vnd.github+json" --header="X-GitHub-Api-Version: 2022-11-28" --header="" -qO- https://api.github.com/repos/$1/$2/releases/latest | jq '{"created_at":.created_at,"download_url":.assets[] | select(.name | contains("AppImage")) | .browser_download_url}')"
+}
+
+func_gh_cli() {
+	GH_RESPONSE="$(gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/$1/$2/latest | jq '{"created_at":.created_at,"download_url":.assets[] | select(.name | contains("AppImage")) | .browser_download_url}')"
+}
+
+func_gh() {
+	TMP=$(type -p gh >/dev/null || echo "")
+	if [ "$TMP" = "" ]
+	then
+		echo gh: command not found, using http api
+		func_gh_http $1 $2
+	else
+		echo gh: command found, using gh cli
+		GH_AUTH_TOKEN=$(gh auth token)
+		if [ "$GH_AUTH_TOKEN" = "" ]
+		then
+			echo "gh: auth token not found, you may be not logged in, using http api"
+			func_gh_http $1 $2
+		else
+			echo "gh: auth token found"
+			func_gh_cli $1 $2
+		fi
+	fi
+}
 
 func_init() {
 	echo Fetching latest release information from Github
 	# Get latest release and store created_at and browser_download_url
-	GH_RESPONSE="$(gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/marktext/marktext/releases/latest | jq '{"created_at":.created_at,"download_url":.assets[] | select(.name | contains("AppImage")) | .browser_download_url}')"
+	func_gh marktext marktext
 	GH_CREATED_AT=$(echo $GH_RESPONSE | jq -r '.created_at')
 }
 
-func_after() {
+func_install() {
 	echo Installing
 	echo Release created at: $GH_CREATED_AT
 	GH_MARKTEXT_DL_URL=$(echo $GH_RESPONSE | jq -r '.download_url')
@@ -86,11 +94,12 @@ func_uninstall() {
 	sudo rm -rf /opt/marktext
 	# Remove app registration from the OS
 	update-desktop-database $HOME/.local/share/applications/
+	echo Done
 }
 
-echo =======================
-echo = Installing Marktext =
-echo =======================
+echo ===================
+echo = Manage Marktext =
+echo ===================
 
 echo "1) Install/Update"
 echo "2) Uninstall"
@@ -114,7 +123,7 @@ then
 			func_update
 		else
 			echo Already up to date
-			func_after_install
+			func_install
 		fi
 	fi
 elif [ "$INPUT_OPT" = "2" ]
