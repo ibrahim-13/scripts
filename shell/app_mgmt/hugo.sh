@@ -17,12 +17,11 @@ func_gh_http() {
 }
 
 func_gh_cli() {
-	GH_RESPONSE="$(gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/$1/$2/latest | jq --arg GH_ASSET_NAME $GH_ASSET_NAME '{"created_at":.created_at,"download_url":.assets[] | select(.name | contains($GH_ASSET_NAME) and contains("extended")) | .browser_download_url}')"
+	GH_RESPONSE="$(gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/$1/$2/releases/latest | jq --arg GH_ASSET_NAME $GH_ASSET_NAME '{"created_at":.created_at,"download_url":.assets[] | select(.name | contains($GH_ASSET_NAME) and contains("extended")) | .browser_download_url}')"
 }
 
 func_gh() {
-	TMP=$(type -p gh >/dev/null || echo "")
-	if [ "$TMP" = "" ]
+	if ! [ -x "$(command -v gh)" ]
 	then
 		echo gh: command not found, using http api
 		func_gh_http $1 $2
