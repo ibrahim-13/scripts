@@ -64,3 +64,7 @@ vim.keymap.set({'n', 'x'}, 'x', '"_x')
 vim.keymap.set({'n', 'x'}, 'X', '"_d')
 -- Select all with 'space+a' in normal mode
 vim.keymap.set('n', '<leader>a', ':keepjumps normal! ggVG<cr>')
+-- Open Netrw in the current directory of the file (buffer) when in normal mode
+vim.keymap.set('n', '<leader>df', ':Lexplore %:p:h<cr>')
+-- Open Netrw in the initial directory when in normal mode
+vim.keymap.set('n', '<leader>dd', ':Lexplore<cr>')

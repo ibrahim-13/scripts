@@ -8,13 +8,16 @@ GH_AUTH_TOKEN=""
 GH_RESPONSE=""
 GH_CREATED_AT=""
 
+# Github Variables
+GH_ASSET_NAME="Linux_x86_64.tar.gz"
+
 # GitHub functions
 func_gh_http() {
-	GH_RESPONSE="$(wget --header="Accept: application/vnd.github+json" --header="X-GitHub-Api-Version: 2022-11-28" --header="" -qO- https://api.github.com/repos/$1/$2/releases/latest | jq '{"created_at":.created_at,"download_url":.assets[] | select(.name | contains("Linux_x86_64.tar.gz")) | .browser_download_url}')"
+	GH_RESPONSE="$(wget --header="Accept: application/vnd.github+json" --header="X-GitHub-Api-Version: 2022-11-28" --header="" -qO- https://api.github.com/repos/$1/$2/releases/latest | jq --arg GH_ASSET_NAME $GH_ASSET_NAME '{"created_at":.created_at,"download_url":.assets[] | select(.name | contains($GH_ASSET_NAME)) | .browser_download_url}')"
 }
 
 func_gh_cli() {
-	GH_RESPONSE="$(gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/$1/$2/latest | jq '{"created_at":.created_at,"download_url":.assets[] | select(.name | contains("Linux_x86_64.tar.gz")) | .browser_download_url}')"
+	GH_RESPONSE="$(gh api -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" /repos/$1/$2/latest | jq --arg GH_ASSET_NAME $GH_ASSET_NAME '{"created_at":.created_at,"download_url":.assets[] | select(.name | contains($GH_ASSET_NAME)) | .browser_download_url}')"
 }
 
 func_gh() {
