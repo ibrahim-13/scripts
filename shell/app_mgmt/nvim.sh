@@ -49,10 +49,10 @@ func_init() {
 func_install() {
 	echo Installing
 	echo Release created at: $GH_CREATED_AT
-	GH_MARKTEXT_DL_URL=$(echo $GH_RESPONSE | jq -r '.download_url')
+	GH_DL_URL=$(echo $GH_RESPONSE | jq -r '.download_url')
 
 	sudo mkdir /opt/neovim
-	sudo wget -q --show-progress -O /opt/neovim/neovim.AppImage $GH_MARKTEXT_DL_URL
+	sudo wget -q --show-progress -O /opt/neovim/neovim.AppImage $GH_DL_URL
 	sudo chmod 755 /opt/neovim/neovim.AppImage
 	sudo ln -s /opt/neovim/neovim.AppImage /bin/nvim
 	type -p libfuse2 || {
@@ -64,6 +64,16 @@ func_install() {
 		sudo ln -s /opt/neovim/squashfs-root/AppRun /bin/nvim
 		sudo rm neovim.AppImage
 	}
+	# Copy configuration
+	if [ ! -d $HOME/.config ]
+	then
+		mkdir $HOME/.config
+	fi
+	if [ ! -d $HOM/.config/nvim ]
+	then
+		mkdir $HOME/.config/nvim
+	fi
+	sudo cp ./nvim_config.lua $HOME/.config/nvim/init.lua
 	# Store created_at so that we can compare later for updating the app
 	echo $GH_CREATED_AT | sudo tee /opt/neovim/created_at
 	echo Done
@@ -77,6 +87,10 @@ func_uninstall() {
 	echo Uninstalling
 	sudo rm /bin/nvim
 	sudo rm -rf /opt/neovim
+	echo Removing configurations
+	sudo rm -rf $HOME/.config/nvim
+	sudo rm -rf $HOME/.local/share/nvim
+	sudo rm -rf $HOME/.local/state/nvim
 	echo Done
 }
 

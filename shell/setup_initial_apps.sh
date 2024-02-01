@@ -93,3 +93,6 @@ sudo apt-get update
 sudo apt-get install kid3     # KDE users
 # sudo apt-get install kid3-qt  # without KDE dependencies
 # sudo apt-get install kid3-cli # for the command-line interface
+
+# ripgrep
+sudo apt-get install ripgrep

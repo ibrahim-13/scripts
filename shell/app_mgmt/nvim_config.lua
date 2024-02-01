@@ -1,9 +1,9 @@
 -- NeoVim Configution File
 -- ~/.config/nvim/init.lua
 
---
--- Options
---
+-------------
+-- Options --
+-------------
 
 -- Show line number
 vim.opt.number = true
@@ -30,9 +30,9 @@ vim.opt.shiftwidth = 4
 -- Convert TAB to SPACE
 vim.opt.expandtab = false
 
---
--- Keybindings
---
+-----------------
+-- Keybindings --
+-----------------
 
 --[[
 vim.keymap.set({mode}, {lhs}, {rhs}, {opts})
@@ -65,6 +65,34 @@ vim.keymap.set({'n', 'x'}, 'X', '"_d')
 -- Select all with 'space+a' in normal mode
 vim.keymap.set('n', '<leader>a', ':keepjumps normal! ggVG<cr>')
 -- Open Netrw in the current directory of the file (buffer) when in normal mode
-vim.keymap.set('n', '<leader>df', ':Lexplore %:p:h<cr>')
--- Open Netrw in the initial directory when in normal mode
-vim.keymap.set('n', '<leader>dd', ':Lexplore<cr>')
+
+----------------------------
+-- lazy.nvim Installation --
+----------------------------
+-- https://github.com/folke/lazy.nvim
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system({
+    "git",
+    "clone",
+    "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git",
+    "--branch=stable", -- latest stable release
+    lazypath,
+  })
+end
+vim.opt.rtp:prepend(lazypath)
+-- Setup plug-ins
+require("lazy").setup({
+	-- https://github.com/nvim-telescope/telescope.nvim
+	{'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' }}
+	-- https://github.com/nvim-treesitter/nvim-treesitter
+})
+
+-- telescope config
+--
+local builtin = require('telescope.builtin')
+vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
+vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
+vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
+vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
