@@ -17,10 +17,29 @@ fi
 cat <<EOF >> $HOME/.bashrc
 $ALIAS_STR_START
 
-alias fcd='cd "\$(find . -maxdepth 2 -type d | sort | fzf)"'
+func_fzf_px() {
+	TMP_SELSECTED_PROCESS=\$(ps -aux | fzf | awk '\$2 ~ /^[0-9]+$/ { print \$2 }')
+	if [ "\$TMP_SELSECTED_PROCESS" = "" ]
+	then
+		echo no process selected
+	else
+		read -p "Kill? (Y/n) " TMP_ANS
+		case \$TMP_ANS in
+			[Nn])
+				echo will not kill
+				;;
+			*)
+				echo killing pid: \$TMP_SELSECTED_PROCESS
+				kill -s SIGKILL \$TMP_SELSECTED_PROCESS
+				;;
+			esac
+	fi
+	
+}
+
 alias ff='find . -maxdepth 1 | sort | fzf'
 alias ll='ls -AlhFr'
-alias fk="ps -aux | fzf | awk '\$2 ~ /^[0-9]+\$/ { print \$2 }' | xargs kill -s SIGKILL"
+alias fk='func_fzf_px'
 
 $ALIAS_STR_END
 EOF

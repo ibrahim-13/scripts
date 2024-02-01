@@ -51,6 +51,7 @@ func_install() {
 	echo Release created at: $GH_CREATED_AT
 	GH_DL_URL=$(echo $GH_RESPONSE | jq -r '.download_url')
 
+	TMP_CURRENT_DIR=$PWD
 	sudo mkdir /opt/neovim
 	sudo wget -q --show-progress -O /opt/neovim/neovim.AppImage $GH_DL_URL
 	sudo chmod 755 /opt/neovim/neovim.AppImage
@@ -73,7 +74,13 @@ func_install() {
 	then
 		mkdir $HOME/.config/nvim
 	fi
-	sudo cp ./nvim_config.lua $HOME/.config/nvim/init.lua
+	echo $PWD
+	if [ -f $TMP_CURRENT_DIR/nvim_config.lua ]
+	then
+		echo found: nvim_config.lua
+		echo copying config file...
+		sudo cp $TMP_CURRENT_DIR/nvim_config.lua $HOME/.config/nvim/init.lua
+	fi
 	# Store created_at so that we can compare later for updating the app
 	echo $GH_CREATED_AT | sudo tee /opt/neovim/created_at
 	echo Done
