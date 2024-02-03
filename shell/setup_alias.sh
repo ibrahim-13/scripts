@@ -37,8 +37,9 @@ func_fzf_px() {
 	
 }
 
-alias ff='find . -maxdepth 1 | sort | fzf'
+alias fd='cd \$(find . -maxdepth 1 -type d | sort | fzf)'
 alias ll='ls -AlhFr'
+alias llz='ls -AlhFr | sort | fzf'
 alias fk='func_fzf_px'
 
 $ALIAS_STR_END

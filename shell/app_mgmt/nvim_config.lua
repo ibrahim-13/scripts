@@ -1,5 +1,6 @@
 -- NeoVim Configution File
--- ~/.config/nvim/init.lua
+-- LINUX: ~/.config/nvim/init.lua
+-- WINDOWS: ~/AppData/Local/nvim/init.lua
 
 -------------
 -- Options --
@@ -84,15 +85,45 @@ end
 vim.opt.rtp:prepend(lazypath)
 -- Setup plug-ins
 require("lazy").setup({
-	-- https://github.com/nvim-telescope/telescope.nvim
-	{'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' }}
-	-- https://github.com/nvim-treesitter/nvim-treesitter
+	-- Telescope: https://github.com/nvim-telescope/telescope.nvim
+	{'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' }},
+	-- Treesitter https://github.com/nvim-treesitter/nvim-treesitter
+	-- TODO
+	-- Tokyonight theme: https://github.com/folke/tokyonight.nvim
+	{ "folke/tokyonight.nvim", lazy = false, priority = 1000, opts = {} },
+	-- Lualine: https://github.com/nvim-lualine/lualine.nvim 
+	{ 'nvim-lualine/lualine.nvim', dependencies = { 'nvim-tree/nvim-web-devicons' } },
 })
 
 -- telescope config
---
 local builtin = require('telescope.builtin')
 vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
 vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
 vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
+
+-- tokyonight theme config
+vim.cmd[[colorscheme tokyonight-night]]
+
+-- lualine config
+require('lualine').setup {
+	options = {
+		theme = 'tokyonight'
+	},
+	sections = {
+		lualine_a = {'mode'},
+		lualine_b = {'branch', 'diff', 'diagnostics'},
+		lualine_c = {{ 'filename', file_status = true, path = 1 }},
+		lualine_x = {'encoding', 'fileformat', 'filetype'},
+		lualine_y = {'progress'},
+		lualine_z = {'location'}
+	  },
+	inactive_sections = {
+		lualine_a = {},
+		lualine_b = {},
+		lualine_c = {'filename'},
+		lualine_x = {'location'},
+		lualine_y = {},
+		lualine_z = {}
+	},
+}
