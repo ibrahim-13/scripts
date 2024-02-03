@@ -165,6 +165,23 @@ echo Sound and Video
 echo ---------------
 dnf groupupdate sound-and-video
 
+echo ==================
+echo = NVidia Drivers =
+echo ==================
+dnf install akmod-nvidia # rhel/centos users can use kmod-nvidia instead
+dnf install xorg-x11-drv-nvidia-cuda #optional for cuda/nvdec/nvenc support
+
+echo ------------------
+echo Enable NVENC/NVDEC
+echo ------------------
+dnf install xorg-x11-drv-nvidia-cuda-libs
+
+# KMS (Kernel Mode Settings) is enabled by default
+# enable:
+# sudo grubby --update-kernel=ALL --args='nvidia-drm.modeset=1'
+# disable:
+# sudo grubby --update-kernel=ALL --remove-args='nvidia-drm.modeset=1'
+
 echo ---------------------------------
 echo Hardware Accelerated Codec: Intel
 echo ---------------------------------
@@ -179,4 +196,12 @@ dnf install intel-media-driver
 echo ----------------------------------
 echo Hardware Accelerated Codec: NVIDIA
 echo ----------------------------------
-sudo dnf install nvidia-vaapi-driver
+sudo dnf install nvidia-vaapi-driver libva-utils vdpauinfo
+
+# Uninstall NVIDIA Drivers:
+# dnf remove xorg-x11-drv-nvidia\*
+# Recover from NVIDIA installer
+# rm -f /usr/lib{,64}/libGL.so.* /usr/lib{,64}/libEGL.so.*
+# rm -f /usr/lib{,64}/xorg/modules/extensions/libglx.so
+# dnf reinstall xorg-x11-server-Xorg mesa-libGL mesa-libEGL libglvnd\*
+# mv /etc/X11/xorg.conf /etc/X11/xorg.conf.saved
