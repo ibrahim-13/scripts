@@ -106,6 +106,17 @@ vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
 vim.cmd[[colorscheme tokyonight-night]]
 
 -- lualine config
+local function current_cursor_hex()
+	local cursor = vim.fn.getcurpos()
+	local line = vim.fn.getline('.')
+	local character = string.sub(line, cursor[3], cursor[3])
+	if character == "" then
+		return '0x00'
+	end
+	local ascii_value = string.byte(character)
+	return string.format('0x%02X', ascii_value)
+end
+
 require('lualine').setup {
 	options = {
 		theme = 'tokyonight'
@@ -115,7 +126,7 @@ require('lualine').setup {
 		lualine_b = {'branch', 'diff', 'diagnostics'},
 		lualine_c = {{ 'filename', file_status = true, path = 1 }},
 		lualine_x = {'encoding', 'fileformat', 'filetype'},
-		lualine_y = {'progress'},
+		lualine_y = {current_cursor_hex, 'progress'},
 		lualine_z = {'location'}
 	  },
 	inactive_sections = {
