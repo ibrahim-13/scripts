@@ -19,11 +19,11 @@ echo = Configure Package Sources =
 echo =============================
 
 # https://rpmfusion.org/
-# echo ---------------------------
-# echo Add RPM Fusion repositories
-# echo ---------------------------
-# dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
-# dnf install https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+echo ---------------------------
+echo Add RPM Fusion repositories
+echo ---------------------------
+dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+dnf install https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 
 echo ----------------------------
 echo Enable fedora-cisco-openh264
@@ -36,10 +36,27 @@ echo -----------------------------
 rpm --import https://packages.microsoft.com/keys/microsoft.asc
 sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
 
-# echo ------------------
-# echo Add Flathub Remote
-# echo ------------------
-# flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+echo ------------------------
+echo Google Chrome Repository
+echo ------------------------
+dnf config-manager --set-enabled google-chrome
+
+echo ------------------------
+echo Brave Browser Repository
+echo ------------------------
+dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
+
+echo -------------------------
+echo Microsoft Edge Repository
+echo -------------------------
+rpm --import https://packages.microsoft.com/keys/microsoft.asc
+dnf config-manager --add-repo https://packages.microsoft.com/yumrepos/edge
+
+echo ------------------
+echo Add Flathub Remote
+echo ------------------
+flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
 # Add backend for Discover (KDE)
 # sudo dnf install plasma-discover-backend-flatpak
@@ -91,6 +108,26 @@ echo ========
 echo = Gimp =
 echo ========
 flatpak install flathub org.gimp.GIMP
+
+echo ============
+echo = Browsers =
+echo ============
+
+echo -------------
+echo Google Chrome
+echo -------------
+dnf install google-chrome-stable
+
+echo -------------
+echo Brave Browser
+echo -------------
+dnf install dnf-plugins-core
+dnf install brave-browser
+
+echo ----------------------
+echo Microsoft Edge Browser
+echo ----------------------
+dnf install microsoft-edge-stable
 
 echo ======================
 echo = Visual Studio Code =
