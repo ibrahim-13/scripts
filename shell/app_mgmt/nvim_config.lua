@@ -93,6 +93,8 @@ require("lazy").setup({
 	{ "folke/tokyonight.nvim", lazy = false, priority = 1000, opts = {} },
 	-- Lualine: https://github.com/nvim-lualine/lualine.nvim 
 	{ 'nvim-lualine/lualine.nvim', dependencies = { 'nvim-tree/nvim-web-devicons' } },
+	-- https://github.com/lukas-reineke/indent-blankline.nvim
+	{ "lukas-reineke/indent-blankline.nvim", main = "ibl", opts = {} },
 })
 
 -- telescope config
@@ -101,9 +103,6 @@ vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
 vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
 vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
-
--- tokyonight theme config
-vim.cmd[[colorscheme tokyonight-night]]
 
 -- lualine config
 local function current_cursor_hex()
@@ -138,3 +137,19 @@ require('lualine').setup {
 		lualine_z = {}
 	},
 }
+
+-- indent-blankline.nvim setup
+require("ibl").setup()
+
+-- tokyonight theme config
+require("tokyonight").setup({
+	style = "night",
+	on_colors = function(colors)
+		colors.bg = "#000000"
+		colors.bg_dark = "#000000"
+		colors.comment = colors.dark5
+		colors.fg_gutter = colors.dark5
+	end
+})
+
+vim.cmd[[colorscheme tokyonight]]
