@@ -31,46 +31,11 @@ vim.opt.shiftwidth = 4
 -- Convert TAB to SPACE
 vim.opt.expandtab = false
 
------------------
--- Keybindings --
------------------
-
 --[[
-vim.keymap.set({mode}, {lhs}, {rhs}, {opts})
-
-Modes:
-n	: Normal mode
-i	: Insert mode
-x	: Visual mode
-s	: Selection mode
-v	: Visual + Selection
-t	: Terminal mode
-o	: Operator-pending
-''	: Equivalent of h + v + o
-
-{lhs}	: Key to bind
-{rhs}	: Action to execute, string command or Lua function
+lazy.nvim
+---------
+https://github.com/folke/lazy.nvim
 --]]
-
--- Set <leader> to space
-vim.g.mapleader = ' '
--- Write with 'space+w' in normal mode
-vim.keymap.set('n', '<leader>w', '<cmd>write<cr>', { desc = 'Save' })
--- Copy to clipboard with 'gy' in normal+visual mode
-vim.keymap.set({'n', 'x'}, 'gy', '"+y')
--- Paste to clipboard with 'gp' in normal+visual mode
-vim.keymap.set({'n', 'x'}, 'gp', '"+p')
--- While deleting in normal+visual mode, deleting with 'x' and 'X' with not change registers
-vim.keymap.set({'n', 'x'}, 'x', '"_x')
-vim.keymap.set({'n', 'x'}, 'X', '"_d')
--- Select all with 'space+a' in normal mode
-vim.keymap.set('n', '<leader>a', ':keepjumps normal! ggVG<cr>')
--- Open Netrw in the current directory of the file (buffer) when in normal mode
-
-----------------------------
--- lazy.nvim Installation --
-----------------------------
--- https://github.com/folke/lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
   vim.fn.system({
@@ -83,28 +48,69 @@ if not vim.loop.fs_stat(lazypath) then
   })
 end
 vim.opt.rtp:prepend(lazypath)
+
 -- Setup plug-ins
 require("lazy").setup({
-	-- Telescope: https://github.com/nvim-telescope/telescope.nvim
+	-- Telescope
 	{'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' }},
-	-- Treesitter https://github.com/nvim-treesitter/nvim-treesitter
-	-- TODO
-	-- Tokyonight theme: https://github.com/folke/tokyonight.nvim
+	-- Treesitter
+	{ "nvim-treesitter/nvim-treesitter", build = ":TSUpdate" },
+	-- Tokyonight Theme
 	{ "folke/tokyonight.nvim", lazy = false, priority = 1000, opts = {} },
-	-- Lualine: https://github.com/nvim-lualine/lualine.nvim 
+	-- Lualine
 	{ 'nvim-lualine/lualine.nvim', dependencies = { 'nvim-tree/nvim-web-devicons' } },
-	-- https://github.com/lukas-reineke/indent-blankline.nvim
+	-- Indent-Blanckline
 	{ "lukas-reineke/indent-blankline.nvim", main = "ibl", opts = {} },
+	-- Hop
+	{ 'smoka7/hop.nvim' },
 })
 
--- telescope config
-local builtin = require('telescope.builtin')
-vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
-vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
-vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
-vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
+--[[
+nvim-treesitter
+---------------
+https://github.com/nvim-treesitter/nvim-treesitter
+Commands
+	Install language	: TSInstall <language_to_install>
+	Update				: TSUpdate | TSUpdate all
+	Installation Status	: TSInstallInfo
+--]]
+require("nvim-treesitter.configs").setup {
+	ensure_installed = { "bash", "c", "cpp", "css", "diff", "dockerfile", "dot", "go", "gosum", "gowork", "gpg", "graphql", "html", "javascript", "json", "jsonc", "lua", "make", "markdown", "passwd", "pem", "printf", "proto", "python", "scss", "sql", "templ", "terraform", "toml", "tsx", "typescript", "xml", "yaml" },
+	sync_install = false,
+	auto_install = true,
+	-- ignore_install = { "javascript" },
+	highlight = {
+		enable = true,
+		-- disable = { "javascript" },
+		--[[
+		disable = function(lang, bug)
+			local max_filesize = 100 * 1024 -- 100 KB
+			local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
+			if ok and stats and stats.size > max_filesize then
+				return true
+			end
+		end
+		--]]
+		additional_vim_regex_highlighting = false,
+	}
+}
 
--- lualine config
+--[[
+telescope.nvim
+--------------
+https://github.com/nvim-telescope/telescope.nvim
+Commands:
+	:checkhealth telescope
+Keys:
+	? - show mapping
+--]]
+require("telescope").setup()
+
+--[[
+lualine
+-------
+https://github.com/nvim-lualine/lualine.nvim
+--]]
 local function current_cursor_hex()
 	local cursor = vim.fn.getcurpos()
 	local line = vim.fn.getline('.')
@@ -138,10 +144,31 @@ require('lualine').setup {
 	},
 }
 
--- indent-blankline.nvim setup
+--[[
+indent-blankline.nvim
+---------------------
+https://github.com/lukas-reineke/indent-blankline.nvim
+--]]
 require("ibl").setup()
 
--- tokyonight theme config
+--[[
+hop.nvim
+--------
+https://github.com/smoka7/hop.nvim
+Commands:
+	:checkhealth hop
+--]]
+
+local hop = require('hop')
+hop.setup {
+	-- Press 'space' to quit finding
+	quit_key = '<SPC>'
+}
+
+--[[
+tokyonight.nvim
+https://github.com/folke/tokyonight.nvim
+--]]
 require("tokyonight").setup({
 	style = "night",
 	on_colors = function(colors)
@@ -153,3 +180,82 @@ require("tokyonight").setup({
 })
 
 vim.cmd[[colorscheme tokyonight]]
+
+--[[
+===========
+Keybindings
+===========
+--]]
+
+--[[
+vim.keymap.set({mode}, {lhs}, {rhs}, {opts})
+
+Modes:
+n	: Normal mode
+i	: Insert mode
+x	: Visual mode
+s	: Selection mode
+v	: Visual + Selection
+t	: Terminal mode
+o	: Operator-pending
+''	: Equivalent of h + v + o
+
+{lhs}	: Key to bind
+{rhs}	: Action to execute, string command or Lua function
+--]]
+
+-- Set <leader> to space
+vim.g.mapleader = ' '
+-- Write with 'space+w' in normal mode
+vim.keymap.set('n', '<leader>w', '<cmd>write<cr>', { desc = 'Save' })
+-- Copy to clipboard with 'gy' in normal+visual mode
+vim.keymap.set({'n', 'x'}, 'gy', '"+y')
+-- Paste to clipboard with 'gp' in normal+visual mode
+vim.keymap.set({'n', 'x'}, 'gp', '"+p')
+-- While deleting in normal+visual mode, deleting with 'x' and 'X' with not change registers
+vim.keymap.set({'n', 'x'}, 'x', '"_x')
+vim.keymap.set({'n', 'x'}, 'X', '"_d')
+-- Select all with 'space+a' in normal mode
+vim.keymap.set('n', '<leader>a', ':keepjumps normal! ggVG<cr>')
+-- Open Netrw in the current directory of the file (buffer) when in normal mode
+vim.keymap.set('n', '<leader>df', ':Lexplore %:p:h<cr>')
+-- Open/Close (toggle) Netrw in the initial directory when in normal mode
+vim.keymap.set('n', '<leader>dd', ':Lexplore<cr>')
+
+-- telescope.nvim
+local builtin = require('telescope.builtin')
+-- Fuzzy find files with 'ff' in normal mode
+vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
+-- Fuzzy live grep files with 'fg' in normal mode
+vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
+-- Fuzzy find buffers with 'fb' in normal mode
+vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
+-- Show help with 'fh' in normal mode
+vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
+
+-- hop.nvim
+-- Find with 1 char with 'f' in the visible buffer
+vim.keymap.set('',
+	'f', function()
+		hop.hint_char1({ direction = nil, current_line_only = false })
+	end,
+	{ remap = true })
+-- Find with 2 chars with 'F' in the visible buffer
+vim.keymap.set('',
+	'F',
+	function()
+		hop.hint_char2({ direction = nil, current_line_only = false })
+	end,
+	{ remap = true })
+-- Find the input pattern with 't' in the visible buffer
+vim.keymap.set('',
+	't', function()
+		hop.hint_patterns({ direction = nil, current_line_only = false })
+	end,
+	{ remap = true })
+	
+vim.keymap.set('',
+	'T', function()
+		hop.hint_words({ direction = nil, current_line_only = false })
+	end,
+	{ remap = true })
