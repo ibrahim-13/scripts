@@ -1,7 +1,7 @@
 #!/bin/sh
 
-ALIAS_STR_START="# START:FCD,FF,LL"
-ALIAS_STR_END="# END:FCD,FF,LL"
+ALIAS_STR_START="# START:DEFAULT_ALIAS"
+ALIAS_STR_END="# END:DEFAULT_ALIAS"
 
 echo appending to $HOME/.bashrc
 
@@ -37,10 +37,15 @@ func_fzf_px() {
 	
 }
 
+func_lfcd () {
+    cd "\$(command lf -single -print-last-dir "\$@")"
+}
+
 alias fd='cd \$(find . -maxdepth 1 -type d | sort | fzf)'
 alias ll='ls -AlhFr'
 alias llz='ls -AlhFr | sort | fzf'
 alias fk='func_fzf_px'
+alias lfcd='func_lfcd'
 
 $ALIAS_STR_END
 EOF
