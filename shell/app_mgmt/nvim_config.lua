@@ -63,6 +63,8 @@ require("lazy").setup({
 	{ "lukas-reineke/indent-blankline.nvim", main = "ibl", opts = {} },
 	-- Hop
 	{ 'smoka7/hop.nvim' },
+	-- Comment
+	{ 'numToStr/Comment.nvim', opts = {}, lazy = false, }
 })
 
 --[[
@@ -99,6 +101,9 @@ require("nvim-treesitter.configs").setup {
 telescope.nvim
 --------------
 https://github.com/nvim-telescope/telescope.nvim
+
+NOTE: If file searches does not respects .gitignore, then check if `ripgrep` is installed
+	or run health check command
 Commands:
 	:checkhealth telescope
 Default Mappings:
@@ -147,16 +152,6 @@ lualine
 -------
 https://github.com/nvim-lualine/lualine.nvim
 --]]
-local function current_cursor_hex()
-	local cursor = vim.fn.getcurpos()
-	local line = vim.fn.getline('.')
-	local character = string.sub(line, cursor[3], cursor[3])
-	if character == "" then
-		return '0x00'
-	end
-	local ascii_value = string.byte(character)
-	return string.format('0x%02X', ascii_value)
-end
 
 require('lualine').setup {
 	options = {
@@ -167,7 +162,7 @@ require('lualine').setup {
 		lualine_b = {'branch', 'diff', 'diagnostics'},
 		lualine_c = {{ 'filename', file_status = true, path = 1 }},
 		lualine_x = {'encoding', 'fileformat', 'filetype'},
-		lualine_y = {current_cursor_hex, 'progress'},
+		lualine_y = {'progress'},
 		lualine_z = {'location'}
 	  },
 	inactive_sections = {
@@ -216,6 +211,54 @@ require("tokyonight").setup({
 vim.cmd[[colorscheme tokyonight]]
 
 --[[
+Comment.nvim
+https://github.com/numToStr/Comment.nvim
+--]]
+require('Comment').setup({
+    ---Add a space b/w comment and the line
+    padding = true,
+    ---Whether the cursor should stay at its position
+    sticky = true,
+    ---Lines to be ignored while (un)comment
+    ignore = nil,
+    ---LHS of toggle mappings in NORMAL mode
+    toggler = {
+        ---Line-comment toggle keymap
+        line = 'gcc',
+        ---Block-comment toggle keymap
+        block = 'gbc',
+    },
+    ---LHS of operator-pending mappings in NORMAL and VISUAL mode
+    opleader = {
+        ---Line-comment keymap
+        line = 'gc',
+        ---Block-comment keymap
+        block = 'gb',
+    },
+    ---LHS of extra mappings
+    extra = {
+        ---Add comment on the line above
+        -- above = 'gcO',
+        ---Add comment on the line below
+        -- below = 'gco',
+        ---Add comment at the end of line
+        -- eol = 'gcA',
+    },
+    ---Enable keybindings
+    ---NOTE: If given `false` then the plugin won't create any mappings
+    mappings = {
+        ---Operator-pending mapping; `gcc` `gbc` `gc[count]{motion}` `gb[count]{motion}`
+        basic = true,
+        ---Extra mapping; `gco`, `gcO`, `gcA`
+        extra = false,
+    },
+    ---Function to call before (un)comment
+    pre_hook = nil,
+    ---Function to call after (un)comment
+    post_hook = nil,
+})
+
+--[[
 ===========
 Keybindings
 ===========
@@ -255,6 +298,18 @@ vim.keymap.set('n', '<leader>a', ':keepjumps normal! ggVG<cr>')
 vim.keymap.set('n', '<leader>df', ':Lexplore %:p:h<cr>')
 -- Open/Close (toggle) Netrw in the initial directory when in normal mode
 vim.keymap.set('n', '<leader>dd', ':Lexplore<cr>')
+-- Scroll up 7 lines with ctrl+k when in normal+visual mode
+vim.keymap.set({'n', 'x'}, '<C-k>', '7<C-y>')
+-- Scroll down 7 lines with ctrl+j when in normal+visual mode
+vim.keymap.set({'n', 'x'}, '<C-j>', '7<C-e>')
+-- Cursor up with ctrl+k when in input mode
+vim.keymap.set('i', '<C-k>', '<Up>')
+-- Cursor down with ctrl+j when in input mode
+vim.keymap.set('i', '<C-j>', '<Down>')
+-- Cursor left with ctrl+k when in input mode
+vim.keymap.set('i', '<C-h>', '<Left>')
+-- Cursor right with ctrl+j when in input mode
+vim.keymap.set('i', '<C-l>', '<Right>')
 
 -- telescope.nvim
 local builtin = require('telescope.builtin')
@@ -293,3 +348,33 @@ vim.keymap.set('',
 		hop.hint_words({ direction = nil, current_line_only = false })
 	end,
 	{ remap = true })
+
+--[[
+-- Handing binary files:
+------------------------
+-- Open file in binary mode so that NVIM does not apply any special modification
+-- nvim -b file.bin
+--
+-- Show hex
+-- :%!xxd
+--
+-- Update the hex part of the output and write (modification other then hex parts are ignored, only replace with 'r' or 'R'
+-- :%!xxd -r
+--
+-- Highlight
+-- :set ft=xxd
+--
+-- See unprintable characters in hex
+-- :set display=uhex
+--
+-- View hex code of character under cursor
+-- ga
+--
+-- File Formats
+---------------
+-- Formats: unix (<NL>), dos (<CR><NL>), mac (<CR>)
+--
+-- Convert file format
+-- :set fileformat=unix
+-- :write
+--]]
