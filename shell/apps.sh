@@ -25,6 +25,10 @@ function register_app {
 	fi
 }
 
+function run_func {
+	$1
+}
+
 register_app tmux
 register_app lf
 
@@ -140,8 +144,10 @@ function tmux_config_remove {
 function lf_is_installed {
 	if ! command -v lf &> /dev/null
 	then
+		# command not found, return 0
 		return 0
 	else
+		# command found, return 1
 		return 1
 	fi
 }
@@ -165,8 +171,7 @@ function menu_manage_app {
 	local PS3=$"[$1] select command: "
 	local IFS=':'
 	local available_app_opts="set_config:remove_config:remove:back"
-	local CMD=$1"_is_installed"
-	$CMD
+	run_func $1"_is_installed"
 	if [[ "$?" == 1 ]]
 	then
 		local available_app_opts="update:"$available_app_opts
@@ -178,34 +183,26 @@ function menu_manage_app {
 	do
 		case $opt in
 			"install")
-				local CMD=$1"_install"
-				$CMD
-				local CMD=$1"_config"
-				$CMD
+				run_func $1"_install"
+				run_func $1"_config"
 				break
 				;;
 			"update")
-				local CMD=$1"_update"
-				$CMD
+				run_func $1"_update"
 				break
 				;;
 			"set_config")
-				local CMD=$1"_config_remove"
-				$CMD
-				local CMD=$1"_config"
-				$CMD
+				run_func $1"_config_remove"
+				run_func $1"_config"
 				break
 				;;
 			"remove_config")
-				local CMD=$1"_config_remove"
-				$CMD
+				run_func $1"_config_remove"
 				break
 				;;
 			"remove")
-				local CMD=$1"_remove"
-				$CMD
-				local CMD=$1"_config_remove"
-				$CMD
+				run_func $1"_remove"
+				run_func $1"_config_remove"
 				break
 				;;
 			"back")
@@ -225,8 +222,7 @@ function menu_apps {
 	read -ra apps_list <<< $REGISTERED_APPS
 	for app in "${apps_list[@]}"
 	do
-		local CMD=$app"_is_installed"
-		$CMD
+		run_func $app"_is_installed"
 		local IS_INSTALLED=$?
 		if [[ $IS_INSTALLED == 1 ]]
 		then
