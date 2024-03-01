@@ -321,6 +321,8 @@ vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
 vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
 -- Show help with 'fh' in normal mode
 vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
+-- List built-in pickers and run them on <cr>
+vim.keymap.set('n', '<leader>pp', builtin.builtin, {})
 
 -- hop.nvim
 -- Find with 1 char with 'f' in the visible buffer
