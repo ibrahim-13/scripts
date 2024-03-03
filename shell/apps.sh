@@ -80,9 +80,9 @@ set-option -sa terminal-overrides ",xterm*:Tc"
 set -g mouse on
 
 # remap binding from CTRL-b to CTRL-space
-# unbind C-b
-# set -g prefix C-Space
-# bind C-Space send-prefix
+unbind C-b
+set -g prefix C-Space
+bind C-Space send-prefix
 
 # Start windows and panes at 1, not 0
 set -g base-index 1

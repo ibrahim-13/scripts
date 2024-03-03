@@ -324,6 +324,15 @@ vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
 -- List built-in pickers and run them on <cr>
 vim.keymap.set('n', '<leader>pp', builtin.builtin, {})
 
+-- Tabs can be traversed with 'gt' and 'gT', thus the followin
+-- bindings were also added with 'g' prefix
+-- https://neovim.io/doc/user/tabpage.html
+
+-- Create the current buffer in new tab with 'gn' in normal mode
+vim.keymap.set('n', 'gn', ':tab split<cr>')
+-- Close the current tab with 'gc' in normal mode
+vim.keymap.set('n', 'gc', ':tabc<cr>')
+
 -- hop.nvim
 -- Find with 1 char with 'f' in the visible buffer
 vim.keymap.set('',
