@@ -1,5 +1,16 @@
 #!/bin/bash
 
+# Debugging
+# ---------
+# set -x : print out every line as it executes, with variables expanded
+#		putting it at top of the script will enable this for the whole
+#		script, or before a block of commands and end it with:
+#		{ set +x; } 2>/dev/null
+#
+# bash -x script.sh : same as putting set -x at the top of script
+# trap read DEBUG : stop before every line, can be put at the top
+# trap '(read -p "[$BASE_SOURCE:$lineno] $bash_command")' DEBUG
+
 # global variables
 REGISTERED_APPS=""
 
@@ -16,6 +27,7 @@ REGISTERED_APPS=""
 # 	- APP_NAME_config : add/resets configuration
 # 	- APP_NAME_config_remove : removes configuration
 ##########################
+# $1 : name_of_the_app
 function register_app {
 	if [[ $REGISTERED_APPS == "" ]]
 	then
@@ -25,9 +37,120 @@ function register_app {
 	fi
 }
 
+#############################
+# start : utility functions #
+#############################
+
+# gitHub functions
+
+# get lastest release asset url from github with http api
+# $1 : github username
+# $2 : github repo
+# $3 : jq selector for asset name
+function func_gh_http {
+	local GH_URL="https://api.github.com/repos/$1/$2/releases/latest"
+	local HEADER_ACCEPT="Accept: application/vnd.github+json"
+	local HEADER_VERSION="X-GitHub-Api-Version: 2022-11-28"
+	local JSON_QUERY="{\
+		\"created_at\":.created_at,\
+		\"download_url\":.assets[] | $3 | .browser_download_url,\
+		\"source\":\"http\",\
+		\"msg\":\"$4\"\
+	}"
+	local GH_RESPONSE="$(wget --header="$HEADER_ACCEPT" \
+		--header="$HEADER_VERSION" \
+		-qO- "$GH_URL" | \
+		jq "$JSON_QUERY")"
+	echo "$GH_RESPONSE"
+}
+
+# get lastest release asset url from github with gh cli
+# $1 : github username
+# $2 : github repo
+# $3 : jq selector for asset name
+func_gh_cli() {
+	local $GH_URL="/repos/$1/$2/releases/latest"
+	local HEADER_ACCEPT="Accept: application/vnd.github+json"
+	local HEADER_VERSION="X-GitHub-Api-Version: 2022-11-28"
+	local JSON_QUERY="{\
+		\"created_at\":.created_at,\
+		\"download_url\":.assets[] | $3 | .browser_download_url,\
+		\"source\":\"ghcli\",\
+		\"msg\":\"$4\"\
+	}"
+	local GH_RESPONSE="$(gh api -H "$HEADER_ACCEPT" \
+		-H "$HEADER_VERSION" \
+		$GH_URL | \
+		jq "$JSON_QUERY")"
+	echo "$GH_RESPONSE"
+}
+
+# get lastest release asset url from github
+#	use gh cli if installed and loggedin,
+#	use http api otherwise
+# $1 : github username
+# $2 : github repo
+# $3 : jq selector for asset name
+func_github_asset() {
+	if ! [ -x "$(command -v gh)" ]
+	then
+		func_gh_http $1 $2 $3 "gh: command not found, using http api"
+	else
+		GH_AUTH_TOKEN=$(gh auth token)
+		if [ "$GH_AUTH_TOKEN" = "" ]
+		then
+			func_gh_http $1 $2 $3 "gh: auth token not found, you may be not logged in, using http api"
+		else
+			func_gh_cli $1 $2 $3 "gh: using gh cli"
+		fi
+	fi
+}
+
+# $1 : github response
+function func_ghutil_get_downloadurl {
+	local GH_DL_URL=$(echo "$1" | jq -r '.download_url')
+	echo "$GH_DL_URL"
+}
+
+# $1 : github response
+function func_ghutil_get_created_at {
+	local GH_CREATED_AT=$(echo "$1" | jq -r '.created_at')
+	echo "$GH_CREATED_AT"
+}
+
+# $1 : github response
+function func_ghutil_get_source {
+	local GH_SOURCE=$(echo "$1" | jq -r '.source')
+	echo "$GH_SOURCE"
+}
+
+# $1 : github response
+function func_ghutil_get_msg {
+	local GH_MSG=$(echo "$1" | jq -r '.msg')
+	echo "$GH_MSG"
+}
+
+# check if json is valid
+# $1 : json string
+function func_ghutil_check_valid_json {
+	if [ $(echo "$1" | jq empty > /dev/null 2>&1; echo $?) -eq 0 ]
+	then
+		return 0
+	else
+		return 1
+	fi
+}
+
+# run a function
+# $1 : function
 function run_func {
 	$1
+	return $?
 }
+
+###########################
+# end : utility functions #
+###########################
 
 register_app tmux
 register_app lf
@@ -72,12 +195,32 @@ function tmux_config {
 
 	git clone https://github.com/tmux-plugins/tpm $PLUGIN_DIR
 	tee $CONFIG_FILE > /dev/null <<EOT
-# https://github.com/dreamsofcode-io/tmux/blob/main/tmux.conf
+# Base config- https://github.com/dreamsofcode-io/tmux/blob/main/tmux.conf
+# Common commands:
+#	tmux		: create a default session and start
+#	tmux ls		: list sesstions
+#	tmux a		: attach to default session
+#	tmux new -s name	: create a named sesstion
+#	tmux attach -t name	: attach to a named session
+#	tmxu lscm			: list all tmux commands
+# Common bindings:
+#	[	: copy mode
+#	d	: detach
+#	z	: toggle zoom on a pane
+#	c	: create new window
+#	q	: show panes with numbers, press number to select
+#	w	: manage windows
+#	s	: manage windows and sesstions
+#	?	: show all key bindings
+#	1-9	: select pane
+#
 
 # enable 24bit color
 set-option -sa terminal-overrides ",xterm*:Tc"
 # enable mouse support
 set -g mouse on
+# enable system clipboard
+# set-clipboard on
 
 # remap binding from CTRL-b to CTRL-space
 unbind C-b
@@ -114,7 +257,7 @@ set -g @plugin 'tmux-plugins/tmux-yank'
 run '~/.tmux/plugins/tpm/tpm'
 
 # set vi-mode
-# set-window-option -g mode-keys vi
+set-window-option -g mode-keys vi
 # keybindings
 bind-key -T copy-mode-vi v send-keys -X begin-selection
 bind-key -T copy-mode-vi C-v send-keys -X rectangle-toggle
@@ -122,6 +265,7 @@ bind-key -T copy-mode-vi y send-keys -X copy-selection-and-cancel
 
 bind '"' split-window -v -c "#{pane_current_path}"
 bind % split-window -h -c "#{pane_current_path}"
+
 EOT
 }
 
@@ -151,14 +295,100 @@ function lf_is_installed {
 		return 1
 	fi
 }
+
 function lf_install {
-	echo "tbd"
+	local GH_RESPONSE=$(func_github_asset gokcehan lf 'select(.name | contains("lf-linux-amd64.tar.gz"))')
+	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+
+	local GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
+	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
+	echo "last updated: $GH_CREATED_AT"
+
+	local GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
+	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+
+	local GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
+	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+
+	local GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
+
+	local INSTALL_DIR="/opt/lf"
+	local FILE_ARCHIVE="$INSTALL_DIR/lf.tar.gz"
+	local FILE_BIN="$INSTALL_DIR/lf"
+	local FILE_CREATED_AT="$INSTALL_DIR/created_at"
+	local FILE_SYMLINK="/bin/lf"
+
+	echo "response source: $GH_SOURCE"
+	echo "response msg: $GH_MSG"
+
+	# Check if already installed
+	# If installed and created_at date is before the current release create_at date, then update
+	if [[ -e "$FILE_CREATED_AT" ]]
+	then
+		local TMP_CURRENT_CREATED_AT=$(date +%s -d "$GH_CREATED_AT")
+		local TMP_EXIST_CREATED_AT=$(date +%s -d "$(cat "$FILE_CREATED_AT")")
+		if [[ ! "$TMP_CURRENT_CREATED_AT" -gt "$TMP_EXIST_CREATED_AT" ]]
+		then
+			echo "up to date"
+			return
+		fi
+	fi
+
+	if [[ ! -d $INSTALL_DIR ]]
+	then
+		sudo mkdir $INSTALL_DIR
+	fi
+	sudo wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL"
+	if [[ ! "$?" -eq "0" ]]; then echo "error downloading archive"; exit 1; fi;
+
+	sudo chmod 666 "$FILE_ARCHIVE"
+	echo "Extracting files:"
+	sudo tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
+	sudo chmod 755 "$FILE_BIN"
+	sudo ln -s "$FILE_BIN" "$FILE_SYMLINK"
+	sudo rm "$FILE_ARCHIVE"
+	# Store created_at so that we can compare later for updating the app
+	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+	echo "ggwp"
 }
+
 function lf_update {
-	echo "tbd"
+	# update is same as installation
+	lf_install
 }
+
 function lf_remove {
-	echo "tbd"
+	sudo rm /bin/lf
+	sudo rm -rf /opt/lf
+}
+
+function lf_config {
+	if [ ! -d $HOME/.config/lf ]
+	then
+		mkdir $HOME/.config/lf
+	fi
+	sudo tee $HOME/.config/lf/lfrc > /dev/null <<EOT
+# keybindings
+
+map x 'cut'
+map d 'delete'
+
+# ui
+set hidden
+set info size:time
+set sortby "name"
+EOT
+	sudo chmod 666 $HOME/.config/lf/lfrc
+	echo Fetching icon config
+	sudo wget -q --show-progress -O $HOME/.config/lf/icons https://raw.githubusercontent.com/gokcehan/lf/master/etc/icons.example
+	sudo chmod 666 $HOME/.config/lf/icons
+	# echo Fetching color config
+	# sudo wget -q --show-progress -O $HOME/.config/lf/colors https://raw.githubusercontent.com/gokcehan/lf/master/etc/colors.example
+	# sudo chmod 666 $HOME/.config/lf/colors
+}
+
+function lf_config_remove {
+	sudo rm -rf $HOME/.config/lf
 }
 
 ############
@@ -168,7 +398,7 @@ function lf_remove {
 function menu_manage_app {
 	if [[ $1 == "" ]]; then echo "invalid app: $1"; exit 1; fi;
 
-	local PS3=$"[$1] select command: "
+	local PS3=$"select command for: $1: "
 	local IFS=':'
 	local available_app_opts="set_config:remove_config:remove:back"
 	run_func $1"_is_installed"
@@ -183,26 +413,50 @@ function menu_manage_app {
 	do
 		case $opt in
 			"install")
+				echo "# $1::install:start #"
 				run_func $1"_install"
+				echo "# $1::install:end #"
+
+				echo "# $1::config:start #"
 				run_func $1"_config"
+				echo "# $1::config:end #"
+
 				break
 				;;
 			"update")
+				echo "# $1::update:start #"
 				run_func $1"_update"
+				echo "# $1::update:end #"
+
 				break
 				;;
 			"set_config")
+				echo "# $1::config_remove:start #"
 				run_func $1"_config_remove"
+				echo "# $1::config_remove:end #"
+
+				echo "# $1::config:start #"
 				run_func $1"_config"
+				echo "# $1::config:end #"
+
 				break
 				;;
 			"remove_config")
+				echo "# $1::config_remove:start #"
 				run_func $1"_config_remove"
+				echo "# $1::config_remove:end #"
+
 				break
 				;;
 			"remove")
+				echo "# $1::remove:start #"
 				run_func $1"_remove"
+				echo "# $1::remove:end #"
+
+				echo "# $1::config_remove:start #"
 				run_func $1"_config_remove"
+				echo "# $1::config_remove:end #"
+
 				break
 				;;
 			"back")
