@@ -29,11 +29,11 @@ REGISTERED_APPS=""
 ##########################
 # $1 : name_of_the_app
 function register_app {
-	if [[ $REGISTERED_APPS == "" ]]
+	if [[ "$REGISTERED_APPS" == "" ]]
 	then
-		REGISTERED_APPS=$1
+		REGISTERED_APPS="$1"
 	else
-		REGISTERED_APPS=$REGISTERED_APPS":$1"
+		REGISTERED_APPS="$REGISTERED_APPS:$1"
 	fi
 }
 
@@ -48,16 +48,21 @@ function register_app {
 # $2 : github repo
 # $3 : jq selector for asset name
 function func_gh_http {
-	local GH_URL="https://api.github.com/repos/$1/$2/releases/latest"
-	local HEADER_ACCEPT="Accept: application/vnd.github+json"
-	local HEADER_VERSION="X-GitHub-Api-Version: 2022-11-28"
-	local JSON_QUERY="{\
+	local GH_URL
+	local HEADER_ACCEPT
+	local HEADER_VERSION
+	local JSON_QUERY
+	local GH_RESPONSE
+	GH_URL="https://api.github.com/repos/$1/$2/releases/latest"
+	HEADER_ACCEPT="Accept: application/vnd.github+json"
+	HEADER_VERSION="X-GitHub-Api-Version: 2022-11-28"
+	JSON_QUERY="{\
 		\"created_at\":.created_at,\
 		\"download_url\":.assets[] | $3 | .browser_download_url,\
 		\"source\":\"http\",\
 		\"msg\":\"$4\"\
 	}"
-	local GH_RESPONSE="$(wget --header="$HEADER_ACCEPT" \
+	GH_RESPONSE="$(wget --header="$HEADER_ACCEPT" \
 		--header="$HEADER_VERSION" \
 		-qO- "$GH_URL" | \
 		jq "$JSON_QUERY")"
@@ -69,18 +74,23 @@ function func_gh_http {
 # $2 : github repo
 # $3 : jq selector for asset name
 func_gh_cli() {
-	local $GH_URL="/repos/$1/$2/releases/latest"
-	local HEADER_ACCEPT="Accept: application/vnd.github+json"
-	local HEADER_VERSION="X-GitHub-Api-Version: 2022-11-28"
-	local JSON_QUERY="{\
+	local GH_URL
+	local HEADER_ACCEPT
+	local HEADER_VERSION
+	local JSON_QUERY
+	local GH_RESPONSE
+	GH_URL="/repos/$1/$2/releases/latest"
+	HEADER_ACCEPT="Accept: application/vnd.github+json"
+	HEADER_VERSION="X-GitHub-Api-Version: 2022-11-28"
+	JSON_QUERY="{\
 		\"created_at\":.created_at,\
 		\"download_url\":.assets[] | $3 | .browser_download_url,\
 		\"source\":\"ghcli\",\
 		\"msg\":\"$4\"\
 	}"
-	local GH_RESPONSE="$(gh api -H "$HEADER_ACCEPT" \
+	GH_RESPONSE="$(gh api -H "$HEADER_ACCEPT" \
 		-H "$HEADER_VERSION" \
-		$GH_URL | \
+		"$GH_URL" | \
 		jq "$JSON_QUERY")"
 	echo "$GH_RESPONSE"
 }
@@ -94,46 +104,51 @@ func_gh_cli() {
 func_github_asset() {
 	if ! [ -x "$(command -v gh)" ]
 	then
-		func_gh_http $1 $2 $3 "gh: command not found, using http api"
+		func_gh_http "$1" "$2" "$3" "gh: command not found, using http api"
 	else
+		local GH_AUTH_TOKEN
 		GH_AUTH_TOKEN=$(gh auth token)
 		if [ "$GH_AUTH_TOKEN" = "" ]
 		then
-			func_gh_http $1 $2 $3 "gh: auth token not found, you may be not logged in, using http api"
+			func_gh_http "$1" "$2" "$3" "gh: auth token not found, you may be not logged in, using http api"
 		else
-			func_gh_cli $1 $2 $3 "gh: using gh cli"
+			func_gh_cli "$1" "$2" "$3" "gh: using gh cli"
 		fi
 	fi
 }
 
 # $1 : github response
 function func_ghutil_get_downloadurl {
-	local GH_DL_URL=$(echo "$1" | jq -r '.download_url')
+	local GH_DL_URL
+	GH_DL_URL=$(echo "$1" | jq -r '.download_url')
 	echo "$GH_DL_URL"
 }
 
 # $1 : github response
 function func_ghutil_get_created_at {
-	local GH_CREATED_AT=$(echo "$1" | jq -r '.created_at')
+	local GH_CREATED_AT
+	GH_CREATED_AT=$(echo "$1" | jq -r '.created_at')
 	echo "$GH_CREATED_AT"
 }
 
 # $1 : github response
 function func_ghutil_get_source {
-	local GH_SOURCE=$(echo "$1" | jq -r '.source')
+	local GH_SOURCE
+	GH_SOURCE=$(echo "$1" | jq -r '.source')
 	echo "$GH_SOURCE"
 }
 
 # $1 : github response
 function func_ghutil_get_msg {
-	local GH_MSG=$(echo "$1" | jq -r '.msg')
+	local GH_MSG
+	GH_MSG=$(echo "$1" | jq -r '.msg')
 	echo "$GH_MSG"
 }
 
 # check if json is valid
 # $1 : json string
 function func_ghutil_check_valid_json {
-	if [ $(echo "$1" | jq empty > /dev/null 2>&1; echo $?) -eq 0 ]
+	if [ "$(echo "$1" | jq empty > "/dev/null" 2>&1; echo $?)" -eq 0 ]
 	then
 		return 0
 	else
@@ -148,6 +163,13 @@ function run_func {
 	return $?
 }
 
+# print error msg and exit
+# $1 : error msg
+function errexit {
+	echo "$1" >&2
+	exit 1
+}
+
 ###########################
 # end : utility functions #
 ###########################
@@ -160,7 +182,7 @@ register_app lf
 ################
 
 function tmux_is_installed {
-	if ! command -v tmux &> /dev/null
+	if ! command -v tmux &> "/dev/null"
 	then
 		return 0
 	else
@@ -182,19 +204,23 @@ function tmux_remove {
 }
 
 function tmux_config {
-	if ! command -v git &> /dev/null
+	if ! command -v git &> "/dev/null"
 	then
 		echo "git not installed, required for config"
 		return
 	fi
-	local CONFIG_DIR="$HOME/.config/tmux"
-	local CONFIG_FILE="$CONFIG_DIR/tmux.conf"
-	local PLUGIN_DIR="$HOME/.tmux/plugins/tpm"
-	
-	if [[ ! -d $CONFIG_DIR ]]; then mkdir $CONFIG_DIR; fi;
 
-	git clone https://github.com/tmux-plugins/tpm $PLUGIN_DIR
-	tee $CONFIG_FILE > /dev/null <<EOT
+	local CONFIG_DIR
+	local CONFIG_FILE
+	local PLUGIN_DIR
+	CONFIG_DIR="$HOME/.config/tmux"
+	CONFIG_FILE="$CONFIG_DIR/tmux.conf"
+	PLUGIN_DIR="$HOME/.tmux/plugins/tpm"
+	
+	if [[ ! -d "$CONFIG_DIR" ]]; then mkdir "$CONFIG_DIR"; fi;
+
+	git clone "https://github.com/tmux-plugins/tpm" "$PLUGIN_DIR"
+	tee "$CONFIG_FILE" > "/dev/null" <<EOT
 # Base config- https://github.com/dreamsofcode-io/tmux/blob/main/tmux.conf
 # Common commands:
 #	tmux		: create a default session and start
@@ -273,8 +299,8 @@ function tmux_config_remove {
 	local CONFIG_DIR="$HOME/.config/tmux"
 	local PLUGIN_DIR="$HOME/.tmux"
 
-	if [[ -d $CONFIG_DIR ]]; then rm -rf $CONFIG_DIR; fi;
-	if [[ -d $PLUGIN_DIR ]]; then rm -rf $PLUGIN_DIR; fi;
+	if [[ -d "$CONFIG_DIR" ]]; then rm -rf "$CONFIG_DIR"; fi;
+	if [[ -d "$PLUGIN_DIR" ]]; then rm -rf "$PLUGIN_DIR"; fi;
 }
 
 ##############
@@ -286,7 +312,7 @@ function tmux_config_remove {
 ##############
 
 function lf_is_installed {
-	if ! command -v lf &> /dev/null
+	if ! command -v lf &> "/dev/null"
 	then
 		# command not found, return 0
 		return 0
@@ -297,26 +323,37 @@ function lf_is_installed {
 }
 
 function lf_install {
-	local GH_RESPONSE=$(func_github_asset gokcehan lf 'select(.name | contains("lf-linux-amd64.tar.gz"))')
+	local GH_RESPONSE
+	local GH_CREATED_AT
+	local GH_DL_URL
+	local GH_SOURCE
+	local GH_MSG
+
+	GH_RESPONSE=$(func_github_asset gokcehan lf 'select(.name | contains("lf-linux-amd64.tar.gz"))')
 	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
 
-	local GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
+	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
 	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
 	echo "last updated: $GH_CREATED_AT"
 
-	local GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
+	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
 	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
 
-	local GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
+	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
 	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
 
-	local GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
+	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
 
-	local INSTALL_DIR="/opt/lf"
-	local FILE_ARCHIVE="$INSTALL_DIR/lf.tar.gz"
-	local FILE_BIN="$INSTALL_DIR/lf"
-	local FILE_CREATED_AT="$INSTALL_DIR/created_at"
-	local FILE_SYMLINK="/bin/lf"
+	local INSTALL_DIR
+	local FILE_ARCHIVE
+	local FILE_BIN
+	local FILE_CREATED_AT
+	local FILE_SYMLINK
+	INSTALL_DIR="/opt/lf"
+	FILE_ARCHIVE="$INSTALL_DIR/lf.tar.gz"
+	FILE_BIN="$INSTALL_DIR/lf"
+	FILE_CREATED_AT="$INSTALL_DIR/created_at"
+	FILE_SYMLINK="/bin/lf"
 
 	echo "response source: $GH_SOURCE"
 	echo "response msg: $GH_MSG"
@@ -325,8 +362,10 @@ function lf_install {
 	# If installed and created_at date is before the current release create_at date, then update
 	if [[ -e "$FILE_CREATED_AT" ]]
 	then
-		local TMP_CURRENT_CREATED_AT=$(date +%s -d "$GH_CREATED_AT")
-		local TMP_EXIST_CREATED_AT=$(date +%s -d "$(cat "$FILE_CREATED_AT")")
+		local TMP_CURRENT_CREATED_AT
+		local TMP_EXIST_CREATED_AT
+		TMP_CURRENT_CREATED_AT=$(date +%s -d "$GH_CREATED_AT")
+		TMP_EXIST_CREATED_AT=$(date +%s -d "$(cat "$FILE_CREATED_AT")")
 		if [[ ! "$TMP_CURRENT_CREATED_AT" -gt "$TMP_EXIST_CREATED_AT" ]]
 		then
 			echo "up to date"
@@ -338,8 +377,8 @@ function lf_install {
 	then
 		sudo mkdir $INSTALL_DIR
 	fi
-	sudo wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL"
-	if [[ ! "$?" -eq "0" ]]; then echo "error downloading archive"; exit 1; fi;
+	
+	sudo wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
 
 	sudo chmod 666 "$FILE_ARCHIVE"
 	echo "Extracting files:"
@@ -358,16 +397,23 @@ function lf_update {
 }
 
 function lf_remove {
-	sudo rm /bin/lf
-	sudo rm -rf /opt/lf
+	sudo rm "/bin/lf"
+	sudo rm -rf "/opt/lf"
 }
 
 function lf_config {
-	if [ ! -d $HOME/.config/lf ]
+	local CONFIG_DIR
+	local FILE_LFRC
+	local DIR_ICONS
+	CONFIG_DIR="$HOME/.config/lf"
+	FILE_LFRC="$CONFIG_DIR/lfrc"
+	DIR_ICONS="$CONFIG_DIR/icons"
+
+	if [ ! -d "$CONFIG_DIR" ]
 	then
-		mkdir $HOME/.config/lf
+		mkdir "$CONFIG_DIR"
 	fi
-	sudo tee $HOME/.config/lf/lfrc > /dev/null <<EOT
+	sudo tee "$FILE_LFRC" > /dev/null <<EOT
 # keybindings
 
 map x 'cut'
@@ -378,17 +424,17 @@ set hidden
 set info size:time
 set sortby "name"
 EOT
-	sudo chmod 666 $HOME/.config/lf/lfrc
-	echo Fetching icon config
-	sudo wget -q --show-progress -O $HOME/.config/lf/icons https://raw.githubusercontent.com/gokcehan/lf/master/etc/icons.example
-	sudo chmod 666 $HOME/.config/lf/icons
+	sudo chmod 666 "$FILE_LFRC"
+	echo "Fetching icon config"
+	sudo wget -q --show-progress -O "$DIR_ICONS" "https://raw.githubusercontent.com/gokcehan/lf/master/etc/icons.example"
+	sudo chmod 666 "$DIR_ICONS"
 	# echo Fetching color config
 	# sudo wget -q --show-progress -O $HOME/.config/lf/colors https://raw.githubusercontent.com/gokcehan/lf/master/etc/colors.example
 	# sudo chmod 666 $HOME/.config/lf/colors
 }
 
 function lf_config_remove {
-	sudo rm -rf $HOME/.config/lf
+	sudo rm -rf "$HOME/.config/lf"
 }
 
 ############
@@ -400,61 +446,63 @@ function menu_manage_app {
 
 	local PS3=$"select command for: $1: "
 	local IFS=':'
-	local available_app_opts="set_config:remove_config:remove:back"
-	run_func $1"_is_installed"
+	local AVAILABLE_APP_OPTS
+	AVAILABLE_APP_OPTS="set_config:remove_config:remove:back"
+
+	run_func "${1}_is_installed"
 	if [[ "$?" == 1 ]]
 	then
-		local available_app_opts="update:"$available_app_opts
+		AVAILABLE_APP_OPTS="update:$AVAILABLE_APP_OPTS"
 	else
-		local available_app_opts="install:"$available_app_opts
+		AVAILABLE_APP_OPTS="install:$AVAILABLE_APP_OPTS"
 	fi
-	local options=($available_app_opts)
-	select opt in "${options[@]}"
+	read -ra OPTIONS <<< "$AVAILABLE_APP_OPTS"
+	select opt in "${OPTIONS[@]}"
 	do
 		case $opt in
 			"install")
 				echo "# $1::install:start #"
-				run_func $1"_install"
+				run_func "${1}_install"
 				echo "# $1::install:end #"
 
 				echo "# $1::config:start #"
-				run_func $1"_config"
+				run_func "${1}_config"
 				echo "# $1::config:end #"
 
 				break
 				;;
 			"update")
 				echo "# $1::update:start #"
-				run_func $1"_update"
+				run_func "${1}_update"
 				echo "# $1::update:end #"
 
 				break
 				;;
 			"set_config")
 				echo "# $1::config_remove:start #"
-				run_func $1"_config_remove"
+				run_func "${1}_config_remove"
 				echo "# $1::config_remove:end #"
 
 				echo "# $1::config:start #"
-				run_func $1"_config"
+				run_func "${1}_config"
 				echo "# $1::config:end #"
 
 				break
 				;;
 			"remove_config")
 				echo "# $1::config_remove:start #"
-				run_func $1"_config_remove"
+				run_func "${1}_config_remove"
 				echo "# $1::config_remove:end #"
 
 				break
 				;;
 			"remove")
 				echo "# $1::remove:start #"
-				run_func $1"_remove"
+				run_func "${1}_remove"
 				echo "# $1::remove:end #"
 
 				echo "# $1::config_remove:start #"
-				run_func $1"_config_remove"
+				run_func "${1}_config_remove"
 				echo "# $1::config_remove:end #"
 
 				break
@@ -470,24 +518,25 @@ function menu_manage_app {
 # Menu for managing apps installation
 function menu_apps {
 	local PS3='select app: '
-	local apps_list=
-	local menu_opts=""
+	local APPS_LIST=
+	local MENU_OPTS=""
 	local IFS=':'
-	read -ra apps_list <<< $REGISTERED_APPS
-	for app in "${apps_list[@]}"
+	read -ra APPS_LIST <<< "$REGISTERED_APPS"
+	for app in "${APPS_LIST[@]}"
 	do
-		run_func $app"_is_installed"
+		echo "app: $app"
+		run_func "${app}_is_installed"
 		local IS_INSTALLED=$?
 		if [[ $IS_INSTALLED == 1 ]]
 		then
-			local menu_opts=$menu_opts"[X] $app:"
+			MENU_OPTS="${MENU_OPTS}[X] $app:"
 		else
-			local menu_opts=$menu_opts"[ ] $app:"
+			MENU_OPTS="${MENU_OPTS}[ ] $app:"
 		fi
 	done
-	local menu_opts=$menu_opts"<-- back"
-	local options=($menu_opts)
-	select opt in "${options[@]}"
+	local MENU_OPTS="$MENU_OPTS<-- back"
+	read -ra OPTIONS <<< "$MENU_OPTS"
+	select opt in "${OPTIONS[@]}"
 	do
 		if [[ $opt == "<-- back" ]]
 		then
@@ -498,7 +547,7 @@ function menu_apps {
 		then
 			echo "invalid app: $REPLY"
 		else
-			menu_manage_app $SELECTED_APP
+			menu_manage_app "$SELECTED_APP"
 		fi
 	done
 }
@@ -521,9 +570,9 @@ function menu_main {
 	done
 }
 
-echo ==================
-echo = app operations =
-echo ==================
+echo "=================="
+echo "= app operations ="
+echo "=================="
 
 menu_main
 
