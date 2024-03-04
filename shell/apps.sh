@@ -461,49 +461,49 @@ function menu_manage_app {
 	do
 		case $opt in
 			"install")
-				echo "# $1::install:start #"
+				echo "# $1:install:start #"
 				run_func "${1}_install"
-				echo "# $1::install:end #"
+				echo "# $1:install:end #"
 
-				echo "# $1::config:start #"
+				echo "# $1:config:start #"
 				run_func "${1}_config"
-				echo "# $1::config:end #"
+				echo "# $1:config:end #"
 
 				break
 				;;
 			"update")
-				echo "# $1::update:start #"
+				echo "# $1:update:start #"
 				run_func "${1}_update"
-				echo "# $1::update:end #"
+				echo "# $1:update:end #"
 
 				break
 				;;
 			"set_config")
-				echo "# $1::config_remove:start #"
+				echo "# $1:config_remove:start #"
 				run_func "${1}_config_remove"
-				echo "# $1::config_remove:end #"
+				echo "# $1:config_remove:end #"
 
-				echo "# $1::config:start #"
+				echo "# $1:config:start #"
 				run_func "${1}_config"
-				echo "# $1::config:end #"
+				echo "# $1:config:end #"
 
 				break
 				;;
 			"remove_config")
-				echo "# $1::config_remove:start #"
+				echo "# $1:config_remove:start #"
 				run_func "${1}_config_remove"
-				echo "# $1::config_remove:end #"
+				echo "# $1:config_remove:end #"
 
 				break
 				;;
 			"remove")
-				echo "# $1::remove:start #"
+				echo "# $1:remove:start #"
 				run_func "${1}_remove"
-				echo "# $1::remove:end #"
+				echo "# $1:remove:end #"
 
-				echo "# $1::config_remove:start #"
+				echo "# $1:config_remove:start #"
 				run_func "${1}_config_remove"
-				echo "# $1::config_remove:end #"
+				echo "# $1:config_remove:end #"
 
 				break
 				;;
