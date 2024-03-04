@@ -441,6 +441,78 @@ function lf_config_remove {
 # end : lf #
 ############
 
+################################
+# start : custom bashrc config #
+################################
+
+function func_config_bash {
+local ALIAS_STR_START="# START:CUSTOM_ALIAS_SOURCE"
+local ALIAS_STR_END="# END:CUSTOM_ALIAS_SOURCE"
+local FILE_CONFIG="$HOME/.custom_bashrc"
+local FILE_BASHRC="$HOME/.bashrc"
+
+if [ -f "$FILE_BASHRC" ]
+then {
+	echo "writing to: $FILE_CONFIG"
+	tee "$FILE_CONFIG" > "/dev/null" <<EOT
+#!/bin/bash
+
+func_fzf_px() {
+	TMP_SELSECTED_PROCESS=\$(ps -aux | fzf | awk '\$2 ~ /^[0-9]+$/ { print \$2 }')
+	if [ "\$TMP_SELSECTED_PROCESS" = "" ]
+	then
+		echo no process selected
+	else
+		read -p "Kill? (Y/n) " TMP_ANS
+		case \$TMP_ANS in
+			[Nn])
+				echo will not kill
+				;;
+			*)
+				echo killing pid: \$TMP_SELSECTED_PROCESS
+				kill -s SIGKILL \$TMP_SELSECTED_PROCESS
+				;;
+			esac
+	fi
+}
+
+func_lfcd () {
+    cd "\$(command lf -single -print-last-dir "\$@")"
+}
+
+alias fd='cd \$(find . -maxdepth 1 -type d | sort | fzf)'
+alias ll='ls -AlhFr'
+alias llz='ls -AlhFr | sort | fzf'
+alias fk='func_fzf_px'
+alias lfcd='func_lfcd'
+EOT
+		if grep -Fxq "$ALIAS_STR_START" "$FILE_BASHRC" && grep -Fxq "$ALIAS_STR_END" "$FILE_BASHRC"
+		then
+			echo "config file already sourced: $FILE_BASHRC"
+		else
+			echo "appending to bashrc: $FILE_BASHRC"
+			cat <<EOF >> "$FILE_BASHRC"
+$ALIAS_STR_START
+
+if [ -f $FILE_CONFIG ]; then
+    . $FILE_CONFIG
+fi
+
+$ALIAS_STR_END
+EOF
+		fi
+	}
+	else {
+		echo "err ! not found $FILE_BASHRC"
+		exit 1
+	}
+	fi
+}
+
+##############################
+# end : custom bashrc config #
+##############################
+
 function menu_manage_app {
 	if [[ $1 == "" ]]; then echo "invalid app: $1"; exit 1; fi;
 
@@ -555,12 +627,15 @@ function menu_apps {
 # This is the main menu where operations will be selected
 function menu_main {
 	local PS3=$'select operation: '
-	local options=("manage apps" "quit")
+	local options=("manage apps" "config bash" "quit")
 	select opt in "${options[@]}"
 	do
 		case $opt in
 			"manage apps")
 				menu_apps
+				;;
+			"config bash")
+				func_config_bash
 				;;
 			"quit")
 				break
