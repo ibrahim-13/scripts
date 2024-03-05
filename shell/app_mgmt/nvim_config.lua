@@ -310,6 +310,10 @@ vim.keymap.set('i', '<C-j>', '<Down>')
 vim.keymap.set('i', '<C-h>', '<Left>')
 -- Cursor right with ctrl+j when in input mode
 vim.keymap.set('i', '<C-l>', '<Right>')
+-- Wrap selection with double quote "" when in visual mode
+vim.keymap.set('x', '<leader>"', 'da"<esc>pa"<esc>')
+-- Wrap selection with single quote '' when in visual mode
+vim.keymap.set('x', '<leader>\'', 'da\'<esc>pa\'<esc>')
 
 -- telescope.nvim
 local builtin = require('telescope.builtin')
@@ -388,4 +392,8 @@ vim.keymap.set('',
 -- Convert file format
 -- :set fileformat=unix
 -- :write
+--
+-- VIM motions
+--------------
+-- https://neovim.io/doc/user/motion.html
 --]]
