@@ -513,6 +513,102 @@ EOF
 # end : custom bashrc config #
 ##############################
 
+#############################
+# start : custom kde config #
+#############################
+
+function func_config_kde {
+	echo "applying kde configs"
+	if command -v kwriteconfig5
+	then
+		echo "disabling activity tracking in settings"
+		kwriteconfig5 --file kactivitymanagerdrc --group Plugins --key org.kde.ActivityManager.ResourceScoringEnabled --type bool false
+
+		echo "disable certain KRunner searching sources"
+		kwriteconfig5 --file krunnerrc --group Plugins --key "PIM Contacts Search RunnerEnabled" --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key appstreamEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key baloosearchEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key browserhistoryEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key locationsEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key recentdocumentsEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key webshortcutsEnabled --type bool false
+
+		echo "enable Night Color"
+		kwriteconfig5 --file kwinrc --group NightColor --key Active --type bool true # Enable night color
+		kwriteconfig5 --file kwinrc --group NightColor --key Mode Times # set mode custom time
+		kwriteconfig5 --file kwinrc --group NightColor --key MorningBeginFixed 0800 # set start of morning
+		kwriteconfig5 --file kwinrc --group NightColor --key EveningBeginFixed 1700 # set start of evening
+		kwriteconfig5 --file kwinrc --group NightColor --key NightTemperature 5100 # set night temparature
+	else
+		echo "not found: kwriteconfig5"
+	fi
+
+	echo "disabling kactivitymanagerd"
+	local DIR_KACTIVITYMANAGERD="$HOME/.local/share/kactivitymanagerd"
+	if [[ -d "$DIR_KACTIVITYMANAGERD" ]]
+	then
+		rm -rf "$DIR_KACTIVITYMANAGERD"
+		touch "$DIR_KACTIVITYMANAGERD"
+	else
+		echo "directory not found: $DIR_KACTIVITYMANAGERD"
+	fi
+
+	echo "disabling gnome/gtk recent files"
+	if command -v gsettings
+	then
+		gsettings set org.gnome.desktop.privacy remember-recent-files false
+	else
+		echo "not found: gsettings"
+	fi
+
+	echo "deleting recent documents"
+	local DIR_RECENTDOCUMENTS="$HOME/.local/share/RecentDocuments"
+	if [[ -d "$DIR_RECENTDOCUMENTS" ]]
+	then
+		rm -rf "$DIR_RECENTDOCUMENTS"
+		touch "$DIR_RECENTDOCUMENTS"
+	else
+		echo "directory not found: $DIR_RECENTDOCUMENTS"
+	fi
+
+	echo "deleting recently used history database"
+	local FILE_RECENTDOCUMENTSXBEL="$HOME/.local/share/recently-used.xbel"
+	if [[ -f "$FILE_RECENTDOCUMENTSXBEL" ]]
+	then
+		rm "$FILE_RECENTDOCUMENTSXBEL"
+		touch "$FILE_RECENTDOCUMENTSXBEL"
+		sudo chattr +i "$FILE_RECENTDOCUMENTSXBEL"
+	else
+		echo "file not found: $FILE_RECENTDOCUMENTSXBEL"
+	fi
+
+	echo "deleting user places history database"
+	local FILE_USERPLACESXBEL="$HOME/.local/share/user-places.xbel"
+	if [[ -f "$FILE_USERPLACESXBEL" ]]
+	then
+		rm "$FILE_USERPLACESXBEL"
+		touch "$FILE_USERPLACESXBEL"
+		sudo chattr +i "$FILE_USERPLACESXBEL"
+	else
+		echo "file not found: $FILE_USERPLACESXBEL"
+	fi
+
+
+	local DIR_THUMBNAILSCACHE="$HOME/.cache/thumbnails"
+	echo "deleting thumbnails in cache"
+	if [[ -d "$DIR_THUMBNAILSCACHE" ]]
+	then
+		rm -rf "$DIR_THUMBNAILSCACHE"
+		touch "$DIR_THUMBNAILSCACHE"
+	else
+		echo "directory not found: $DIR_THUMBNAILSCACHE"
+	fi
+}
+
+###########################
+# end : custom kde config #
+###########################
+
 function menu_manage_app {
 	if [[ $1 == "" ]]; then echo "invalid app: $1"; exit 1; fi;
 
@@ -627,7 +723,7 @@ function menu_apps {
 # This is the main menu where operations will be selected
 function menu_main {
 	local PS3=$'select operation: '
-	local options=("manage apps" "config bash" "quit")
+	local options=("manage apps" "config bash" "config_kde" "quit")
 	select opt in "${options[@]}"
 	do
 		case $opt in
@@ -636,6 +732,9 @@ function menu_main {
 				;;
 			"config bash")
 				func_config_bash
+				;;
+			"config_kde")
+				func_config_kde
 				;;
 			"quit")
 				break
