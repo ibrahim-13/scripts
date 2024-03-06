@@ -37,6 +37,10 @@ function register_app {
 	fi
 }
 
+register_app tmux
+register_app lf
+register_app fzf
+
 #############################
 # start : utility functions #
 #############################
@@ -173,9 +177,6 @@ function errexit {
 ###########################
 # end : utility functions #
 ###########################
-
-register_app tmux
-register_app lf
 
 ################
 # start : tmux #
@@ -388,7 +389,6 @@ function lf_install {
 	sudo rm "$FILE_ARCHIVE"
 	# Store created_at so that we can compare later for updating the app
 	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
-	echo "ggwp"
 }
 
 function lf_update {
@@ -440,6 +440,111 @@ function lf_config_remove {
 ############
 # end : lf #
 ############
+
+###############
+# start : fZf #
+###############
+
+function fzf_is_installed {
+	if ! command -v fzf &> "/dev/null"
+	then
+		# command not found, return 0
+		return 0
+	else
+		# command found, return 1
+		return 1
+	fi
+}
+
+function fzf_install {
+	local GH_RESPONSE
+	local GH_CREATED_AT
+	local GH_DL_URL
+	local GH_SOURCE
+	local GH_MSG
+
+	GH_RESPONSE=$(func_github_asset junegunn fzf 'select(.name | contains("linux_amd64.tar.gz"))')
+	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+
+	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
+	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
+	echo "last updated: $GH_CREATED_AT"
+
+	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
+	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+
+	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
+	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+
+	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
+
+	local INSTALL_DIR
+	local FILE_ARCHIVE
+	local FILE_BIN
+	local FILE_CREATED_AT
+	local FILE_SYMLINK
+	INSTALL_DIR="/opt/fzf"
+	FILE_ARCHIVE="$INSTALL_DIR/fzf.tar.gz"
+	FILE_BIN="$INSTALL_DIR/fzf"
+	FILE_CREATED_AT="$INSTALL_DIR/created_at"
+	FILE_SYMLINK="/bin/fzf"
+
+	echo "response source: $GH_SOURCE"
+	echo "response msg: $GH_MSG"
+
+	# Check if already installed
+	# If installed and created_at date is before the current release create_at date, then update
+	if [[ -e "$FILE_CREATED_AT" ]]
+	then
+		local TMP_CURRENT_CREATED_AT
+		local TMP_EXIST_CREATED_AT
+		TMP_CURRENT_CREATED_AT=$(date +%s -d "$GH_CREATED_AT")
+		TMP_EXIST_CREATED_AT=$(date +%s -d "$(cat "$FILE_CREATED_AT")")
+		if [[ ! "$TMP_CURRENT_CREATED_AT" -gt "$TMP_EXIST_CREATED_AT" ]]
+		then
+			echo "up to date"
+			return
+		fi
+	fi
+
+	if [[ ! -d $INSTALL_DIR ]]
+	then
+		sudo mkdir $INSTALL_DIR
+	fi
+	
+	sudo wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
+
+	sudo chmod 666 "$FILE_ARCHIVE"
+	echo "Extracting files:"
+	sudo tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
+	sudo chmod 755 "$FILE_BIN"
+	sudo ln -s "$FILE_BIN" "$FILE_SYMLINK"
+	sudo rm "$FILE_ARCHIVE"
+	# Store created_at so that we can compare later for updating the app
+	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+}
+
+function fzf_update {
+	# update is same as installation
+	fzf_install
+}
+
+function fzf_remove {
+	sudo rm "/bin/fzf"
+	sudo rm -rf "/opt/fzf"
+}
+
+function fzf_config {
+	echo "no confige defined"
+}
+
+function fzf_config_remove {
+	echo "no confige defined"
+}
+
+#############
+# end : fzf #
+#############
 
 ################################
 # start : custom bashrc config #
