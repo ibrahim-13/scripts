@@ -618,11 +618,11 @@ EOF
 # end : custom bashrc config #
 ##############################
 
-#############################
-# start : custom kde config #
-#############################
+############################
+# start : custom os config #
+############################
 
-function func_config_kde {
+function func_config_os {
 	echo "applying kde configs"
 	if command -v kwriteconfig5
 	then
@@ -630,13 +630,32 @@ function func_config_kde {
 		kwriteconfig5 --file kactivitymanagerdrc --group Plugins --key org.kde.ActivityManager.ResourceScoringEnabled --type bool false
 
 		echo "disable certain KRunner searching sources"
-		kwriteconfig5 --file krunnerrc --group Plugins --key "PIM Contacts Search RunnerEnabled" --type bool false
 		kwriteconfig5 --file krunnerrc --group Plugins --key appstreamEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key CharacterRunnerEnabled --type bool false
 		kwriteconfig5 --file krunnerrc --group Plugins --key baloosearchEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key bookmarksEnabled --type bool false
 		kwriteconfig5 --file krunnerrc --group Plugins --key browserhistoryEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key browsertabsEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key calculatorEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key desktopsessionsEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key DictionaryEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key helprunnerEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key katesessionsEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key konsoleprofilesEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key krunner_spellcheckEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key kwinEnabled --type bool false
 		kwriteconfig5 --file krunnerrc --group Plugins --key locationsEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key org.kde.activities2Enabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key org.kde.datetimeEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key org.kde.windowedwidgetsEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key "PIM Contacts Search RunnerEnabled" --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key placesEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key plasma-desktopEnabled --type bool false
 		kwriteconfig5 --file krunnerrc --group Plugins --key recentdocumentsEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key shellEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key unitconverterEnabled --type bool false
 		kwriteconfig5 --file krunnerrc --group Plugins --key webshortcutsEnabled --type bool false
+		kwriteconfig5 --file krunnerrc --group Plugins --key windowsEnabled --type bool false
 
 		echo "enable Night Color"
 		kwriteconfig5 --file kwinrc --group NightColor --key Active --type bool true # Enable night color
@@ -662,6 +681,8 @@ function func_config_kde {
 	if command -v gsettings
 	then
 		gsettings set org.gnome.desktop.privacy remember-recent-files false
+		gsettings set org.gnome.desktop.privacy remember-app-usage false
+		gsettings set org.gnome.desktop.privacy recent-files-max-age 0
 	else
 		echo "not found: gsettings"
 	fi
@@ -681,8 +702,7 @@ function func_config_kde {
 	if [[ -f "$FILE_RECENTDOCUMENTSXBEL" ]]
 	then
 		rm "$FILE_RECENTDOCUMENTSXBEL"
-		touch "$FILE_RECENTDOCUMENTSXBEL"
-		sudo chattr +i "$FILE_RECENTDOCUMENTSXBEL"
+		mkdir "$FILE_RECENTDOCUMENTSXBEL"
 	else
 		echo "file not found: $FILE_RECENTDOCUMENTSXBEL"
 	fi
@@ -692,8 +712,6 @@ function func_config_kde {
 	if [[ -f "$FILE_USERPLACESXBEL" ]]
 	then
 		rm "$FILE_USERPLACESXBEL"
-		touch "$FILE_USERPLACESXBEL"
-		sudo chattr +i "$FILE_USERPLACESXBEL"
 	else
 		echo "file not found: $FILE_USERPLACESXBEL"
 	fi
@@ -710,9 +728,9 @@ function func_config_kde {
 	fi
 }
 
-###########################
-# end : custom kde config #
-###########################
+##########################
+# end : custom os config #
+##########################
 
 function menu_manage_app {
 	if [[ $1 == "" ]]; then echo "invalid app: $1"; exit 1; fi;
@@ -828,7 +846,7 @@ function menu_apps {
 # This is the main menu where operations will be selected
 function menu_main {
 	local PS3=$'select operation: '
-	local options=("manage apps" "config bash" "config_kde" "quit")
+	local options=("manage apps" "config bash" "config_os" "quit")
 	select opt in "${options[@]}"
 	do
 		case $opt in
@@ -838,8 +856,8 @@ function menu_main {
 			"config bash")
 				func_config_bash
 				;;
-			"config_kde")
-				func_config_kde
+			"config_os")
+				func_config_os
 				;;
 			"quit")
 				break
