@@ -34,6 +34,11 @@ function yt_enable_cc() {
   var elem_ccbtn = document.querySelector(_conf.elem.ccbtn);
   var elem_channel = document.querySelector(_conf.elem.channel);
   if (elem_vid && elem_ccbtn && elem_channel) {
+    var title = elem_channel.getAttribute("title") || "";
+    if(title.toLowerCase().indexOf("unavailable") === -1) {
+      // return because there are no cc
+      return;
+    }
     var cc_status = _conf.preset[elem_channel.getAttribute("href")] || 'true';
     if(elem_ccbtn.getAttribute("aria-pressed") === cc_status) {
       return;
