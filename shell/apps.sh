@@ -42,6 +42,7 @@ register_app lf
 register_app fzf
 register_app hugo
 register_app lazygit
+register_app marktext
 
 #############################
 # start : utility functions #
@@ -766,6 +767,146 @@ function lazygit_config_remove {
 # end : lazygit #
 #################
 
+####################
+# start : marktext #
+####################
+
+function marktext_is_installed {
+	if ! command -v marktext &> "/dev/null"
+	then
+		# command not found, return 0
+		return 0
+	else
+		# command found, return 1
+		return 1
+	fi
+}
+
+function marktext_install {
+	local GH_RESPONSE
+	local GH_CREATED_AT
+	local GH_DL_URL
+	local GH_SOURCE
+	local GH_MSG
+
+	GH_RESPONSE=$(func_github_asset marktext marktext 'select(.name | contains("AppImage"))')
+	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+
+	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
+	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
+	echo "last updated: $GH_CREATED_AT"
+
+	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
+	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+
+	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
+	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+
+	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
+
+	local INSTALL_DIR
+	local DESKTOP_DIR
+	local FILE_APPIMAGE
+	local FILE_CREATED_AT
+	local FILE_SYMLINK
+	local FILE_DESKTOP
+	local FILE_LOGO
+	local FILE_SYMLINK_DESKTOP
+	INSTALL_DIR="/opt/marktext"
+	DESKTOP_DIR="$HOME/.local/share/applications"
+	FILE_APPIMAGE="$INSTALL_DIR/marktext.AppImage"
+	FILE_CREATED_AT="$INSTALL_DIR/created_at"
+	FILE_DESKTOP="$INSTALL_DIR/marktext.desktop"
+	FILE_LOGO="$INSTALL_DIR/marktext_logo.png"
+	FILE_SYMLINK="/bin/marktext"
+	FILE_SYMLINK_DESKTOP="$DESKTOP_DIR/marktext.desktop"
+
+	echo "response source: $GH_SOURCE"
+	echo "response msg: $GH_MSG"
+
+	# Check if already installed
+	# If installed and created_at date is before the current release create_at date, then update
+	if [[ -e "$FILE_CREATED_AT" ]]
+	then
+		local TMP_CURRENT_CREATED_AT
+		local TMP_EXIST_CREATED_AT
+		TMP_CURRENT_CREATED_AT=$(date +%s -d "$GH_CREATED_AT")
+		TMP_EXIST_CREATED_AT=$(date +%s -d "$(cat "$FILE_CREATED_AT")")
+		if [[ ! "$TMP_CURRENT_CREATED_AT" -gt "$TMP_EXIST_CREATED_AT" ]]
+		then
+			echo "up to date"
+			return
+		fi
+	fi
+
+	echo "latest release: $GH_CREATED_AT"
+
+	if [[ ! -d $INSTALL_DIR ]]
+	then
+		sudo mkdir $INSTALL_DIR
+	fi
+
+	sudo wget -q --show-progress -O "$FILE_APPIMAGE" "$GH_DL_URL" || errexit "error downloading archive"
+
+	sudo chmod 755 "$FILE_APPIMAGE"
+	sudo ln -s "$FILE_APPIMAGE" "$FILE_SYMLINK"
+	# Store created_at so that we can compare later for updating the app
+	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+	# Create desktop file
+	sudo tee "$FILE_DESKTOP"> /dev/null <<EOT
+[Desktop Entry]
+Name=MarkText
+Comment=Next generation markdown editor
+Exec=marktext %F
+Terminal=false
+Type=Application
+Icon=/opt/marktext/marktext_logo.png
+Categories=Office;TextEditor;Utility;
+MimeType=text/markdown;
+Keywords=marktext;
+StartupWMClass=marktext
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=New Window
+Exec=marktext --new-window %F
+Icon=marktext
+EOT
+	# Download logo
+	sudo wget -q --show-progress -O "$FILE_LOGO" "https://raw.githubusercontent.com/marktext/marktext/develop/static/logo-small.png"
+	sudo ln -s "$FILE_DESKTOP" "$FILE_SYMLINK_DESKTOP"
+	# Register app to the OS
+	update-desktop-database "$DESKTOP_DIR"
+}
+
+function marktext_update {
+	# update is same as installation
+	marktext_install
+}
+
+function marktext_remove {
+	DESKTOP_DIR="$HOME/.local/share/applications"
+	FILE_SYMLINK_DESKTOP="$DESKTOP_DIR/marktext.desktop"
+
+	sudo rm "/bin/marktext"
+	sudo rm -rf "/opt/marktext"
+	sudo rm "$FILE_SYMLINK_DESKTOP"
+
+	update-desktop-database "$DESKTOP_DIR"
+}
+
+function marktext_config {
+	echo "no confige defined"
+}
+
+function marktext_config_remove {
+	echo "no confige defined"
+}
+
+#################
+# end : marktext #
+#################
+
 ################################
 # start : custom bashrc config #
 ################################
@@ -1035,7 +1176,6 @@ function menu_apps {
 	read -ra APPS_LIST <<< "$REGISTERED_APPS"
 	for app in "${APPS_LIST[@]}"
 	do
-		echo "app: $app"
 		run_func "${app}_is_installed"
 		local IS_INSTALLED=$?
 		if [[ $IS_INSTALLED == 1 ]]
