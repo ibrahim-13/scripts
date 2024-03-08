@@ -43,6 +43,7 @@ register_app fzf
 register_app hugo
 register_app lazygit
 register_app marktext
+register_app golang
 
 #############################
 # start : utility functions #
@@ -906,6 +907,114 @@ function marktext_config_remove {
 #################
 # end : marktext #
 #################
+
+##################
+# start : golang #
+##################
+
+function golang_is_installed {
+	if ! command -v go &> "/dev/null"
+	then
+		# command not found, return 0
+		return 0
+	else
+		# command found, return 1
+		return 1
+	fi
+}
+
+function golang_install {
+	local ARCH
+	local MACHINE
+	local GO_VER
+	local INSTALL_DIR="/opt/go"
+	ARCH=$(uname -s | tr '[:upper:]' '[:lower:]')
+	MACHINE=$(uname -m)
+	if [ "$MACHINE" = "x86_64" ]
+	then
+		MACHINE="amd64"
+	fi
+
+	if [[ -z $1 ]]
+	then
+		GO_VER=$(wget -qO- https://go.dev/VERSION?m=text | head --lines 1)
+	else
+		GO_VER="$1"
+	fi
+	GO_FILE_NAME="$GO_VER.$ARCH-$MACHINE.tar.gz"
+	GO_DL_URL="https://go.dev/dl/$GO_FILE_NAME"
+	GO_TMP_ARCHIVE="/tmp/$GO_FILE_NAME"
+
+	# If previous updating attempt failed or abruptly exited
+	# without cleaning up the archive file, then remove the
+	# previous archive file and start over.
+	if [ -e "$GO_TMP_ARCHIVE" ]
+	then
+		echo "cleaning up previously downloaded archive..."
+		sudo rm "$GO_TMP_ARCHIVE"
+	fi
+
+	# Download Golang binary archive in temporary folder
+	sudo wget -q --show-progress -O "$GO_TMP_ARCHIVE" "$GO_DL_URL"
+
+	if [ -d "$INSTALL_DIR" ]
+	then
+		sudo rm -rf "$INSTALL_DIR"
+	fi
+	sudo tar -C "/opt" -xzf "$GO_TMP_ARCHIVE"
+
+	# Clean up archive file
+	sudo rm $GO_TMP_ARCHIVE
+}
+
+function golang_update {
+	local GO_VER_INSTALLED
+	local GO_VER
+	local INSTALL_DIR="/opt/go"
+	if [ -e "$INSTALL_DIR/VERSION" ]
+	then
+		GO_VER_INSTALLED=$(cat "$INSTALL_DIR/VERSION" | head --lines 1)
+	fi
+	GO_VER=$(wget -qO- https://go.dev/VERSION?m=text | head --lines 1)
+	if [ "$GO_VER_INSTALLED" = "$GO_VER" ]
+	then
+		echo "up to date"
+	else
+		golang_install "$GO_VER"
+	fi
+}
+
+function golang_remove {
+	local INSTALL_DIR="/opt/go"
+	if [ -d "$INSTALL_DIR" ]
+	then
+		sudo rm -rf "$INSTALL_DIR"
+	fi
+}
+
+function golang_config {
+	local INSTALL_DIR="/opt/go"
+	if grep -Fxq "$PROF_STR_END" /etc/profile && grep -Fxq "$PROF_STR_START" /etc/profile
+	then
+		echo "already configured"
+	else
+		sudo tee -a /etc/profile> /dev/null <<EOT
+# START:Golang
+export GOPATH=\$HOME/go
+export PATH=\$PATH:$INSTALL_DIR/bin:\$GOPATH/bin
+
+# END:Golang
+EOT
+	fi
+}
+
+function golang_config_remove {
+	echo "please edit /etc/profile to remove gopath and path entry"
+}
+
+################
+# end : golang #
+################
 
 ################################
 # start : custom bashrc config #
