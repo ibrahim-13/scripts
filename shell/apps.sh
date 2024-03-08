@@ -13,6 +13,8 @@
 
 # global variables
 REGISTERED_APPS=""
+DIR_BASH_CONFIG="$HOME/.bashrc_custom"
+FILE_BASHRC="$HOME/.bashrc"
 
 ##########################
 # how registration works #
@@ -164,6 +166,8 @@ function func_ghutil_check_valid_json {
 	fi
 }
 
+# helper functions
+
 # run a function
 # $1 : function
 function run_func {
@@ -176,6 +180,46 @@ function run_func {
 function errexit {
 	echo "$1" >&2
 	exit 1
+}
+
+# bash config helper functions
+
+# add custom folder for config and source them
+function setup_bash_config {
+	local ALIAS_STR_START="# START:CUSTOM_CONFIG_SOURCE"
+	local ALIAS_STR_END="# END:CUSTOM_CONFIG_SOURCE"
+
+	if [[ ! -d "$DIR_BASH_CONFIG" ]]
+	then
+		mkdir "$DIR_BASH_CONFIG"
+	fi
+
+	if [[ -f "$FILE_BASHRC" ]]
+	then
+		if grep -Fxq "$ALIAS_STR_START" "$FILE_BASHRC" && grep -Fxq "$ALIAS_STR_END" "$FILE_BASHRC"
+		then
+			echo "config file already sourced: $FILE_BASHRC"
+		else
+			echo "appending to bashrc: $FILE_BASHRC"
+			cat <<EOT >> "$FILE_BASHRC"
+$ALIAS_STR_START
+
+# source config scripts from "$DIR_BASH_CONFIG"
+if [ -d "$DIR_BASH_CONFIG" ]; then
+	for i in "$DIR_BASH_CONFIG"/*.sh; do
+		if [ -r "\$i" ]; then
+			. "\$i"
+		fi
+	done
+	unser i
+fi
+
+$ALIAS_STR_END
+EOT
+		fi
+	else
+		echo "err!! not found $FILE_BASHRC"
+	fi
 }
 
 ###########################
@@ -993,23 +1037,25 @@ function golang_remove {
 }
 
 function golang_config {
+	local CONFIG_FILE="$DIR_BASH_CONFIG/golang.sh"
 	local INSTALL_DIR="/opt/go"
-	if grep -Fxq "$PROF_STR_END" /etc/profile && grep -Fxq "$PROF_STR_START" /etc/profile
-	then
-		echo "already configured"
-	else
-		sudo tee -a /etc/profile> /dev/null <<EOT
+	tee "$CONFIG_FILE" /dev/null <<EOT
+#!/bin/bash
+
 # START:Golang
 export GOPATH=\$HOME/go
 export PATH=\$PATH:$INSTALL_DIR/bin:\$GOPATH/bin
 
 # END:Golang
 EOT
-	fi
 }
 
 function golang_config_remove {
-	echo "please edit /etc/profile to remove gopath and path entry"
+	local CONFIG_FILE="$DIR_BASH_CONFIG/golang.sh"
+	if [[ -f "$CONFIG_FILE" ]]
+	then
+		rm "$CONFIG_FILE"
+	fi
 }
 
 ################
@@ -1021,13 +1067,8 @@ function golang_config_remove {
 ################################
 
 function func_config_bash {
-local ALIAS_STR_START="# START:CUSTOM_ALIAS_SOURCE"
-local ALIAS_STR_END="# END:CUSTOM_ALIAS_SOURCE"
-local FILE_CONFIG="$HOME/.custom_bashrc"
-local FILE_BASHRC="$HOME/.bashrc"
+	local FILE_CONFIG="$DIR_BASH_CONFIG/custom_bashrc.sh"
 
-if [ -f "$FILE_BASHRC" ]
-then {
 	echo "writing to: $FILE_CONFIG"
 	tee "$FILE_CONFIG" > "/dev/null" <<EOT
 #!/bin/bash
@@ -1061,27 +1102,6 @@ alias llz='ls -AlhFr | sort | fzf'
 alias fk='func_fzf_px'
 alias lfcd='func_lfcd'
 EOT
-		if grep -Fxq "$ALIAS_STR_START" "$FILE_BASHRC" && grep -Fxq "$ALIAS_STR_END" "$FILE_BASHRC"
-		then
-			echo "config file already sourced: $FILE_BASHRC"
-		else
-			echo "appending to bashrc: $FILE_BASHRC"
-			cat <<EOF >> "$FILE_BASHRC"
-$ALIAS_STR_START
-
-if [ -f $FILE_CONFIG ]; then
-    . $FILE_CONFIG
-fi
-
-$ALIAS_STR_END
-EOF
-		fi
-	}
-	else {
-		echo "err ! not found $FILE_BASHRC"
-		exit 1
-	}
-	fi
 }
 
 ##############################
@@ -1340,6 +1360,9 @@ echo "=================="
 echo "= app operations ="
 echo "=================="
 
+# setup bash configurations
+setup_bash_config
+# run main menu function
 menu_main
 
 #############
