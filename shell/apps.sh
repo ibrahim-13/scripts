@@ -46,6 +46,7 @@ register_app hugo
 register_app lazygit
 register_app marktext
 register_app golang
+register_app neovim
 
 #############################
 # start : utility functions #
@@ -948,9 +949,9 @@ function marktext_config_remove {
 	echo "no confige defined"
 }
 
-#################
+##################
 # end : marktext #
-#################
+##################
 
 ##################
 # start : golang #
@@ -1060,6 +1061,533 @@ function golang_config_remove {
 
 ################
 # end : golang #
+################
+
+##################
+# start : neovim #
+##################
+
+function neovim_is_installed {
+	if ! command -v nvim &> "/dev/null"
+	then
+		# command not found, return 0
+		return 0
+	else
+		# command found, return 1
+		return 1
+	fi
+}
+
+function neovim_install {
+	local GH_RESPONSE
+	local GH_CREATED_AT
+	local GH_DL_URL
+	local GH_SOURCE
+	local GH_MSG
+
+	GH_RESPONSE=$(func_github_asset neovim neovim 'select(.name == nvim.appimage)')
+	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+
+	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
+	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
+	echo "last updated: $GH_CREATED_AT"
+
+	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
+	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+
+	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
+	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+
+	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
+
+	local INSTALL_DIR
+	local DESKTOP_DIR
+	local FILE_APPIMAGE
+	local FILE_CREATED_AT
+	local FILE_SYMLINK
+	local FILE_DESKTOP
+	local FILE_LOGO
+	local FILE_SYMLINK_DESKTOP
+	INSTALL_DIR="/opt/nvim"
+	FILE_APPIMAGE="$INSTALL_DIR/nvim.AppImage"
+	FILE_CREATED_AT="$INSTALL_DIR/created_at"
+	FILE_SYMLINK="/bin/nvim"
+
+	echo "response source: $GH_SOURCE"
+	echo "response msg: $GH_MSG"
+
+	# Check if already installed
+	# If installed and created_at date is before the current release create_at date, then update
+	if [[ -e "$FILE_CREATED_AT" ]]
+	then
+		local TMP_CURRENT_CREATED_AT
+		local TMP_EXIST_CREATED_AT
+		TMP_CURRENT_CREATED_AT=$(date +%s -d "$GH_CREATED_AT")
+		TMP_EXIST_CREATED_AT=$(date +%s -d "$(cat "$FILE_CREATED_AT")")
+		if [[ ! "$TMP_CURRENT_CREATED_AT" -gt "$TMP_EXIST_CREATED_AT" ]]
+		then
+			echo "up to date"
+			return
+		fi
+	fi
+
+	echo "latest release: $GH_CREATED_AT"
+
+	if [[ ! -d $INSTALL_DIR ]]
+	then
+		sudo mkdir $INSTALL_DIR
+	fi
+
+	sudo wget -q --show-progress -O "$FILE_APPIMAGE" "$GH_DL_URL" || errexit "error downloading archive"
+
+	sudo chmod 755 "$FILE_APPIMAGE"
+	sudo ln -s "$FILE_APPIMAGE" "$FILE_SYMLINK"
+	# in case libfuse2 is not installed, then extract binary from AppImage
+	type -p libfuse2 || {
+		echo "libfuse2 not found, extracting AppImage"
+		local CURR_DIR="$PWD"
+		cd "$INSTALL_DIR"
+		echo "extracting AppImage contents"
+		sudo ./neovim.AppImage --appimage-extract >/dev/null
+		sudo rm "$FILE_SYMLINK"
+		sudo ln -s "$INSTALL_DIR/squashfs-root/AppRun" /bin/nvim
+		sudo rm neovim.AppImage
+		cd "$CURR_DIR"
+	}
+	# Store created_at so that we can compare later for updating the app
+	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+}
+
+function neovim_update {
+	# update is same as installation
+	neovim_install
+}
+
+function neovim_remove {
+	sudo rm "/bin/nvim"
+	sudo rm -rf "/opt/nvim"
+}
+
+function neovim_config {
+	if [[ ! -d "$HOME/.config" ]]
+	then
+		mkdir "$HOME/.config"
+	fi
+	if [[ ! -d "$HOME/.config/nvim" ]]
+	then
+		mkdir "$HOME/.config/nvim"
+	fi
+	tee "$HOME/.config/nvim/init.lua" /dev/null <<EOT
+-- NeoVim Configution File
+-- LINUX: ~/.config/nvim/init.lua
+-- WINDOWS: ~/AppData/Local/nvim/init.lua
+
+-------------
+-- Options --
+-------------
+
+-- Show line number
+vim.opt.number = true
+
+-- Mouse interactions
+vim.opt.mouse = 'a'
+
+-- Ignore case when searching
+vim.opt.ignorecase = true
+-- Don't ignore case if keyword starts with uppercase
+vim.opt.smartcase = true
+-- Disable search highlight
+vim.opt.hlsearch = false
+
+-- Enalbe line wrap
+vim.opt.wrap = true
+-- Perserve indentation of a virtual line - ex. wraped lines
+vim.opt.breakindent = true
+
+-- Amount of space on screen a TAB character occupy
+vim.opt.tabstop = 4
+-- Amount of space for indentation with >> and <<
+vim.opt.shiftwidth = 4
+-- Convert TAB to SPACE
+vim.opt.expandtab = false
+
+--[[
+lazy.nvim
+---------
+https://github.com/folke/lazy.nvim
+--]]
+local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
+if not vim.loop.fs_stat(lazypath) then
+  vim.fn.system({
+    "git",
+    "clone",
+    "--filter=blob:none",
+    "https://github.com/folke/lazy.nvim.git",
+    "--branch=stable", -- latest stable release
+    lazypath,
+  })
+end
+vim.opt.rtp:prepend(lazypath)
+
+-- Setup plug-ins
+require("lazy").setup({
+	-- Telescope
+	{'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' }},
+	-- Treesitter
+	{ "nvim-treesitter/nvim-treesitter", build = ":TSUpdate" },
+	-- Tokyonight Theme
+	{ "folke/tokyonight.nvim", lazy = false, priority = 1000, opts = {} },
+	-- Lualine
+	{ 'nvim-lualine/lualine.nvim', dependencies = { 'nvim-tree/nvim-web-devicons' } },
+	-- Indent-Blanckline
+	{ "lukas-reineke/indent-blankline.nvim", main = "ibl", opts = {} },
+	-- Hop
+	{ 'smoka7/hop.nvim' },
+	-- Comment
+	{ 'numToStr/Comment.nvim', opts = {}, lazy = false, }
+})
+
+--[[
+nvim-treesitter
+---------------
+https://github.com/nvim-treesitter/nvim-treesitter
+Commands
+	Install language	: TSInstall <language_to_install>
+	Update				: TSUpdate | TSUpdate all
+	Installation Status	: TSInstallInfo
+--]]
+require("nvim-treesitter.configs").setup {
+	ensure_installed = { "bash", "c", "cpp", "css", "diff", "dockerfile", "dot", "go", "gosum", "gowork", "gpg", "graphql", "html", "javascript", "json", "jsonc", "lua", "make", "markdown", "passwd", "pem", "printf", "proto", "python", "scss", "sql", "templ", "terraform", "toml", "tsx", "typescript", "xml", "yaml" },
+	sync_install = false,
+	auto_install = true,
+	-- ignore_install = { "javascript" },
+	highlight = {
+		enable = true,
+		-- disable = { "javascript" },
+		--[[
+		disable = function(lang, bug)
+			local max_filesize = 100 * 1024 -- 100 KB
+			local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
+			if ok and stats and stats.size > max_filesize then
+				return true
+			end
+		end
+		--]]
+		additional_vim_regex_highlighting = false,
+	}
+}
+
+--[[
+telescope.nvim
+--------------
+https://github.com/nvim-telescope/telescope.nvim
+
+NOTE: If file searches does not respects .gitignore, then check if `ripgrep` is installed
+	or run health check command
+Commands:
+	:checkhealth telescope
+Default Mappings:
+	<C-n>/<Down>	Next item
+	<C-p>/<Up>	Previous item
+	j/k	Next/previous (in normal mode)
+	H/M/L	Select High/Middle/Low (in normal mode)
+	gg/G	Select the first/last item (in normal mode)
+	<CR>	Confirm selection
+	<C-x>	Go to file selection as a split
+	<C-v>	Go to file selection as a vsplit
+	<C-t>	Go to a file in a new tab
+	<C-u>	Scroll up in preview window
+	<C-d>	Scroll down in preview window
+	<C-f>	Scroll left in preview window
+	<C-k>	Scroll right in preview window
+	<M-f>	Scroll left in results window
+	<M-k>	Scroll right in results window
+	<C-/>	Show mappings for picker actions (insert mode)
+	?	Show mappings for picker actions (normal mode)
+	<C-c>	Close telescope (insert mode)
+	<Esc>	Close telescope (in normal mode)
+	<Tab>	Toggle selection and move to next selection
+	<S-Tab>	Toggle selection and move to prev selection
+	<C-q>	Send all items not filtered to quickfixlist (qflist)
+	<M-q>	Send all selected items to qflist
+	<C-r><C-w>	Insert cword in original window into prompt (insert mode)
+--]]
+require("telescope").setup({
+	defaults = {
+		layout_config = {
+			horizontal = {
+				width = function(_, max_columns, _)
+					return max_columns
+				end,
+				height = function(_, _, max_lines)
+					return max_lines
+				end,
+			},
+		},
+	},
+})
+
+--[[
+lualine
+-------
+https://github.com/nvim-lualine/lualine.nvim
+--]]
+
+require('lualine').setup {
+	options = {
+		theme = 'tokyonight'
+	},
+	sections = {
+		lualine_a = {'mode'},
+		lualine_b = {'branch', 'diff', 'diagnostics'},
+		lualine_c = {{ 'filename', file_status = true, path = 1 }},
+		lualine_x = {'encoding', 'fileformat', 'filetype'},
+		lualine_y = {'progress'},
+		lualine_z = {'location'}
+	  },
+	inactive_sections = {
+		lualine_a = {},
+		lualine_b = {},
+		lualine_c = {'filename'},
+		lualine_x = {'location'},
+		lualine_y = {},
+		lualine_z = {}
+	},
+}
+
+--[[
+indent-blankline.nvim
+---------------------
+https://github.com/lukas-reineke/indent-blankline.nvim
+--]]
+require("ibl").setup()
+
+--[[
+hop.nvim
+--------
+https://github.com/smoka7/hop.nvim
+Commands:
+	:checkhealth hop
+--]]
+
+local hop = require('hop')
+hop.setup {
+	-- Press 'space' to quit finding
+	quit_key = '<SPC>'
+}
+
+--[[
+tokyonight.nvim
+https://github.com/folke/tokyonight.nvim
+--]]
+require("tokyonight").setup({
+	style = "night",
+	on_colors = function(colors)
+		colors.bg = "#000000"
+		colors.comment = colors.dark5
+	end
+})
+
+vim.cmd[[colorscheme tokyonight]]
+
+--[[
+Comment.nvim
+https://github.com/numToStr/Comment.nvim
+--]]
+require('Comment').setup({
+    ---Add a space b/w comment and the line
+    padding = true,
+    ---Whether the cursor should stay at its position
+    sticky = true,
+    ---Lines to be ignored while (un)comment
+    ignore = nil,
+    ---LHS of toggle mappings in NORMAL mode
+    toggler = {
+        ---Line-comment toggle keymap
+        line = 'gcc',
+        ---Block-comment toggle keymap
+        block = 'gbc',
+    },
+    ---LHS of operator-pending mappings in NORMAL and VISUAL mode
+    opleader = {
+        ---Line-comment keymap
+        line = 'gc',
+        ---Block-comment keymap
+        block = 'gb',
+    },
+    ---LHS of extra mappings
+    extra = {
+        ---Add comment on the line above
+        -- above = 'gcO',
+        ---Add comment on the line below
+        -- below = 'gco',
+        ---Add comment at the end of line
+        -- eol = 'gcA',
+    },
+    ---Enable keybindings
+    ---NOTE: If given `false` then the plugin won't create any mappings
+    mappings = {
+        ---Operator-pending mapping; `gcc` `gbc` `gc[count]{motion}` `gb[count]{motion}`
+        basic = true,
+        ---Extra mapping; `gco`, `gcO`, `gcA`
+        extra = false,
+    },
+    ---Function to call before (un)comment
+    pre_hook = nil,
+    ---Function to call after (un)comment
+    post_hook = nil,
+})
+
+--[[
+===========
+Keybindings
+===========
+--]]
+
+--[[
+vim.keymap.set({mode}, {lhs}, {rhs}, {opts})
+
+Modes:
+n	: Normal mode
+i	: Insert mode
+x	: Visual mode
+s	: Selection mode
+v	: Visual + Selection
+t	: Terminal mode
+o	: Operator-pending
+''	: Equivalent of h + v + o
+
+{lhs}	: Key to bind
+{rhs}	: Action to execute, string command or Lua function
+--]]
+
+-- Set <leader> to space
+vim.g.mapleader = ' '
+-- Write with 'space+w' in normal mode
+vim.keymap.set('n', '<leader>w', '<cmd>write<cr>', { desc = 'Save' })
+-- Copy to clipboard with 'gy' in normal+visual mode
+vim.keymap.set({'n', 'x'}, 'gy', '"+y')
+-- Paste to clipboard with 'gp' in normal+visual mode
+vim.keymap.set({'n', 'x'}, 'gp', '"+p')
+-- While deleting in normal+visual mode, deleting with 'x' and 'X' with not change registers
+vim.keymap.set({'n', 'x'}, 'x', '"_x')
+vim.keymap.set({'n', 'x'}, 'X', '"_d')
+-- Select all with 'space+a' in normal mode
+vim.keymap.set('n', '<leader>a', ':keepjumps normal! ggVG<cr>')
+-- Open Netrw in the current directory of the file (buffer) when in normal mode
+vim.keymap.set('n', '<leader>df', ':Lexplore %:p:h<cr>')
+-- Open/Close (toggle) Netrw in the initial directory when in normal mode
+vim.keymap.set('n', '<leader>dd', ':Lexplore<cr>')
+-- Scroll up 7 lines with ctrl+k when in normal+visual mode
+vim.keymap.set({'n', 'x'}, '<C-k>', '7<C-y>')
+-- Scroll down 7 lines with ctrl+j when in normal+visual mode
+vim.keymap.set({'n', 'x'}, '<C-j>', '7<C-e>')
+-- Cursor up with ctrl+k when in input mode
+vim.keymap.set('i', '<C-k>', '<Up>')
+-- Cursor down with ctrl+j when in input mode
+vim.keymap.set('i', '<C-j>', '<Down>')
+-- Cursor left with ctrl+k when in input mode
+vim.keymap.set('i', '<C-h>', '<Left>')
+-- Cursor right with ctrl+j when in input mode
+vim.keymap.set('i', '<C-l>', '<Right>')
+-- Wrap selection with double quote "" when in visual mode
+vim.keymap.set('x', '<leader>"', 'da"<esc>pa"<esc>')
+-- Wrap selection with single quote '' when in visual mode
+vim.keymap.set('x', '<leader>\'', 'da\'<esc>pa\'<esc>')
+
+-- telescope.nvim
+local builtin = require('telescope.builtin')
+-- Fuzzy find files with 'ff' in normal mode
+vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
+-- Fuzzy live grep files with 'fg' in normal mode
+vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
+-- Fuzzy find buffers with 'fb' in normal mode
+vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
+-- Show help with 'fh' in normal mode
+vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
+-- List built-in pickers and run them on <cr>
+vim.keymap.set('n', '<leader>pp', builtin.builtin, {})
+
+-- Tabs can be traversed with 'gt' and 'gT', thus the followin
+-- bindings were also added with 'g' prefix
+-- https://neovim.io/doc/user/tabpage.html
+
+-- Create the current buffer in new tab with 'gn' in normal mode
+vim.keymap.set('n', 'gn', ':tab split<cr>')
+-- Close the current tab with 'gc' in normal mode
+vim.keymap.set('n', 'gc', ':tabc<cr>')
+
+-- hop.nvim
+-- Find with 1 char with 'f' in the visible buffer
+vim.keymap.set('',
+	'f', function()
+		hop.hint_char1({ direction = nil, current_line_only = false })
+	end,
+	{ remap = true })
+-- Find with 2 chars with 'F' in the visible buffer
+vim.keymap.set('',
+	'F',
+	function()
+		hop.hint_char2({ direction = nil, current_line_only = false })
+	end,
+	{ remap = true })
+-- Find the input pattern with 't' in the visible buffer
+vim.keymap.set('',
+	't', function()
+		hop.hint_patterns({ direction = nil, current_line_only = false })
+	end,
+	{ remap = true })
+
+vim.keymap.set('',
+	'T', function()
+		hop.hint_words({ direction = nil, current_line_only = false })
+	end,
+	{ remap = true })
+
+--[[
+-- Handing binary files:
+------------------------
+-- Open file in binary mode so that NVIM does not apply any special modification
+-- nvim -b file.bin
+--
+-- Show hex
+-- :%!xxd
+--
+-- Update the hex part of the output and write (modification other then hex parts are ignored, only replace with 'r' or 'R'
+-- :%!xxd -r
+--
+-- Highlight
+-- :set ft=xxd
+--
+-- See unprintable characters in hex
+-- :set display=uhex
+--
+-- View hex code of character under cursor
+-- ga
+--
+-- File Formats
+---------------
+-- Formats: unix (<NL>), dos (<CR><NL>), mac (<CR>)
+--
+-- Convert file format
+-- :set fileformat=unix
+-- :write
+--
+-- VIM motions
+--------------
+-- https://neovim.io/doc/user/motion.html
+--]]
+EOT
+}
+
+function neovim_config_remove {
+	sudo rm -rf "$HOME/.config/nvim"
+	sudo rm -rf "$HOME/.local/share/nvim"
+	sudo rm -rf "$HOME/.local/state/nvim"
+}
+
+################
+# end : neovim #
 ################
 
 ################################
