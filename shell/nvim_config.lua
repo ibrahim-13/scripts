@@ -284,7 +284,7 @@ o	: Operator-pending
 -- Set <leader> to space
 vim.g.mapleader = ' '
 -- Write with 'space+w' in normal mode
-vim.keymap.set('n', '<leader>w', '<cmd>write<cr>', { desc = 'Save' })
+vim.keymap.set('n', '<LEADER>w', '<CMD>write<CR>', { desc = 'Save' })
 -- Copy to clipboard with 'gy' in normal+visual mode
 vim.keymap.set({'n', 'x'}, 'gy', '"+y')
 -- Paste to clipboard with 'gp' in normal+visual mode
@@ -293,11 +293,11 @@ vim.keymap.set({'n', 'x'}, 'gp', '"+p')
 vim.keymap.set({'n', 'x'}, 'x', '"_x')
 vim.keymap.set({'n', 'x'}, 'X', '"_d')
 -- Select all with 'space+a' in normal mode
-vim.keymap.set('n', '<leader>a', ':keepjumps normal! ggVG<cr>')
+vim.keymap.set('n', '<LEADER>a', ':keepjumps normal! ggVG<CR>')
 -- Open Netrw in the current directory of the file (buffer) when in normal mode
-vim.keymap.set('n', '<leader>df', ':Lexplore %:p:h<cr>')
+vim.keymap.set('n', '<LEADER>df', ':Lexplore %:p:h<CR>')
 -- Open/Close (toggle) Netrw in the initial directory when in normal mode
-vim.keymap.set('n', '<leader>dd', ':Lexplore<cr>')
+vim.keymap.set('n', '<LEADER>dd', ':Lexplore<CR>')
 -- Scroll up 7 lines with ctrl+k when in normal+visual mode
 vim.keymap.set({'n', 'x'}, '<C-k>', '7<C-y>')
 -- Scroll down 7 lines with ctrl+j when in normal+visual mode
@@ -311,31 +311,31 @@ vim.keymap.set('i', '<C-h>', '<Left>')
 -- Cursor right with ctrl+j when in input mode
 vim.keymap.set('i', '<C-l>', '<Right>')
 -- Wrap selection with double quote "" when in visual mode
-vim.keymap.set('x', '<leader>"', 'da"<esc>pa"<esc>')
+vim.keymap.set('x', '<LEADER>"', 'c"<C-r>""<ESC>')
 -- Wrap selection with single quote '' when in visual mode
-vim.keymap.set('x', '<leader>\'', 'da\'<esc>pa\'<esc>')
+vim.keymap.set('x', '<LEADER>\'', 'c\'<C-r>"\'<ESC>')
 
 -- telescope.nvim
 local builtin = require('telescope.builtin')
 -- Fuzzy find files with 'ff' in normal mode
-vim.keymap.set('n', '<leader>ff', builtin.find_files, {})
+vim.keymap.set('n', '<LEADER>ff', builtin.find_files, {})
 -- Fuzzy live grep files with 'fg' in normal mode
-vim.keymap.set('n', '<leader>fg', builtin.live_grep, {})
+vim.keymap.set('n', '<LEADER>fg', builtin.live_grep, {})
 -- Fuzzy find buffers with 'fb' in normal mode
-vim.keymap.set('n', '<leader>fb', builtin.buffers, {})
+vim.keymap.set('n', '<LEADER>fb', builtin.buffers, {})
 -- Show help with 'fh' in normal mode
-vim.keymap.set('n', '<leader>fh', builtin.help_tags, {})
--- List built-in pickers and run them on <cr>
-vim.keymap.set('n', '<leader>pp', builtin.builtin, {})
+vim.keymap.set('n', '<LEADER>fh', builtin.help_tags, {})
+-- List built-in pickers and run them on <CR>
+vim.keymap.set('n', '<LEADER>pp', builtin.builtin, {})
 
 -- Tabs can be traversed with 'gt' and 'gT', thus the followin
 -- bindings were also added with 'g' prefix
 -- https://neovim.io/doc/user/tabpage.html
 
 -- Create the current buffer in new tab with 'gn' in normal mode
-vim.keymap.set('n', 'gn', ':tab split<cr>')
+vim.keymap.set('n', 'gn', ':tab split<CR>')
 -- Close the current tab with 'gc' in normal mode
-vim.keymap.set('n', 'gc', ':tabc<cr>')
+vim.keymap.set('n', 'gc', ':tabc<CR>')
 
 -- hop.nvim
 -- Find with 1 char with 'f' in the visible buffer
