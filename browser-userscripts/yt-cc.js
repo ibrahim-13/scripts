@@ -34,6 +34,7 @@ function yt_enable_cc() {
   var elem_ccbtn = document.querySelector(_conf.elem.ccbtn);
   var elem_channel = document.querySelector(_conf.elem.channel);
   if (elem_vid && elem_ccbtn && elem_channel) {
+    if (elem_vid.paused) return;
     var title = elem_channel.getAttribute("title") || "";
     if(title.toLowerCase().indexOf("unavailable") !== -1) {
       // return because there are no cc
