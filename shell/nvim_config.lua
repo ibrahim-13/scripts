@@ -51,6 +51,14 @@ vim.opt.rtp:prepend(lazypath)
 
 -- Setup plug-ins
 require("lazy").setup({
+	-- lsp-zero
+	{'williamboman/mason.nvim'},
+	{'williamboman/mason-lspconfig.nvim'},
+	{'VonHeikemen/lsp-zero.nvim', branch = 'v3.x'},
+	{'neovim/nvim-lspconfig'},
+	{'hrsh7th/cmp-nvim-lsp'},
+	{'hrsh7th/nvim-cmp'},
+	{'L3MON4D3/LuaSnip'},
 	-- Telescope
 	{'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' }},
 	-- Treesitter
@@ -65,6 +73,37 @@ require("lazy").setup({
 	{ 'smoka7/hop.nvim' },
 	-- Comment
 	{ 'numToStr/Comment.nvim', opts = {}, lazy = false, }
+})
+
+--[[
+lsp-zero
+--------
+https://github.com/VonHeikemen/lsp-zero.nvim
+--]]
+local lsp_zero = require('lsp-zero')
+
+lsp_zero.on_attach(function(client, bufnr)
+  -- see :help lsp-zero-keybindings
+  -- to learn the available actions
+  lsp_zero.default_keymaps({buffer = bufnr})
+end)
+
+-- to learn how to use mason.nvim with lsp-zero
+-- read this: https://github.com/VonHeikemen/lsp-zero.nvim/blob/v3.x/doc/md/guides/integrate-with-mason-nvim.md
+require('mason').setup({})
+require('mason-lspconfig').setup({
+  ensure_installed = {},
+  handlers = {
+    lsp_zero.default_setup,
+  },
+})
+
+require('mason').setup({})
+require('mason-lspconfig').setup({
+  ensure_installed = {'lua_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'jsonls', 'tsserver', 'sqls', 'yamlls'},
+  handlers = {
+    lsp_zero.default_setup,
+  },
 })
 
 --[[
@@ -159,10 +198,10 @@ require('lualine').setup {
 	},
 	sections = {
 		lualine_a = {'mode'},
-		lualine_b = {'branch', 'diff', 'diagnostics'},
+		lualine_b = {'branch', 'diff'},
 		lualine_c = {{ 'filename', file_status = true, path = 1 }},
 		lualine_x = {'encoding', 'fileformat', 'filetype'},
-		lualine_y = {'progress'},
+		lualine_y = {'diagnostics', 'progress'},
 		lualine_z = {'location'}
 	  },
 	inactive_sections = {
