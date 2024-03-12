@@ -241,6 +241,7 @@ function tmux_is_installed {
 }
 
 function tmux_install {
+	sudo dnf check-update
 	sudo dnf install tmux
 }
 
@@ -1156,6 +1157,16 @@ function neovim_install {
 	}
 	# Store created_at so that we can compare later for updating the app
 	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+
+	# install ripgrep if not installed
+	if ! command -v ripgrep &> "/dev/null"
+	then
+		echo "installing: ripgrep"
+		sudo dnf check-update
+		sudo dnf install ripgrep
+	else
+		echo "already installed: ripgrep"
+	fi
 }
 
 function neovim_update {

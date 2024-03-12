@@ -72,11 +72,6 @@ echo = Git Version Manager =
 echo =======================
 dnf install git
 
-echo ===========
-echo = ripgrep =
-echo ===========
-dnf install ripgrep
-
 echo ==============
 echo = GitHub Cli =
 echo ==============
