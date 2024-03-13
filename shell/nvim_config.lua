@@ -98,6 +98,8 @@ require('mason-lspconfig').setup({
   },
 })
 
+-- Run command :Mason to manage packages
+-- Commands are prefixed with Mason, they can be cycled by typing :Maon and then TAB
 require('mason').setup({})
 require('mason-lspconfig').setup({
   ensure_installed = {'lua_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'jsonls', 'tsserver', 'sqls', 'yamlls'},
@@ -114,6 +116,7 @@ Commands
 	Install language	: TSInstall <language_to_install>
 	Update				: TSUpdate | TSUpdate all
 	Installation Status	: TSInstallInfo
+Commands are prefixed with TS, they can by cycled by typing :TS and then TAB
 --]]
 require("nvim-treesitter.configs").setup {
 	ensure_installed = { "bash", "c", "cpp", "css", "diff", "dockerfile", "dot", "go", "gosum", "gowork", "gpg", "graphql", "html", "javascript", "json", "jsonc", "lua", "make", "markdown", "passwd", "pem", "printf", "proto", "python", "scss", "sql", "templ", "terraform", "toml", "tsx", "typescript", "xml", "yaml" },
@@ -435,4 +438,10 @@ vim.keymap.set('',
 -- VIM motions
 --------------
 -- https://neovim.io/doc/user/motion.html
+--
+-- Get LSP logs location
+------------------------
+-- :lua =require('vim.lsp.log').get_filename()
+-- Set log level in init.lua
+-- vim.lsp.set_log_level('debug')
 --]]

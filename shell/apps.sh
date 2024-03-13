@@ -15,6 +15,7 @@
 REGISTERED_APPS=""
 DIR_BASH_CONFIG="$HOME/.bashrc_custom"
 FILE_BASHRC="$HOME/.bashrc"
+HAS_RUN_DNF_CHECK_UPDATE="f"
 
 ##########################
 # how registration works #
@@ -212,7 +213,7 @@ if [ -d "$DIR_BASH_CONFIG" ]; then
 			. "\$i"
 		fi
 	done
-	unser i
+	unset i
 fi
 
 $ALIAS_STR_END
@@ -220,6 +221,23 @@ EOT
 		fi
 	else
 		echo "err!! not found $FILE_BASHRC"
+	fi
+	if [[ ! -d "$HOME/.config" ]]
+	then
+		echo "creating config directory"
+		mkdir "$HOME/.config"
+	fi
+}
+
+# other helper functions
+
+# update system package list
+function update_package_list {
+	if [[ ! "$HAS_RUN_DNF_CHECK_UPDATE" == "t" ]]
+	then
+		echo "updateing system packages"
+		sudo dnf check-update
+		HAS_RUN_DNF_CHECK_UPDATE="t"
 	fi
 }
 
@@ -241,12 +259,12 @@ function tmux_is_installed {
 }
 
 function tmux_install {
-	sudo dnf check-update
+	update_package_list
 	sudo dnf install tmux
 }
 
 function tmux_update {
-	sudo dnf check-update
+	update_package_list
 	sudo dnf upgrade tmux
 }
 
@@ -1162,10 +1180,42 @@ function neovim_install {
 	if ! command -v ripgrep &> "/dev/null"
 	then
 		echo "installing: ripgrep"
-		sudo dnf check-update
+		update_package_list
 		sudo dnf install ripgrep
 	else
 		echo "already installed: ripgrep"
+	fi
+	# install gcc if not installed
+	if ! command -v gcc &> "/dev/null"
+	then
+		echo "installing: gcc"
+		update_package_list
+		sudo dnf install gcc
+	else
+		echo "already installed: ripgrep"
+	fi
+	# install g++ if not installed
+	if ! command -v g++ &> "/dev/null"
+	then
+		echo "installing: g++"
+		update_package_list
+		sudo dnf install g++
+	else
+		echo "already installed: ripgrep"
+	fi
+	# check if golang is installed
+	if ! command -v go &> "/dev/null"
+	then
+		echo "@@@@@@@@@@@@@"
+		echo "go: not found, golang should be installed for current neovim lsp: sqls"
+		echo "@@@@@@@@@@@@@"
+	fi
+	# check if node is installed
+	if ! command -v node &> "/dev/null"
+	then
+		echo "@@@@@@@@@@@@@"
+		echo "node: not found, node.js should be installed for current neovim lsp: bashls"
+		echo "@@@@@@@@@@@@@"
 	fi
 }
 
