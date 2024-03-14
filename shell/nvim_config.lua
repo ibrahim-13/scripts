@@ -379,6 +379,18 @@ vim.keymap.set('n', 'gn', ':tab split<CR>')
 -- Close the current tab with 'gc' in normal mode
 vim.keymap.set('n', 'gc', ':tabc<CR>')
 
+--[[
+Custom Commands
+--]]
+local function CmdShowLspLog()
+	local logfile = require('vim.lsp.log').get_filename()
+	vim.cmd(([[tabnew %s]]):format(logfile))
+end
+-- Type :CmdShowLspLog to open the lsp.log file
+vim.api.nvim_create_user_command("CmdShowLspLog", CmdShowLspLog, {
+    desc = "Opens the lsp log.",
+})
+
 -- hop.nvim
 -- Find with 1 char with 'f' in the visible buffer
 vim.keymap.set('',
@@ -444,4 +456,8 @@ vim.keymap.set('',
 -- :lua =require('vim.lsp.log').get_filename()
 -- Set log level in init.lua
 -- vim.lsp.set_log_level('debug')
+--
+-- View log messages
+--------------------
+-- :messages
 --]]
