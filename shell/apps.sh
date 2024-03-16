@@ -15,7 +15,7 @@
 REGISTERED_APPS=""
 DIR_BASH_CONFIG="$HOME/.bashrc_custom"
 FILE_BASHRC="$HOME/.bashrc"
-HAS_RUN_DNF_CHECK_UPDATE="f"
+HAS_RUN_SYSTEM_PACKAGE_LIST_UPDATE="f"
 
 ##########################
 # how registration works #
@@ -160,7 +160,7 @@ function func_ghutil_get_msg {
 # check if json is valid
 # $1 : json string
 function func_ghutil_check_valid_json {
-	if [ "$(echo "$1" | jq empty > "/dev/null" 2>&1; echo $?)" -eq 0 ]
+	if [ "$(echo "$1" | jq empty > /dev/null 2>&1; echo $?)" -eq 0 ]
 	then
 		return 0
 	else
@@ -232,13 +232,58 @@ EOT
 # other helper functions
 
 # update system package list
-function update_package_list {
-	if [[ ! "$HAS_RUN_DNF_CHECK_UPDATE" == "t" ]]
+function package_list_update {
+	if [[ ! "$HAS_RUN_SYSTEM_PACKAGE_LIST_UPDATE" == "t" ]]
 	then
-		echo "updateing system packages"
-		sudo dnf check-update
-		HAS_RUN_DNF_CHECK_UPDATE="t"
+		if command -v dnf &> /dev/null
+		then
+			echo "dnf: updateing system packages"
+			sudo dnf check-update
+		elif command -v apt-get &> /dev/null
+		then
+			echo "apt-get: updateing system packages"
+			sudo apt-get update
+		else
+			echo "err! : could not detect package manager"
+		fi
+		HAS_RUN_SYSTEM_PACKAGE_LIST_UPDATE="t"
 	fi
+}
+
+# install system package
+# $1 : package name
+function package_install {
+	package_list_update
+	if command -v dnf &> /dev/null
+	then
+		echo "dnf: installing $1"
+		sudo dnf install "$1"
+	elif command -v apt-get &> /dev/null
+	then
+		echo "apt-get: installing $1"
+		sudo apt-get install "$1"
+	else
+		echo "err! : could not detect package manager"
+	fi
+
+}
+
+# update system package
+# $1 : package name
+function package_update {
+	package_list_update
+	if command -v dnf &> /dev/null
+	then
+		echo "dnf: installing $1"
+		sudo dnf upgrade "$1"
+	elif command -v apt-get &> /dev/null
+	then
+		echo "apt-get: installing $1"
+		sudo apt-get install "$1"
+	else
+		echo "err! : could not detect package manager"
+	fi
+
 }
 
 ###########################
@@ -250,7 +295,7 @@ function update_package_list {
 ################
 
 function tmux_is_installed {
-	if ! command -v tmux &> "/dev/null"
+	if ! command -v tmux &> /dev/null
 	then
 		return 0
 	else
@@ -259,13 +304,11 @@ function tmux_is_installed {
 }
 
 function tmux_install {
-	update_package_list
-	sudo dnf install tmux
+	package_install tmux
 }
 
 function tmux_update {
-	update_package_list
-	sudo dnf upgrade tmux
+	package_update tmux
 }
 
 function tmux_remove {
@@ -273,7 +316,7 @@ function tmux_remove {
 }
 
 function tmux_config {
-	if ! command -v git &> "/dev/null"
+	if ! command -v git &> /dev/null
 	then
 		echo "git not installed, required for config"
 		return
@@ -289,7 +332,7 @@ function tmux_config {
 	if [[ ! -d "$CONFIG_DIR" ]]; then mkdir "$CONFIG_DIR"; fi;
 
 	git clone "https://github.com/tmux-plugins/tpm" "$PLUGIN_DIR"
-	tee "$CONFIG_FILE" > "/dev/null" <<EOT
+	tee "$CONFIG_FILE" > /dev/null <<EOT
 # Base config- https://github.com/dreamsofcode-io/tmux/blob/main/tmux.conf
 # Common commands:
 #	tmux		: create a default session and start
@@ -381,7 +424,7 @@ function tmux_config_remove {
 ##############
 
 function lf_is_installed {
-	if ! command -v lf &> "/dev/null"
+	if ! command -v lf &> /dev/null
 	then
 		# command not found, return 0
 		return 0
@@ -516,7 +559,7 @@ function lf_config_remove {
 ###############
 
 function fzf_is_installed {
-	if ! command -v fzf &> "/dev/null"
+	if ! command -v fzf &> /dev/null
 	then
 		# command not found, return 0
 		return 0
@@ -652,7 +695,7 @@ function fzf_config_remove {
 ################
 
 function hugo_is_installed {
-	if ! command -v hugo &> "/dev/null"
+	if ! command -v hugo &> /dev/null
 	then
 		# command not found, return 0
 		return 0
@@ -759,7 +802,7 @@ function hugo_config_remove {
 ####################
 
 function lazygit_is_installed {
-	if ! command -v lazygit &> "/dev/null"
+	if ! command -v lazygit &> /dev/null
 	then
 		# command not found, return 0
 		return 0
@@ -866,7 +909,7 @@ function lazygit_config_remove {
 ####################
 
 function marktext_is_installed {
-	if ! command -v marktext &> "/dev/null"
+	if ! command -v marktext &> /dev/null
 	then
 		# command not found, return 0
 		return 0
@@ -1006,7 +1049,7 @@ function marktext_config_remove {
 ##################
 
 function golang_is_installed {
-	if ! command -v go &> "/dev/null"
+	if ! command -v go &> /dev/null
 	then
 		# command not found, return 0
 		return 0
@@ -1057,7 +1100,7 @@ function golang_install {
 	sudo tar -C "/opt" -xzf "$GO_TMP_ARCHIVE"
 
 	# Clean up archive file
-	sudo rm $GO_TMP_ARCHIVE
+	sudo rm "$GO_TMP_ARCHIVE"
 }
 
 function golang_update {
@@ -1066,7 +1109,7 @@ function golang_update {
 	local INSTALL_DIR="/opt/go"
 	if [ -e "$INSTALL_DIR/VERSION" ]
 	then
-		GO_VER_INSTALLED=$(cat "$INSTALL_DIR/VERSION" | head --lines 1)
+		GO_VER_INSTALLED=$(head --lines 1 < "$INSTALL_DIR/VERSION")
 	fi
 	GO_VER=$(wget -qO- https://go.dev/VERSION?m=text | head --lines 1)
 	if [ "$GO_VER_INSTALLED" = "$GO_VER" ]
@@ -1116,7 +1159,7 @@ function golang_config_remove {
 ##################
 
 function neovim_is_installed {
-	if ! command -v nvim &> "/dev/null"
+	if ! command -v nvim &> /dev/null
 	then
 		# command not found, return 0
 		return 0
@@ -1194,53 +1237,50 @@ function neovim_install {
 	type -p libfuse2 || {
 		echo "libfuse2 not found, extracting AppImage"
 		local CURR_DIR="$PWD"
-		cd "$INSTALL_DIR"
+		cd "$INSTALL_DIR" || exit
 		echo "extracting AppImage contents"
 		sudo "$FILE_APPIMAGE" --appimage-extract >/dev/null
 		sudo rm "$FILE_SYMLINK"
 		sudo ln -s "$INSTALL_DIR/squashfs-root/AppRun" "$FILE_SYMLINK"
 		sudo rm "$FILE_APPIMAGE"
-		cd "$CURR_DIR"
+		cd "$CURR_DIR" || exit
 	}
 	# Store created_at so that we can compare later for updating the app
 	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
 
 	# install ripgrep if not installed
-	if ! command -v ripgrep &> "/dev/null"
+	if ! command -v ripgrep &> /dev/null
 	then
 		echo "installing: ripgrep"
-		update_package_list
-		sudo dnf install ripgrep
+		package_install ripgrep
 	else
 		echo "already installed: ripgrep"
 	fi
 	# install gcc if not installed
-	if ! command -v gcc &> "/dev/null"
+	if ! command -v gcc &> /dev/null
 	then
 		echo "installing: gcc"
-		update_package_list
-		sudo dnf install gcc
+		package_install gcc
 	else
 		echo "already installed: ripgrep"
 	fi
 	# install g++ if not installed
-	if ! command -v g++ &> "/dev/null"
+	if ! command -v g++ &> /dev/null
 	then
 		echo "installing: g++"
-		update_package_list
-		sudo dnf install g++
+		package_install g++
 	else
 		echo "already installed: ripgrep"
 	fi
 	# check if golang is installed
-	if ! command -v go &> "/dev/null"
+	if ! command -v go &> /dev/null
 	then
 		echo "@@@@@@@@@@@@@"
 		echo "go: not found, golang should be installed for current neovim lsp: sqls"
 		echo "@@@@@@@@@@@@@"
 	fi
 	# check if node is installed
-	if ! command -v node &> "/dev/null"
+	if ! command -v node &> /dev/null
 	then
 		echo "@@@@@@@@@@@@@"
 		echo "node: not found, node.js should be installed for current neovim lsp: bashls"
@@ -1293,7 +1333,7 @@ function func_config_bash {
 	local FILE_CONFIG="$DIR_BASH_CONFIG/custom_bashrc.sh"
 
 	echo "writing to: $FILE_CONFIG"
-	tee "$FILE_CONFIG" > "/dev/null" <<EOT
+	tee "$FILE_CONFIG" > /dev/null <<EOT
 #!/bin/bash
 
 func_fzf_px() {
