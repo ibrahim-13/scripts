@@ -411,7 +411,7 @@ vim.keymap.set('',
 		hop.hint_patterns({ direction = nil, current_line_only = false })
 	end,
 	{ remap = true })
-	
+
 vim.keymap.set('',
 	'T', function()
 		hop.hint_words({ direction = nil, current_line_only = false })

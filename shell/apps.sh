@@ -17,6 +17,46 @@ DIR_BASH_CONFIG="$HOME/.bashrc_custom"
 FILE_BASHRC="$HOME/.bashrc"
 HAS_RUN_SYSTEM_PACKAGE_LIST_UPDATE="f"
 
+# color variables
+TXT_RESET="\033[0m"
+TXT_COL_BLACK="\033[30m"
+TXT_COL_RED="\033[31m"
+TXT_COL_GREEN="\033[32m"
+TXT_COL_YELLOW="\033[33m"
+TXT_COL_BLUE="\033[34m"
+TXT_COL_MAGENTA="\033[35m"
+TXT_COL_CYAN="\033[36m"
+TXT_COL_WHITE="\033[37m"
+TXT_COL_BH_BLACK="\033[40m"
+TXT_COL_BG_RED="\033[41m"
+TXT_COL_BG_GREEN="\033[42m"
+TXT_COL_BG_YELLOW="\033[43m"
+TXT_COL_BG_BLUE="\033[44m"
+TXT_COL_BG_MAGENTA="\033[45m"
+TXT_COL_BG_CYAN="\033[46m"
+TXT_COL_BG_WHITE="\033[47m"
+TXT_COL_BOLD="\e[1m"
+TXT_COL_DIM="\e[2m"
+
+# print message with color
+# $1 : msg
+
+function print_header {
+	printf "${TXT_COL_YELLOW} ${1} ${TXT_RESET}\n"
+}
+
+function print_info {
+	printf "${TXT_COL_CYAN} ${1} ${TXT_RESET}\n"
+}
+
+function print_success {
+	printf "${TXT_COL_GREEN} ${1} ${TXT_RESET}\n"
+}
+
+function print_danger {
+	printf "${TXT_COL_BG_RED} ${1} ${TXT_RESET}\n"
+}
+
 ##########################
 # how registration works #
 #------------------------#
@@ -220,7 +260,7 @@ $ALIAS_STR_END
 EOT
 		fi
 	else
-		echo "err!! not found $FILE_BASHRC"
+		print_danger "err!! not found $FILE_BASHRC"
 	fi
 	if [[ ! -d "$HOME/.config" ]]
 	then
@@ -244,7 +284,7 @@ function package_list_update {
 			echo "apt-get: updateing system packages"
 			sudo apt-get update
 		else
-			echo "err! : could not detect package manager"
+			print_danger "err! : could not detect package manager"
 		fi
 		HAS_RUN_SYSTEM_PACKAGE_LIST_UPDATE="t"
 	fi
@@ -263,7 +303,7 @@ function package_install {
 		echo "apt-get: installing $1"
 		sudo apt-get install "$1"
 	else
-		echo "err! : could not detect package manager"
+		print_danger "err! : could not detect package manager"
 	fi
 
 }
@@ -281,7 +321,7 @@ function package_update {
 		echo "apt-get: installing $1"
 		sudo apt-get install "$1"
 	else
-		echo "err! : could not detect package manager"
+		print_danger "err! : could not detect package manager"
 	fi
 
 }
@@ -318,7 +358,7 @@ function tmux_remove {
 function tmux_config {
 	if ! command -v git &> /dev/null
 	then
-		echo "git not installed, required for config"
+		print_danger "git not installed, required for config"
 		return
 	fi
 
@@ -442,17 +482,16 @@ function lf_install {
 	local GH_MSG
 
 	GH_RESPONSE=$(func_github_asset gokcehan lf 'select(.name | contains("lf-linux-amd64.tar.gz"))')
-	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+	if [[ -z "$GH_RESPONSE" ]]; then print_danger "error fetching github response"; exit 1; fi;
 
 	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
-	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
-	echo "last updated: $GH_CREATED_AT"
+	if [[ -z "$GH_CREATED_AT" ]]; then print_danger "error getting created_at from github response"; exit 1; fi;
 
 	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
-	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+	if [[ -z "$GH_DL_URL" ]]; then print_danger "error getting download_url from github response"; exit 1; fi;
 
 	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
-	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+	if [[ -z "$GH_SOURCE" ]]; then print_danger "error getting source from github response"; exit 1; fi;
 
 	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
 
@@ -577,17 +616,16 @@ function fzf_install {
 	local GH_MSG
 
 	GH_RESPONSE=$(func_github_asset junegunn fzf 'select(.name | contains("linux_amd64.tar.gz"))')
-	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+	if [[ -z "$GH_RESPONSE" ]]; then print_danger "error fetching github response"; exit 1; fi;
 
 	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
-	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
-	echo "last updated: $GH_CREATED_AT"
+	if [[ -z "$GH_CREATED_AT" ]]; then print_danger "error getting created_at from github response"; exit 1; fi;
 
 	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
-	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+	if [[ -z "$GH_DL_URL" ]]; then print_danger "error getting download_url from github response"; exit 1; fi;
 
 	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
-	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+	if [[ -z "$GH_SOURCE" ]]; then print_danger "error getting source from github response"; exit 1; fi;
 
 	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
 
@@ -713,17 +751,16 @@ function hugo_install {
 	local GH_MSG
 
 	GH_RESPONSE=$(func_github_asset gohugoio hugo 'select(.name | contains("linux-amd64.tar.gz") and contains("extended"))')
-	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+	if [[ -z "$GH_RESPONSE" ]]; then print_danger "error fetching github response"; exit 1; fi;
 
 	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
-	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
-	echo "last updated: $GH_CREATED_AT"
+	if [[ -z "$GH_CREATED_AT" ]]; then print_danger "error getting created_at from github response"; exit 1; fi;
 
 	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
-	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+	if [[ -z "$GH_DL_URL" ]]; then print_danger "error getting download_url from github response"; exit 1; fi;
 
 	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
-	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+	if [[ -z "$GH_SOURCE" ]]; then print_danger "error getting source from github response"; exit 1; fi;
 
 	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
 
@@ -820,17 +857,16 @@ function lazygit_install {
 	local GH_MSG
 
 	GH_RESPONSE=$(func_github_asset jesseduffield lazygit 'select(.name | contains("Linux_x86_64.tar.gz"))')
-	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+	if [[ -z "$GH_RESPONSE" ]]; then print_danger "error fetching github response"; exit 1; fi;
 
 	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
-	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
-	echo "last updated: $GH_CREATED_AT"
+	if [[ -z "$GH_CREATED_AT" ]]; then print_danger "error getting created_at from github response"; exit 1; fi;
 
 	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
-	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+	if [[ -z "$GH_DL_URL" ]]; then print_danger "error getting download_url from github response"; exit 1; fi;
 
 	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
-	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+	if [[ -z "$GH_SOURCE" ]]; then print_danger "error getting source from github response"; exit 1; fi;
 
 	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
 
@@ -927,17 +963,16 @@ function marktext_install {
 	local GH_MSG
 
 	GH_RESPONSE=$(func_github_asset marktext marktext 'select(.name | contains("AppImage"))')
-	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+	if [[ -z "$GH_RESPONSE" ]]; then print_danger "error fetching github response"; exit 1; fi;
 
 	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
-	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
-	echo "last updated: $GH_CREATED_AT"
+	if [[ -z "$GH_CREATED_AT" ]]; then print_danger "error getting created_at from github response"; exit 1; fi;
 
 	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
-	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+	if [[ -z "$GH_DL_URL" ]]; then print_danger "error getting download_url from github response"; exit 1; fi;
 
 	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
-	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+	if [[ -z "$GH_SOURCE" ]]; then print_danger "error getting source from github response"; exit 1; fi;
 
 	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
 
@@ -1086,7 +1121,7 @@ function golang_install {
 	# previous archive file and start over.
 	if [ -e "$GO_TMP_ARCHIVE" ]
 	then
-		echo "cleaning up previously downloaded archive..."
+		print_info "cleaning up previously downloaded archive..."
 		sudo rm "$GO_TMP_ARCHIVE"
 	fi
 
@@ -1177,17 +1212,16 @@ function neovim_install {
 	local GH_MSG
 
 	GH_RESPONSE=$(func_github_asset neovim neovim 'select(.name == "nvim.appimage")')
-	if [[ -z "$GH_RESPONSE" ]]; then echo "error fetching github response"; exit 1; fi;
+	if [[ -z "$GH_RESPONSE" ]]; then print_danger "error fetching github response"; exit 1; fi;
 
 	GH_CREATED_AT=$(func_ghutil_get_created_at "$GH_RESPONSE")
-	if [[ -z "$GH_CREATED_AT" ]]; then echo "error getting created_at from github response"; exit 1; fi;
-	echo "last updated: $GH_CREATED_AT"
+	if [[ -z "$GH_CREATED_AT" ]]; then print_danger "error getting created_at from github response"; exit 1; fi;
 
 	GH_DL_URL=$(func_ghutil_get_downloadurl "$GH_RESPONSE")
-	if [[ -z "$GH_DL_URL" ]]; then echo "error getting download_url from github response"; exit 1; fi;
+	if [[ -z "$GH_DL_URL" ]]; then print_danger "error getting download_url from github response"; exit 1; fi;
 
 	GH_SOURCE=$(func_ghutil_get_source "$GH_RESPONSE")
-	if [[ -z "$GH_SOURCE" ]]; then echo "error getting source from github response"; exit 1; fi;
+	if [[ -z "$GH_SOURCE" ]]; then print_danger "error getting source from github response"; exit 1; fi;
 
 	GH_MSG=$(func_ghutil_get_msg "$GH_RESPONSE")
 
@@ -1235,10 +1269,9 @@ function neovim_install {
 	sudo ln -s "$FILE_APPIMAGE" "$FILE_SYMLINK"
 	# in case libfuse2 is not installed, then extract binary from AppImage
 	type -p libfuse2 || {
-		echo "libfuse2 not found, extracting AppImage"
+		print_info "libfuse2 not found, extracting AppImage"
 		local CURR_DIR="$PWD"
 		cd "$INSTALL_DIR" || exit
-		echo "extracting AppImage contents"
 		sudo "$FILE_APPIMAGE" --appimage-extract >/dev/null
 		sudo rm "$FILE_SYMLINK"
 		sudo ln -s "$INSTALL_DIR/squashfs-root/AppRun" "$FILE_SYMLINK"
@@ -1275,16 +1308,12 @@ function neovim_install {
 	# check if golang is installed
 	if ! command -v go &> /dev/null
 	then
-		echo "@@@@@@@@@@@@@"
-		echo "go: not found, golang should be installed for current neovim lsp: sqls"
-		echo "@@@@@@@@@@@@@"
+		print_danger "go: not found, golang should be installed for current neovim lsp: sqls"
 	fi
 	# check if node is installed
 	if ! command -v node &> /dev/null
 	then
-		echo "@@@@@@@@@@@@@"
-		echo "node: not found, node.js should be installed for current neovim lsp: bashls"
-		echo "@@@@@@@@@@@@@"
+		print_danger "node: not found, node.js should be installed for current neovim lsp: bashls"
 	fi
 }
 
@@ -1311,7 +1340,7 @@ function neovim_config {
 	then
 		cp nvim_config.lua "$HOME/.config/nvim/init.lua"
 	else
-		echo "config file not found: $PWD/nvim_config.lua"
+		print_danger "config file not found: $PWD/nvim_config.lua"
 	fi
 }
 
@@ -1355,7 +1384,7 @@ func_fzf_px() {
 	fi
 }
 
-func_lfcd () {
+func_lfcd() {
     cd "\$(command lf -single -print-last-dir "\$@")"
 }
 
@@ -1427,7 +1456,7 @@ function func_config_os {
 		rm -rf "$DIR_KACTIVITYMANAGERD"
 		touch "$DIR_KACTIVITYMANAGERD"
 	else
-		echo "directory not found: $DIR_KACTIVITYMANAGERD"
+		print_info "directory not found: $DIR_KACTIVITYMANAGERD"
 	fi
 
 	echo "disabling gnome/gtk recent files"
@@ -1437,7 +1466,7 @@ function func_config_os {
 		gsettings set org.gnome.desktop.privacy remember-app-usage false
 		gsettings set org.gnome.desktop.privacy recent-files-max-age 0
 	else
-		echo "not found: gsettings"
+		print_info "not found: gsettings"
 	fi
 
 	echo "deleting recent documents"
@@ -1447,7 +1476,7 @@ function func_config_os {
 		rm -rf "$DIR_RECENTDOCUMENTS"
 		touch "$DIR_RECENTDOCUMENTS"
 	else
-		echo "directory not found: $DIR_RECENTDOCUMENTS"
+		print_info "directory not found: $DIR_RECENTDOCUMENTS"
 	fi
 
 	echo "deleting recently used history database"
@@ -1457,7 +1486,7 @@ function func_config_os {
 		rm "$FILE_RECENTDOCUMENTSXBEL"
 		mkdir "$FILE_RECENTDOCUMENTSXBEL"
 	else
-		echo "file not found: $FILE_RECENTDOCUMENTSXBEL"
+		print_info "file not found: $FILE_RECENTDOCUMENTSXBEL"
 	fi
 
 	echo "deleting user places history database"
@@ -1466,7 +1495,7 @@ function func_config_os {
 	then
 		rm "$FILE_USERPLACESXBEL"
 	else
-		echo "file not found: $FILE_USERPLACESXBEL"
+		print_info "file not found: $FILE_USERPLACESXBEL"
 	fi
 
 
@@ -1477,7 +1506,7 @@ function func_config_os {
 		rm -rf "$DIR_THUMBNAILSCACHE"
 		touch "$DIR_THUMBNAILSCACHE"
 	else
-		echo "directory not found: $DIR_THUMBNAILSCACHE"
+		print_info "directory not found: $DIR_THUMBNAILSCACHE"
 	fi
 }
 
@@ -1505,56 +1534,56 @@ function menu_manage_app {
 	do
 		case $opt in
 			"install")
-				echo "# $1:install:start #"
+				print_info "# $1:install:start #"
 				run_func "${1}_install"
-				echo "# $1:install:end #"
+				print_info "# $1:install:end #"
 
-				echo "# $1:config:start #"
+				print_info "# $1:config:start #"
 				run_func "${1}_config"
-				echo "# $1:config:end #"
+				print_info "# $1:config:end #"
 
 				break
 				;;
 			"update")
-				echo "# $1:update:start #"
+				print_info "# $1:update:start #"
 				run_func "${1}_update"
-				echo "# $1:update:end #"
+				print_info "# $1:update:end #"
 
 				break
 				;;
 			"set_config")
-				echo "# $1:config_remove:start #"
+				print_info "# $1:config_remove:start #"
 				run_func "${1}_config_remove"
-				echo "# $1:config_remove:end #"
+				print_info "# $1:config_remove:end #"
 
-				echo "# $1:config:start #"
+				print_info "# $1:config:start #"
 				run_func "${1}_config"
-				echo "# $1:config:end #"
+				print_info "# $1:config:end #"
 
 				break
 				;;
 			"remove_config")
-				echo "# $1:config_remove:start #"
+				print_info "# $1:config_remove:start #"
 				run_func "${1}_config_remove"
-				echo "# $1:config_remove:end #"
+				print_info "# $1:config_remove:end #"
 
 				break
 				;;
 			"remove")
-				echo "# $1:remove:start #"
+				print_info "# $1:remove:start #"
 				run_func "${1}_remove"
-				echo "# $1:remove:end #"
+				print_info "# $1:remove:end #"
 
-				echo "# $1:config_remove:start #"
+				print_info "# $1:config_remove:start #"
 				run_func "${1}_config_remove"
-				echo "# $1:config_remove:end #"
+				print_info "# $1:config_remove:end #"
 
 				break
 				;;
 			"back")
 				break
 				;;
-			*) echo "invalid command: $REPLY";;
+			*) print_danger "invalid command: $REPLY";;
 		esac
 	done
 }
@@ -1588,7 +1617,7 @@ function menu_apps {
 		local SELECTED_APP=${opt:4}
 		if [[ $SELECTED_APP == "" ]] || [[ ! $REGISTERED_APPS == *"$SELECTED_APP"* ]]
 		then
-			echo "invalid app: $REPLY"
+			print_danger "invalid app: $REPLY"
 		else
 			menu_manage_app "$SELECTED_APP"
 		fi
@@ -1614,14 +1643,14 @@ function menu_main {
 			"quit")
 				break
 				;;
-			*) echo "invalid operation $REPLY";;
+			*) print_danger "invalid operation $REPLY";;
 		esac
 	done
 }
 
-echo "=================="
-echo "= app operations ="
-echo "=================="
+print_header "=================="
+print_header "= app operations ="
+print_header "=================="
 
 # setup bash configurations
 setup_bash_config
