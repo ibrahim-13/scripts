@@ -220,7 +220,7 @@ function run_func {
 # print error msg and exit
 # $1 : error msg
 function errexit {
-	echo "$1" >&2
+	print_danger "$1" >&2
 	exit 1
 }
 
@@ -1271,12 +1271,12 @@ function neovim_install {
 	type -p libfuse2 || {
 		print_info "libfuse2 not found, extracting AppImage"
 		local CURR_DIR="$PWD"
-		cd "$INSTALL_DIR" || exit
+		cd "$INSTALL_DIR" || errexit "could not change directory to: $INSTALL_DIR"
 		sudo "$FILE_APPIMAGE" --appimage-extract >/dev/null
 		sudo rm "$FILE_SYMLINK"
 		sudo ln -s "$INSTALL_DIR/squashfs-root/AppRun" "$FILE_SYMLINK"
 		sudo rm "$FILE_APPIMAGE"
-		cd "$CURR_DIR" || exit
+		cd "$CURR_DIR" || errexit "could not change directory to: $CURR_DIR"
 	}
 	# Store created_at so that we can compare later for updating the app
 	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
@@ -1339,6 +1339,19 @@ function neovim_config {
 	if [[ -f nvim_config.lua ]]
 	then
 		cp nvim_config.lua "$HOME/.config/nvim/init.lua"
+		read -p "Kill? (Y/n) " TMP_ANS
+		case $TMP_ANS in
+			[Nn])
+				echo "using full configuration"
+				;;
+			*)
+				echo "using miniaml configuration"
+				if [[ ! -f "$HOME/.config/nvim/minimal" ]]
+				then
+					touch "$HOME/.config/nvim/minimal"
+				fi
+				;;
+			esac
 	else
 		print_danger "config file not found: $PWD/nvim_config.lua"
 	fi
