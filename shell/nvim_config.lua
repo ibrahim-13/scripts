@@ -2,6 +2,27 @@
 -- LINUX: ~/.config/nvim/init.lua
 -- WINDOWS: ~/AppData/Local/nvim/init.lua
 
+-----------
+-- Utils --
+-----------
+
+local function tableMerge(source, target)
+	for _, v in ipairs(source) do
+		table.insert(target, v)
+	end
+end
+
+local function check_if_minimal_conf()
+	local name = vim.fn.stdpath('config') .. '/minimal'
+	local f = io.open(name, "r")
+	if f ~= nil then
+		io.close(f)
+		return true
+	else
+		return false
+	end
+end
+
 -------------
 -- Options --
 -------------
@@ -38,95 +59,109 @@ https://github.com/folke/lazy.nvim
 --]]
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
-  vim.fn.system({
-    "git",
-    "clone",
-    "--filter=blob:none",
-    "https://github.com/folke/lazy.nvim.git",
-    "--branch=stable", -- latest stable release
-    lazypath,
-  })
+	vim.fn.system({
+		"git",
+		"clone",
+		"--filter=blob:none",
+		"https://github.com/folke/lazy.nvim.git",
+		"--branch=stable", -- latest stable release
+		lazypath,
+	})
 end
 vim.opt.rtp:prepend(lazypath)
 
 -- Setup plug-ins
-require("lazy").setup({
-	-- lsp-zero
-	{'williamboman/mason.nvim'},
-	{'williamboman/mason-lspconfig.nvim'},
-	{'VonHeikemen/lsp-zero.nvim', branch = 'v3.x'},
-	{'neovim/nvim-lspconfig'},
-	{'hrsh7th/cmp-nvim-lsp'},
-	{'hrsh7th/nvim-cmp'},
-	{'L3MON4D3/LuaSnip'},
+local isMinimal = check_if_minimal_conf()
+local plugins_default = {
 	-- Telescope
-	{'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' }},
-	-- Treesitter
-	{ "nvim-treesitter/nvim-treesitter", build = ":TSUpdate" },
+	{ 'nvim-telescope/telescope.nvim',       branch = '0.1.x',                                dependencies = { 'nvim-lua/plenary.nvim' } },
 	-- Tokyonight Theme
-	{ "folke/tokyonight.nvim", lazy = false, priority = 1000, opts = {} },
+	{ "folke/tokyonight.nvim",               lazy = false,                                    priority = 1000,                           opts = {} },
 	-- Lualine
-	{ 'nvim-lualine/lualine.nvim', dependencies = { 'nvim-tree/nvim-web-devicons' } },
+	{ 'nvim-lualine/lualine.nvim',           dependencies = { 'nvim-tree/nvim-web-devicons' } },
 	-- Indent-Blanckline
-	{ "lukas-reineke/indent-blankline.nvim", main = "ibl", opts = {} },
+	{ "lukas-reineke/indent-blankline.nvim", main = "ibl",                                    opts = {} },
 	-- Hop
 	{ 'smoka7/hop.nvim' },
 	-- Comment
-	{ 'numToStr/Comment.nvim', opts = {}, lazy = false, }
-})
+	{ 'numToStr/Comment.nvim',               opts = {},                                       lazy = false, },
+}
 
---[[
-lsp-zero
---------
-https://github.com/VonHeikemen/lsp-zero.nvim
---]]
-local lsp_zero = require('lsp-zero')
+local plugins_extended = {
+	-- lsp-zero
+	{ 'williamboman/mason.nvim' },
+	{ 'williamboman/mason-lspconfig.nvim' },
+	{ 'VonHeikemen/lsp-zero.nvim',        branch = 'v3.x' },
+	{ 'neovim/nvim-lspconfig' },
+	{ 'hrsh7th/cmp-nvim-lsp' },
+	{ 'hrsh7th/nvim-cmp' },
+	{ 'L3MON4D3/LuaSnip' },
+	-- Treesitter
+	{ "nvim-treesitter/nvim-treesitter",  build = ":TSUpdate" },
+}
 
-lsp_zero.on_attach(function(client, bufnr)
-  -- see :help lsp-zero-keybindings
-  -- to learn the available actions
-  lsp_zero.default_keymaps({buffer = bufnr})
-end)
+local plugins = {}
+tableMerge(plugins_default, plugins)
 
--- to learn how to use mason.nvim with lsp-zero
--- read this: https://github.com/VonHeikemen/lsp-zero.nvim/blob/v3.x/doc/md/guides/integrate-with-mason-nvim.md
-require('mason').setup({})
-require('mason-lspconfig').setup({
-  ensure_installed = {},
-  handlers = {
-    lsp_zero.default_setup,
-  },
-})
+if not isMinimal then
+	tableMerge(plugins_extended, plugins)
+end
 
--- Run command :Mason to manage packages
--- Commands are prefixed with Mason, they can be cycled by typing :Maon and then TAB
-require('mason').setup({})
-require('mason-lspconfig').setup({
-  ensure_installed = {'lua_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'jsonls', 'tsserver', 'sqls', 'yamlls'},
-  handlers = {
-    lsp_zero.default_setup,
-  },
-})
+require("lazy").setup(plugins)
 
---[[
-nvim-treesitter
----------------
-https://github.com/nvim-treesitter/nvim-treesitter
-Commands
-	Install language	: TSInstall <language_to_install>
-	Update				: TSUpdate | TSUpdate all
-	Installation Status	: TSInstallInfo
-Commands are prefixed with TS, they can by cycled by typing :TS and then TAB
---]]
-require("nvim-treesitter.configs").setup {
-	ensure_installed = { "bash", "c", "cpp", "css", "diff", "dockerfile", "dot", "go", "gosum", "gowork", "gpg", "graphql", "html", "javascript", "json", "jsonc", "lua", "make", "markdown", "passwd", "pem", "printf", "proto", "python", "scss", "sql", "templ", "terraform", "toml", "tsx", "typescript", "xml", "yaml" },
-	sync_install = false,
-	auto_install = true,
-	-- ignore_install = { "javascript" },
-	highlight = {
-		enable = true,
-		-- disable = { "javascript" },
-		--[[
+if not isMinimal then
+	--[[
+	lsp-zero
+	--------
+	https://github.com/VonHeikemen/lsp-zero.nvim
+	--]]
+	local lsp_zero = require('lsp-zero')
+
+	lsp_zero.on_attach(function(client, bufnr)
+		-- see :help lsp-zero-keybindings
+		-- to learn the available actions
+		lsp_zero.default_keymaps({ buffer = bufnr })
+	end)
+
+	-- to learn how to use mason.nvim with lsp-zero
+	-- read this: https://github.com/VonHeikemen/lsp-zero.nvim/blob/v3.x/doc/md/guides/integrate-with-mason-nvim.md
+	require('mason').setup({})
+	require('mason-lspconfig').setup({
+		ensure_installed = {},
+		handlers = {
+			lsp_zero.default_setup,
+		},
+	})
+
+	-- Run command :Mason to manage packages
+	-- Commands are prefixed with Mason, they can be cycled by typing :Maon and then TAB
+	require('mason').setup({})
+	require('mason-lspconfig').setup({
+		ensure_installed = { 'lua_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'jsonls', 'tsserver', 'sqls', 'yamlls' },
+		handlers = {
+			lsp_zero.default_setup,
+		},
+	})
+
+	--[[
+	nvim-treesitter
+	---------------
+	https://github.com/nvim-treesitter/nvim-treesitter
+	Commands
+		Install language	: TSInstall <language_to_install>
+		Update				: TSUpdate | TSUpdate all
+		Installation Status	: TSInstallInfo
+	Commands are prefixed with TS, they can by cycled by typing :TS and then TAB
+	--]]
+	require("nvim-treesitter.configs").setup {
+		ensure_installed = { "bash", "c", "cpp", "css", "diff", "dockerfile", "dot", "go", "gosum", "gowork", "gpg", "graphql", "html", "javascript", "json", "jsonc", "lua", "make", "markdown", "passwd", "pem", "printf", "proto", "python", "scss", "sql", "templ", "terraform", "toml", "tsx", "typescript", "xml", "yaml" },
+		sync_install = false,
+		auto_install = true,
+		-- ignore_install = { "javascript" },
+		highlight = {
+			enable = true,
+			-- disable = { "javascript" },
+			--[[
 		disable = function(lang, bug)
 			local max_filesize = 100 * 1024 -- 100 KB
 			local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
@@ -135,9 +170,10 @@ require("nvim-treesitter.configs").setup {
 			end
 		end
 		--]]
-		additional_vim_regex_highlighting = false,
+			additional_vim_regex_highlighting = false,
+		}
 	}
-}
+end
 
 --[[
 telescope.nvim
@@ -200,18 +236,18 @@ require('lualine').setup {
 		theme = 'tokyonight'
 	},
 	sections = {
-		lualine_a = {'mode'},
-		lualine_b = {'branch', 'diff'},
-		lualine_c = {{ 'filename', file_status = true, path = 1 }},
-		lualine_x = {'encoding', 'fileformat', 'filetype'},
-		lualine_y = {'diagnostics', 'progress'},
-		lualine_z = {'location'}
-	  },
+		lualine_a = { 'mode' },
+		lualine_b = { 'branch', 'diff' },
+		lualine_c = { { 'filename', file_status = true, path = 1 } },
+		lualine_x = { 'encoding', 'fileformat', 'filetype' },
+		lualine_y = { 'diagnostics', 'progress' },
+		lualine_z = { 'location' }
+	},
 	inactive_sections = {
 		lualine_a = {},
 		lualine_b = {},
-		lualine_c = {'filename'},
-		lualine_x = {'location'},
+		lualine_c = { 'filename' },
+		lualine_x = { 'location' },
 		lualine_y = {},
 		lualine_z = {}
 	},
@@ -250,54 +286,54 @@ require("tokyonight").setup({
 	end
 })
 
-vim.cmd[[colorscheme tokyonight]]
+vim.cmd [[colorscheme tokyonight]]
 
 --[[
 Comment.nvim
 https://github.com/numToStr/Comment.nvim
 --]]
 require('Comment').setup({
-    ---Add a space b/w comment and the line
-    padding = true,
-    ---Whether the cursor should stay at its position
-    sticky = true,
-    ---Lines to be ignored while (un)comment
-    ignore = nil,
-    ---LHS of toggle mappings in NORMAL mode
-    toggler = {
-        ---Line-comment toggle keymap
-        line = 'gcc',
-        ---Block-comment toggle keymap
-        block = 'gbc',
-    },
-    ---LHS of operator-pending mappings in NORMAL and VISUAL mode
-    opleader = {
-        ---Line-comment keymap
-        line = 'gc',
-        ---Block-comment keymap
-        block = 'gb',
-    },
-    ---LHS of extra mappings
-    extra = {
-        ---Add comment on the line above
-        -- above = 'gcO',
-        ---Add comment on the line below
-        -- below = 'gco',
-        ---Add comment at the end of line
-        -- eol = 'gcA',
-    },
-    ---Enable keybindings
-    ---NOTE: If given `false` then the plugin won't create any mappings
-    mappings = {
-        ---Operator-pending mapping; `gcc` `gbc` `gc[count]{motion}` `gb[count]{motion}`
-        basic = true,
-        ---Extra mapping; `gco`, `gcO`, `gcA`
-        extra = false,
-    },
-    ---Function to call before (un)comment
-    pre_hook = nil,
-    ---Function to call after (un)comment
-    post_hook = nil,
+	---Add a space b/w comment and the line
+	padding = true,
+	---Whether the cursor should stay at its position
+	sticky = true,
+	---Lines to be ignored while (un)comment
+	ignore = nil,
+	---LHS of toggle mappings in NORMAL mode
+	toggler = {
+		---Line-comment toggle keymap
+		line = 'gcc',
+		---Block-comment toggle keymap
+		block = 'gbc',
+	},
+	---LHS of operator-pending mappings in NORMAL and VISUAL mode
+	opleader = {
+		---Line-comment keymap
+		line = 'gc',
+		---Block-comment keymap
+		block = 'gb',
+	},
+	---LHS of extra mappings
+	extra = {
+		---Add comment on the line above
+		-- above = 'gcO',
+		---Add comment on the line below
+		-- below = 'gco',
+		---Add comment at the end of line
+		-- eol = 'gcA',
+	},
+	---Enable keybindings
+	---NOTE: If given `false` then the plugin won't create any mappings
+	mappings = {
+		---Operator-pending mapping; `gcc` `gbc` `gc[count]{motion}` `gb[count]{motion}`
+		basic = true,
+		---Extra mapping; `gco`, `gcO`, `gcA`
+		extra = false,
+	},
+	---Function to call before (un)comment
+	pre_hook = nil,
+	---Function to call after (un)comment
+	post_hook = nil,
 })
 
 --[[
@@ -328,12 +364,12 @@ vim.g.mapleader = ' '
 -- Write with 'space+w' in normal mode
 vim.keymap.set('n', '<LEADER>w', '<CMD>write<CR>', { desc = 'Save' })
 -- Copy to clipboard with 'gy' in normal+visual mode
-vim.keymap.set({'n', 'x'}, 'gy', '"+y')
+vim.keymap.set({ 'n', 'x' }, 'gy', '"+y')
 -- Paste to clipboard with 'gp' in normal+visual mode
-vim.keymap.set({'n', 'x'}, 'gp', '"+p')
+vim.keymap.set({ 'n', 'x' }, 'gp', '"+p')
 -- While deleting in normal+visual mode, deleting with 'x' and 'X' with not change registers
-vim.keymap.set({'n', 'x'}, 'x', '"_x')
-vim.keymap.set({'n', 'x'}, 'X', '"_d')
+vim.keymap.set({ 'n', 'x' }, 'x', '"_x')
+vim.keymap.set({ 'n', 'x' }, 'X', '"_d')
 -- Select all with 'space+a' in normal mode
 vim.keymap.set('n', '<LEADER>a', ':keepjumps normal! ggVG<CR>')
 -- Open Netrw in the current directory of the file (buffer) when in normal mode
@@ -341,9 +377,9 @@ vim.keymap.set('n', '<LEADER>df', ':Lexplore %:p:h<CR>')
 -- Open/Close (toggle) Netrw in the initial directory when in normal mode
 vim.keymap.set('n', '<LEADER>dd', ':Lexplore<CR>')
 -- Scroll up 7 lines with ctrl+k when in normal+visual mode
-vim.keymap.set({'n', 'x'}, '<C-k>', '7<C-y>')
+vim.keymap.set({ 'n', 'x' }, '<C-k>', '7<C-y>')
 -- Scroll down 7 lines with ctrl+j when in normal+visual mode
-vim.keymap.set({'n', 'x'}, '<C-j>', '7<C-e>')
+vim.keymap.set({ 'n', 'x' }, '<C-j>', '7<C-e>')
 -- Cursor up with ctrl+k when in input mode
 vim.keymap.set('i', '<C-k>', '<Up>')
 -- Cursor down with ctrl+j when in input mode
@@ -388,7 +424,7 @@ local function CmdShowLspLog()
 end
 -- Type :CmdShowLspLog to open the lsp.log file
 vim.api.nvim_create_user_command("CmdShowLspLog", CmdShowLspLog, {
-    desc = "Opens the lsp log.",
+	desc = "Opens the lsp log.",
 })
 
 -- hop.nvim
