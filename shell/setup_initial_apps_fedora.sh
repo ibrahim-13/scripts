@@ -141,14 +141,6 @@ echo Extension: VS Code Vim
 echo ----------------------
 code --install-extension vscodevim.vim # VS Vim
 
-echo ===================================
-echo = Node Version Manager nvm-0.39.7 =
-echo ===================================
-wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-source ~/.bashrc
-command -v nvm
-nvm install --reinstall-packages-from=current 'lts/*'
-
 echo ===============================
 echo = Bleachbit 4.6 for Fedora 28 =
 echo ===============================

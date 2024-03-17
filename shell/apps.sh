@@ -89,6 +89,7 @@ register_app lazygit
 register_app marktext
 register_app golang
 register_app neovim
+register_app nvm
 
 #############################
 # start : utility functions #
@@ -718,11 +719,11 @@ function fzf_config {
 	# eval "$(fzf --zsh)"
 	# fzf --fish | source
 	# --------------------------------------------
-	echo "no confige defined"
+	echo "no config defined"
 }
 
 function fzf_config_remove {
-	echo "no confige defined"
+	echo "no config defined"
 }
 
 #############
@@ -824,11 +825,11 @@ function hugo_remove {
 }
 
 function hugo_config {
-	echo "no confige defined"
+	echo "no config defined"
 }
 
 function hugo_config_remove {
-	echo "no confige defined"
+	echo "no config defined"
 }
 
 ##############
@@ -930,11 +931,11 @@ function lazygit_remove {
 }
 
 function lazygit_config {
-	echo "no confige defined"
+	echo "no config defined"
 }
 
 function lazygit_config_remove {
-	echo "no confige defined"
+	echo "no config defined"
 }
 
 #################
@@ -1069,11 +1070,11 @@ function marktext_remove {
 }
 
 function marktext_config {
-	echo "no confige defined"
+	echo "no config defined"
 }
 
 function marktext_config_remove {
-	echo "no confige defined"
+	echo "no config defined"
 }
 
 ##################
@@ -1390,6 +1391,64 @@ function neovim_config_remove {
 ################
 # end : neovim #
 ################
+
+###############
+# start : nvm #
+###############
+
+function nvm_is_installed {
+	# when running scritp with bash inside tmux, the sourcing of nvm
+	# does not work properly, this is the alternative
+	if [[ -f "$HOME/.nvm/nvm.sh" ]]
+	then
+		source "$HOME/.nvm/nvm.sh"
+	fi
+	if ! command -v nvm &> /dev/null
+	then
+		# command not found, return 0
+		return 0
+	else
+		# command found, return 1
+		return 1
+	fi
+}
+
+function nvm_install {
+	wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+	source "$HOME/.bashrc"
+	if command -v nvm
+	then
+		print_success "nvm: installed successfully"
+	fi
+	echo "installing latest lts version of node.js"
+	nvm install --reinstall-packages-from=current 'lts/*'
+}
+
+function nvm_update {
+	print_info "nvm: installation script url should be changed before running update"
+	nvm_install
+}
+
+function nvm_remove {
+	local CUR_NVM_DIR
+	CUR_NVM_DIR="${NVM_DIR:-~/.nvm}"
+	nvm unload
+	rm -rf "$CUR_NVM_DIR"
+	grep -v "NVM_DIR" "$HOME/.bashrc" | tee "$HOME/.bashrc" > /dev/null
+	unset nvm
+}
+
+function nvm_config {
+	echo "no config defined"
+}
+
+function nvm_config_remove {
+	echo "no config defined"
+}
+
+#############
+# end : nvm #
+#############
 
 ################################
 # start : custom bashrc config #
