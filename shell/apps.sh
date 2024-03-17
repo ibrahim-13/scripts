@@ -16,6 +16,7 @@ REGISTERED_APPS=""
 DIR_BASH_CONFIG="$HOME/.bashrc_custom"
 FILE_BASHRC="$HOME/.bashrc"
 HAS_RUN_SYSTEM_PACKAGE_LIST_UPDATE="f"
+NEOVIM_IS_MINIMAL_CONFIG="n"
 
 # color variables
 TXT_RESET="\033[0m"
@@ -1193,6 +1194,25 @@ function golang_config_remove {
 # start : neovim #
 ##################
 
+function neovim_minimal_config_propmt {
+	local TMP_ANS
+	if [[ "$NEOVIM_IS_MINIMAL_CONFIG" == "n" ]]
+	then
+		print_info "neovim will be using complete configuration"
+		read -p "use minimal config? (y/N) " TMP_ANS
+		case $TMP_ANS in
+		[Yy])
+			echo "using minimal configuration"
+			NEOVIM_IS_MINIMAL_CONFIG="t"
+			;;
+		*)
+			echo "using complete configuration"
+			NEOVIM_IS_MINIMAL_CONFIG="f"
+			;;
+		esac
+	fi
+}
+
 function neovim_is_installed {
 	if ! command -v nvim &> /dev/null
 	then
@@ -1289,31 +1309,39 @@ function neovim_install {
 	else
 		echo "already installed: ripgrep"
 	fi
-	# install gcc if not installed
-	if ! command -v gcc &> /dev/null
+
+	neovim_minimal_config_propmt
+	if [[ "$NEOVIM_IS_MINIMAL_CONFIG" == "f" ]]
 	then
-		echo "installing: gcc"
-		package_install gcc
+		# installed required packages for treesitter and mason
+		# treesitter: install gcc if not installed
+		if ! command -v gcc &> /dev/null
+		then
+			echo "installing: gcc"
+			package_install gcc
+		else
+			echo "already installed: ripgrep"
+		fi
+		# treesitter: install g++ if not installed
+		if ! command -v g++ &> /dev/null
+		then
+			echo "installing: g++"
+			package_install g++
+		else
+			echo "already installed: ripgrep"
+		fi
+		# mason: check if golang is installed
+		if ! command -v go &> /dev/null
+		then
+			print_danger "go: not found, golang should be installed for current neovim lsp: sqls"
+		fi
+		# mason: check if node is installed
+		if ! command -v node &> /dev/null
+		then
+			print_danger "node: not found, node.js should be installed for current neovim lsp: bashls"
+		fi
 	else
-		echo "already installed: ripgrep"
-	fi
-	# install g++ if not installed
-	if ! command -v g++ &> /dev/null
-	then
-		echo "installing: g++"
-		package_install g++
-	else
-		echo "already installed: ripgrep"
-	fi
-	# check if golang is installed
-	if ! command -v go &> /dev/null
-	then
-		print_danger "go: not found, golang should be installed for current neovim lsp: sqls"
-	fi
-	# check if node is installed
-	if ! command -v node &> /dev/null
-	then
-		print_danger "node: not found, node.js should be installed for current neovim lsp: bashls"
+		echo "using minimal configuration, no extra packages will be installed"
 	fi
 }
 
@@ -1339,19 +1367,15 @@ function neovim_config {
 	if [[ -f nvim_config.lua ]]
 	then
 		cp nvim_config.lua "$HOME/.config/nvim/init.lua"
-		read -p "Kill? (Y/n) " TMP_ANS
-		case $TMP_ANS in
-			[Nn])
-				echo "using full configuration"
-				;;
-			*)
-				echo "using miniaml configuration"
-				if [[ ! -f "$HOME/.config/nvim/minimal" ]]
-				then
-					touch "$HOME/.config/nvim/minimal"
-				fi
-				;;
-			esac
+		neovim_minimal_config_propmt
+		if [[ "$NEOVIM_IS_MINIMAL_CONFIG" == "t" ]]
+		then
+			echo "setting minimal config"
+			if [[ ! -f "$HOME/.config/nvim/minimal" ]]
+			then
+				touch "$HOME/.config/nvim/minimal"
+			fi
+		fi
 	else
 		print_danger "config file not found: $PWD/nvim_config.lua"
 	fi
