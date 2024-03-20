@@ -14,6 +14,8 @@
 # global variables
 REGISTERED_APPS=""
 DIR_BASH_CONFIG="$HOME/.bashrc_custom"
+DIR_APPS="$HOME/.apps"
+DIR_APPS_BIN="$HOME/.bin"
 FILE_BASHRC="$HOME/.bashrc"
 HAS_RUN_SYSTEM_PACKAGE_LIST_UPDATE="f"
 NEOVIM_IS_MINIMAL_CONFIG="n"
@@ -233,9 +235,29 @@ function setup_bash_config {
 	local ALIAS_STR_START="# START:CUSTOM_CONFIG_SOURCE"
 	local ALIAS_STR_END="# END:CUSTOM_CONFIG_SOURCE"
 
+	# make sure .bashrc_custom directory is present
 	if [[ ! -d "$DIR_BASH_CONFIG" ]]
 	then
 		mkdir "$DIR_BASH_CONFIG"
+	fi
+
+	# make sure .config directory is present
+	if [[ ! -d "$HOME/.config" ]]
+	then
+		echo "creating config directory"
+		mkdir "$HOME/.config"
+	fi
+
+	# make sure .apps directory is present
+	if [[ ! -d "$DIR_APPS" ]]
+	then
+		mkdir "$DIR_APPS"
+	fi
+
+	# make sure .bin directory is present
+	if [[ ! -d "$DIR_APPS_BIN" ]]
+	then
+		mkdir "$DIR_APPS_BIN"
 	fi
 
 	if [[ -f "$FILE_BASHRC" ]]
@@ -247,6 +269,9 @@ function setup_bash_config {
 			echo "appending to bashrc: $FILE_BASHRC"
 			cat <<EOT >> "$FILE_BASHRC"
 $ALIAS_STR_START
+
+# add apps bin directory to path
+export PATH=\$PATH:$DIR_APPS_BIN
 
 # source config scripts from "$DIR_BASH_CONFIG"
 if [ -d "$DIR_BASH_CONFIG" ]; then
@@ -263,11 +288,6 @@ EOT
 		fi
 	else
 		print_danger "err!! not found $FILE_BASHRC"
-	fi
-	if [[ ! -d "$HOME/.config" ]]
-	then
-		echo "creating config directory"
-		mkdir "$HOME/.config"
 	fi
 }
 
@@ -502,11 +522,11 @@ function lf_install {
 	local FILE_BIN
 	local FILE_CREATED_AT
 	local FILE_SYMLINK
-	INSTALL_DIR="/opt/lf"
+	INSTALL_DIR="$DIR_APPS/lf"
 	FILE_ARCHIVE="$INSTALL_DIR/lf.tar.gz"
 	FILE_BIN="$INSTALL_DIR/lf"
 	FILE_CREATED_AT="$INSTALL_DIR/created_at"
-	FILE_SYMLINK="/bin/lf"
+	FILE_SYMLINK="$DIR_APPS_BIN/lf"
 
 	echo "response source: $GH_SOURCE"
 	echo "response msg: $GH_MSG"
@@ -530,19 +550,19 @@ function lf_install {
 
 	if [[ ! -d $INSTALL_DIR ]]
 	then
-		sudo mkdir $INSTALL_DIR
+		mkdir $INSTALL_DIR
 	fi
 
-	sudo wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
+	wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
 
-	sudo chmod 666 "$FILE_ARCHIVE"
+	chmod 666 "$FILE_ARCHIVE"
 	echo "Extracting files:"
-	sudo tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
-	sudo chmod 755 "$FILE_BIN"
-	sudo ln -s "$FILE_BIN" "$FILE_SYMLINK"
-	sudo rm "$FILE_ARCHIVE"
+	tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
+	chmod 755 "$FILE_BIN"
+	ln -s "$FILE_BIN" "$FILE_SYMLINK"
+	rm "$FILE_ARCHIVE"
 	# Store created_at so that we can compare later for updating the app
-	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+	echo "$GH_CREATED_AT" | tee "$FILE_CREATED_AT"
 }
 
 function lf_update {
@@ -551,8 +571,8 @@ function lf_update {
 }
 
 function lf_remove {
-	sudo rm "/bin/lf"
-	sudo rm -rf "/opt/lf"
+	rm "$DIR_APPS_BIN/lf"
+	rm -rf "$DIR_APPS/lf"
 }
 
 function lf_config {
@@ -567,7 +587,7 @@ function lf_config {
 	then
 		mkdir "$CONFIG_DIR"
 	fi
-	sudo tee "$FILE_LFRC" > /dev/null <<EOT
+	tee "$FILE_LFRC" > /dev/null <<EOT
 # keybindings
 
 map x 'cut'
@@ -578,17 +598,17 @@ set hidden
 set info size:time
 set sortby "name"
 EOT
-	sudo chmod 666 "$FILE_LFRC"
+	chmod 666 "$FILE_LFRC"
 	echo "Fetching icon config"
-	sudo wget -q --show-progress -O "$DIR_ICONS" "https://raw.githubusercontent.com/gokcehan/lf/master/etc/icons.example"
-	sudo chmod 666 "$DIR_ICONS"
+	wget -q --show-progress -O "$DIR_ICONS" "https://raw.githubusercontent.com/gokcehan/lf/master/etc/icons.example"
+	chmod 666 "$DIR_ICONS"
 	# echo Fetching color config
-	# sudo wget -q --show-progress -O $HOME/.config/lf/colors https://raw.githubusercontent.com/gokcehan/lf/master/etc/colors.example
-	# sudo chmod 666 $HOME/.config/lf/colors
+	# wget -q --show-progress -O $HOME/.config/lf/colors https://raw.githubusercontent.com/gokcehan/lf/master/etc/colors.example
+	# chmod 666 $HOME/.config/lf/colors
 }
 
 function lf_config_remove {
-	sudo rm -rf "$HOME/.config/lf"
+	rm -rf "$HOME/.config/lf"
 }
 
 ############
@@ -636,11 +656,11 @@ function fzf_install {
 	local FILE_BIN
 	local FILE_CREATED_AT
 	local FILE_SYMLINK
-	INSTALL_DIR="/opt/fzf"
+	INSTALL_DIR="$DIR_APPS/fzf"
 	FILE_ARCHIVE="$INSTALL_DIR/fzf.tar.gz"
 	FILE_BIN="$INSTALL_DIR/fzf"
 	FILE_CREATED_AT="$INSTALL_DIR/created_at"
-	FILE_SYMLINK="/bin/fzf"
+	FILE_SYMLINK="$DIR_APPS_BIN/fzf"
 
 	echo "response source: $GH_SOURCE"
 	echo "response msg: $GH_MSG"
@@ -664,19 +684,19 @@ function fzf_install {
 
 	if [[ ! -d $INSTALL_DIR ]]
 	then
-		sudo mkdir $INSTALL_DIR
+		mkdir $INSTALL_DIR
 	fi
 
-	sudo wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
+	wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
 
-	sudo chmod 666 "$FILE_ARCHIVE"
+	chmod 666 "$FILE_ARCHIVE"
 	echo "Extracting files:"
-	sudo tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
-	sudo chmod 755 "$FILE_BIN"
-	sudo ln -s "$FILE_BIN" "$FILE_SYMLINK"
-	sudo rm "$FILE_ARCHIVE"
+	tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
+	chmod 755 "$FILE_BIN"
+	ln -s "$FILE_BIN" "$FILE_SYMLINK"
+	rm "$FILE_ARCHIVE"
 	# Store created_at so that we can compare later for updating the app
-	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+	echo "$GH_CREATED_AT" | tee "$FILE_CREATED_AT"
 }
 
 function fzf_update {
@@ -685,8 +705,8 @@ function fzf_update {
 }
 
 function fzf_remove {
-	sudo rm "/bin/fzf"
-	sudo rm -rf "/opt/fzf"
+	rm "$DIR_APPS_BIN/fzf"
+	rm -rf "$DIR_APPS/fzf"
 }
 
 function fzf_config {
@@ -771,11 +791,11 @@ function hugo_install {
 	local FILE_BIN
 	local FILE_CREATED_AT
 	local FILE_SYMLINK
-	INSTALL_DIR="/opt/hugo"
+	INSTALL_DIR="$DIR_APPS/hugo"
 	FILE_ARCHIVE="$INSTALL_DIR/hugo.tar.gz"
 	FILE_BIN="$INSTALL_DIR/hugo"
 	FILE_CREATED_AT="$INSTALL_DIR/created_at"
-	FILE_SYMLINK="/bin/hugo"
+	FILE_SYMLINK="$DIR_APPS_BIN/hugo"
 
 	echo "response source: $GH_SOURCE"
 	echo "response msg: $GH_MSG"
@@ -799,19 +819,19 @@ function hugo_install {
 
 	if [[ ! -d $INSTALL_DIR ]]
 	then
-		sudo mkdir $INSTALL_DIR
+		mkdir $INSTALL_DIR
 	fi
 
-	sudo wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
+	wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
 
-	sudo chmod 666 "$FILE_ARCHIVE"
+	chmod 666 "$FILE_ARCHIVE"
 	echo "Extracting files:"
-	sudo tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
-	sudo chmod 755 "$FILE_BIN"
-	sudo ln -s "$FILE_BIN" "$FILE_SYMLINK"
-	sudo rm "$FILE_ARCHIVE"
+	tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
+	chmod 755 "$FILE_BIN"
+	ln -s "$FILE_BIN" "$FILE_SYMLINK"
+	rm "$FILE_ARCHIVE"
 	# Store created_at so that we can compare later for updating the app
-	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+	echo "$GH_CREATED_AT" | tee "$FILE_CREATED_AT"
 }
 
 function hugo_update {
@@ -820,8 +840,8 @@ function hugo_update {
 }
 
 function hugo_remove {
-	sudo rm "/bin/hugo"
-	sudo rm -rf "/opt/hugo"
+	rm "$DIR_APPS_BIN/hugo"
+	rm -rf "$DIR_APPS/hugo"
 }
 
 function hugo_config {
@@ -877,11 +897,11 @@ function lazygit_install {
 	local FILE_BIN
 	local FILE_CREATED_AT
 	local FILE_SYMLINK
-	INSTALL_DIR="/opt/lazygit"
+	INSTALL_DIR="$DIR_APPS/lazygit"
 	FILE_ARCHIVE="$INSTALL_DIR/lazygit.tar.gz"
 	FILE_BIN="$INSTALL_DIR/lazygit"
 	FILE_CREATED_AT="$INSTALL_DIR/created_at"
-	FILE_SYMLINK="/bin/lazygit"
+	FILE_SYMLINK="$DIR_APPS_BIN/lazygit"
 
 	echo "response source: $GH_SOURCE"
 	echo "response msg: $GH_MSG"
@@ -905,19 +925,19 @@ function lazygit_install {
 
 	if [[ ! -d $INSTALL_DIR ]]
 	then
-		sudo mkdir $INSTALL_DIR
+		mkdir $INSTALL_DIR
 	fi
 
-	sudo wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
+	wget -q --show-progress -O "$FILE_ARCHIVE" "$GH_DL_URL" || errexit "error downloading archive"
 
-	sudo chmod 666 "$FILE_ARCHIVE"
+	chmod 666 "$FILE_ARCHIVE"
 	echo "Extracting files:"
-	sudo tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
-	sudo chmod 755 "$FILE_BIN"
-	sudo ln -s "$FILE_BIN" "$FILE_SYMLINK"
-	sudo rm "$FILE_ARCHIVE"
+	tar -xvzf "$FILE_ARCHIVE" -C "$INSTALL_DIR"
+	chmod 755 "$FILE_BIN"
+	ln -s "$FILE_BIN" "$FILE_SYMLINK"
+	rm "$FILE_ARCHIVE"
 	# Store created_at so that we can compare later for updating the app
-	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+	echo "$GH_CREATED_AT" | tee "$FILE_CREATED_AT"
 }
 
 function lazygit_update {
@@ -926,8 +946,8 @@ function lazygit_update {
 }
 
 function lazygit_remove {
-	sudo rm "/bin/lazygit"
-	sudo rm -rf "/opt/lazygit"
+	rm "$DIR_APPS_BIN/lazygit"
+	rm -rf "$DIR_APPS/lazygit"
 }
 
 function lazygit_config {
@@ -986,13 +1006,13 @@ function marktext_install {
 	local FILE_DESKTOP
 	local FILE_LOGO
 	local FILE_SYMLINK_DESKTOP
-	INSTALL_DIR="/opt/marktext"
+	INSTALL_DIR="$DIR_APPS/marktext"
 	DESKTOP_DIR="$HOME/.local/share/applications"
 	FILE_APPIMAGE="$INSTALL_DIR/marktext.AppImage"
 	FILE_CREATED_AT="$INSTALL_DIR/created_at"
 	FILE_DESKTOP="$INSTALL_DIR/marktext.desktop"
 	FILE_LOGO="$INSTALL_DIR/marktext_logo.png"
-	FILE_SYMLINK="/bin/marktext"
+	FILE_SYMLINK="$DIR_APPS_BIN/marktext"
 	FILE_SYMLINK_DESKTOP="$DESKTOP_DIR/marktext.desktop"
 
 	echo "response source: $GH_SOURCE"
@@ -1017,24 +1037,24 @@ function marktext_install {
 
 	if [[ ! -d $INSTALL_DIR ]]
 	then
-		sudo mkdir $INSTALL_DIR
+		mkdir $INSTALL_DIR
 	fi
 
-	sudo wget -q --show-progress -O "$FILE_APPIMAGE" "$GH_DL_URL" || errexit "error downloading archive"
+	wget -q --show-progress -O "$FILE_APPIMAGE" "$GH_DL_URL" || errexit "error downloading archive"
 
-	sudo chmod 755 "$FILE_APPIMAGE"
-	sudo ln -s "$FILE_APPIMAGE" "$FILE_SYMLINK"
+	chmod 755 "$FILE_APPIMAGE"
+	ln -s "$FILE_APPIMAGE" "$FILE_SYMLINK"
 	# Store created_at so that we can compare later for updating the app
-	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+	echo "$GH_CREATED_AT" | tee "$FILE_CREATED_AT"
 	# Create desktop file
-	sudo tee "$FILE_DESKTOP"> /dev/null <<EOT
+	tee "$FILE_DESKTOP"> /dev/null <<EOT
 [Desktop Entry]
 Name=MarkText
 Comment=Next generation markdown editor
 Exec=marktext %F
 Terminal=false
 Type=Application
-Icon=/opt/marktext/marktext_logo.png
+Icon=$DIR_APPS/marktext/marktext_logo.png
 Categories=Office;TextEditor;Utility;
 MimeType=text/markdown;
 Keywords=marktext;
@@ -1047,8 +1067,8 @@ Exec=marktext --new-window %F
 Icon=marktext
 EOT
 	# Download logo
-	sudo wget -q --show-progress -O "$FILE_LOGO" "https://raw.githubusercontent.com/marktext/marktext/develop/static/logo-small.png"
-	sudo ln -s "$FILE_DESKTOP" "$FILE_SYMLINK_DESKTOP"
+	wget -q --show-progress -O "$FILE_LOGO" "https://raw.githubusercontent.com/marktext/marktext/develop/static/logo-small.png"
+	ln -s "$FILE_DESKTOP" "$FILE_SYMLINK_DESKTOP"
 	# Register app to the OS
 	update-desktop-database "$DESKTOP_DIR"
 }
@@ -1062,9 +1082,9 @@ function marktext_remove {
 	DESKTOP_DIR="$HOME/.local/share/applications"
 	FILE_SYMLINK_DESKTOP="$DESKTOP_DIR/marktext.desktop"
 
-	sudo rm "/bin/marktext"
-	sudo rm -rf "/opt/marktext"
-	sudo rm "$FILE_SYMLINK_DESKTOP"
+	rm "$DIR_APPS_BIN/marktext"
+	rm -rf "$DIR_APPS/marktext"
+	rm "$FILE_SYMLINK_DESKTOP"
 
 	update-desktop-database "$DESKTOP_DIR"
 }
@@ -1100,7 +1120,7 @@ function golang_install {
 	local ARCH
 	local MACHINE
 	local GO_VER
-	local INSTALL_DIR="/opt/go"
+	local INSTALL_DIR="$DIR_APPS/go"
 	ARCH=$(uname -s | tr '[:upper:]' '[:lower:]')
 	MACHINE=$(uname -m)
 	if [ "$MACHINE" = "x86_64" ]
@@ -1124,26 +1144,26 @@ function golang_install {
 	if [ -e "$GO_TMP_ARCHIVE" ]
 	then
 		print_info "cleaning up previously downloaded archive..."
-		sudo rm "$GO_TMP_ARCHIVE"
+		rm "$GO_TMP_ARCHIVE"
 	fi
 
 	# Download Golang binary archive in temporary folder
-	sudo wget -q --show-progress -O "$GO_TMP_ARCHIVE" "$GO_DL_URL"
+	wget -q --show-progress -O "$GO_TMP_ARCHIVE" "$GO_DL_URL"
 
 	if [ -d "$INSTALL_DIR" ]
 	then
-		sudo rm -rf "$INSTALL_DIR"
+		rm -rf "$INSTALL_DIR"
 	fi
-	sudo tar -C "/opt" -xzf "$GO_TMP_ARCHIVE"
+	tar -C "$DIR_APPS" -xzf "$GO_TMP_ARCHIVE"
 
 	# Clean up archive file
-	sudo rm "$GO_TMP_ARCHIVE"
+	rm "$GO_TMP_ARCHIVE"
 }
 
 function golang_update {
 	local GO_VER_INSTALLED
 	local GO_VER
-	local INSTALL_DIR="/opt/go"
+	local INSTALL_DIR="$DIR_APPS/go"
 	if [ -e "$INSTALL_DIR/VERSION" ]
 	then
 		GO_VER_INSTALLED=$(head --lines 1 < "$INSTALL_DIR/VERSION")
@@ -1158,16 +1178,16 @@ function golang_update {
 }
 
 function golang_remove {
-	local INSTALL_DIR="/opt/go"
+	local INSTALL_DIR="$DIR_APPS/go"
 	if [ -d "$INSTALL_DIR" ]
 	then
-		sudo rm -rf "$INSTALL_DIR"
+		rm -rf "$INSTALL_DIR"
 	fi
 }
 
 function golang_config {
 	local CONFIG_FILE="$DIR_BASH_CONFIG/golang.sh"
-	local INSTALL_DIR="/opt/go"
+	local INSTALL_DIR="$DIR_APPS/go"
 	tee "$CONFIG_FILE" > /dev/null <<EOT
 #!/bin/bash
 
@@ -1254,10 +1274,10 @@ function neovim_install {
 	local FILE_DESKTOP
 	local FILE_LOGO
 	local FILE_SYMLINK_DESKTOP
-	INSTALL_DIR="/opt/neovim"
+	INSTALL_DIR="$DIR_APPS/neovim"
 	FILE_APPIMAGE="$INSTALL_DIR/nvim.AppImage"
 	FILE_CREATED_AT="$INSTALL_DIR/created_at"
-	FILE_SYMLINK="/bin/nvim"
+	FILE_SYMLINK="$DIR_APPS_BIN/nvim"
 
 	echo "response source: $GH_SOURCE"
 	echo "response msg: $GH_MSG"
@@ -1281,26 +1301,26 @@ function neovim_install {
 
 	if [[ ! -d $INSTALL_DIR ]]
 	then
-		sudo mkdir $INSTALL_DIR
+		mkdir $INSTALL_DIR
 	fi
 
-	sudo wget -q --show-progress -O "$FILE_APPIMAGE" "$GH_DL_URL" || errexit "error downloading archive"
+	wget -q --show-progress -O "$FILE_APPIMAGE" "$GH_DL_URL" || errexit "error downloading archive"
 
-	sudo chmod 755 "$FILE_APPIMAGE"
-	sudo ln -s "$FILE_APPIMAGE" "$FILE_SYMLINK"
+	chmod 755 "$FILE_APPIMAGE"
+	ln -s "$FILE_APPIMAGE" "$FILE_SYMLINK"
 	# in case libfuse2 is not installed, then extract binary from AppImage
 	type -p libfuse2 || {
 		print_info "libfuse2 not found, extracting AppImage"
 		local CURR_DIR="$PWD"
 		cd "$INSTALL_DIR" || errexit "could not change directory to: $INSTALL_DIR"
-		sudo "$FILE_APPIMAGE" --appimage-extract >/dev/null
-		sudo rm "$FILE_SYMLINK"
-		sudo ln -s "$INSTALL_DIR/squashfs-root/AppRun" "$FILE_SYMLINK"
-		sudo rm "$FILE_APPIMAGE"
+		"$FILE_APPIMAGE" --appimage-extract >/dev/null
+		rm "$FILE_SYMLINK"
+		ln -s "$INSTALL_DIR/squashfs-root/AppRun" "$FILE_SYMLINK"
+		rm "$FILE_APPIMAGE"
 		cd "$CURR_DIR" || errexit "could not change directory to: $CURR_DIR"
 	}
 	# Store created_at so that we can compare later for updating the app
-	echo "$GH_CREATED_AT" | sudo tee "$FILE_CREATED_AT"
+	echo "$GH_CREATED_AT" | tee "$FILE_CREATED_AT"
 
 	# install ripgrep if not installed
 	if ! command -v ripgrep &> /dev/null
@@ -1352,8 +1372,8 @@ function neovim_update {
 }
 
 function neovim_remove {
-	sudo rm "/bin/nvim"
-	sudo rm -rf "/opt/neovim"
+	rm "$DIR_APPS_BIN/nvim"
+	rm -rf "$DIR_APPS/neovim"
 }
 
 function neovim_config {
@@ -1383,9 +1403,9 @@ function neovim_config {
 }
 
 function neovim_config_remove {
-	sudo rm -rf "$HOME/.config/nvim"
-	sudo rm -rf "$HOME/.local/share/nvim"
-	sudo rm -rf "$HOME/.local/state/nvim"
+	rm -rf "$HOME/.config/nvim"
+	rm -rf "$HOME/.local/share/nvim"
+	rm -rf "$HOME/.local/state/nvim"
 }
 
 ################
