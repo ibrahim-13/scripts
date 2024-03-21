@@ -39,7 +39,7 @@ function func_update_rpmfusion_source {
 function func_set_hostname {
 	local TMP_ANS
 	read -p "hostname: " TMP_ANS
-	if [[ ! -z $TMP_AND ]]
+	if [[ ! -z "$TMP_ANS" ]]
 	then
 		sudo hostnamectl set-hostname $TMP_ANS
 	else
@@ -55,24 +55,31 @@ function func_set_system_time_local {
 	sudo timedatectl set-local-rtc 1 --adjust-system-clock
 }
 
-# switch to full ffmpeg
-function func_use_full_ffmpeg {
-	sudo rpm-ostree swap ffmpeg-free ffmpeg --allowerasing
-}
-
 # enable fedora-cisco-openh264
-function func_install_fedora_cisco_openh264 {
-	sudo rpm-ostree config-manager --enable fedora-cisco-openh264
-}
-
-# update and multimedia group packages
-function func_install_additional_codec {
-	sudo rpm-ostree groupupdate multimedia --setop="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin
+function func_enable_flathub {
+	flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 }
 
 # update sound and video group packages
-function func_upd_sound_video {
-	sudo rpm-ostree groupupdate sound-and-video
+function func_install_software_codec {
+	# for kde-kionite
+	sudo rpm-ostree override remove libavcodec-free libavfilter-free libavformat-free libavutil-free libpostproc-free libswresample-free libswscale-free --install ffmpeg
+	sudo rpm-ostree install \
+		gstreamer1-plugin-libav \
+		gstreamer1-plugins-bad-free-extras \
+		gstreamer1-plugins-bad-freeworld \
+		gstreamer1-plugins-ugly \
+		gstreamer1-vaapi \
+		--allow-inactive
+
+	# for gnone-sliverblue
+	# sudo rpm-ostree install \
+	# 	gstreamer1-plugin-libav \
+	# 	gstreamer1-plugins-bad-free-extras \
+	# 	gstreamer1-plugins-bad-freeworld \
+	# 	gstreamer1-plugins-ugly \
+	# 	gstreamer1-vaapi \
+	# 	--allow-inactive
 }
 
 # akmod-nvidia : rhel/centos users can use kmod-nvidia instead
@@ -188,13 +195,11 @@ function menu_main {
 	local PS3=$'select operation: '
 	local options=("update packages" \
 		"rpmfution source" \
-		"rpmfusion source upgrade (major ver)"\
+		"rpmfusion source upgrade"\
 		"set hostname" \
 		"system time in local" \
-		"switch to full ffmpeg" \
-		"enable fedora-cisco-openh264" \
-		"additional codec" \
-		"sound and video" \
+		"enable flathub" \
+		"software codec" \
 		"nvidia drivers" \
 		"vscodium" \
 		"google chrome" \
@@ -218,7 +223,7 @@ function menu_main {
 			"rpmfution source")
 				func_install_rpmfution_source
 				;;
-			"rpmfusion source upgrade (major ver)")
+			"rpmfusion source upgrade")
 				func_update_rpmfusion_source
 				;;
 			"set hostname")
@@ -227,17 +232,11 @@ function menu_main {
 			"system time in local")
 				func_set_system_time_local
 				;;
-			"switch to full ffmpeg")
-				func_use_full_ffmpeg
+			"enable flathub")
+				func_enable_flathub
 				;;
-			"enable fedora-cisco-openh264")
-				func_install_fedora_cisco_openh264
-				;;
-			"additional codec")
-				func_install_additional_codec
-				;;
-			"sound and video")
-				func_install_additional_codec
+			"software codec")
+				func_install_software_codec
 				;;
 			"nvidia drivers")
 				func_install_nvidia_drivers
