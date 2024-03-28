@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # If not running as ROOT, then exit
 # This script required root priviledges to function.

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Debugging
 # ---------
@@ -129,7 +129,7 @@ function func_gh_http {
 # $1 : github username
 # $2 : github repo
 # $3 : jq selector for asset name
-func_gh_cli() {
+function func_gh_cli {
 	local GH_URL
 	local HEADER_ACCEPT
 	local HEADER_VERSION
@@ -157,7 +157,7 @@ func_gh_cli() {
 # $1 : github username
 # $2 : github repo
 # $3 : jq selector for asset name
-func_github_asset() {
+function func_github_asset {
 	if ! [ -x "$(command -v gh)" ]
 	then
 		func_gh_http "$1" "$2" "$3" "gh: command not found, using http api"
@@ -1189,7 +1189,7 @@ function golang_config {
 	local CONFIG_FILE="$DIR_BASH_CONFIG/golang.sh"
 	local INSTALL_DIR="$DIR_APPS/go"
 	tee "$CONFIG_FILE" > /dev/null <<EOT
-#!/bin/bash
+#!/usr/bin/env bash
 
 # START:Golang
 export GOPATH=\$HOME/go
@@ -1421,6 +1421,7 @@ function nvm_is_installed {
 	# does not work properly, this is the alternative
 	if [[ -f "$HOME/.nvm/nvm.sh" ]]
 	then
+		# shellcheck disable=SC1090
 		source "$HOME/.nvm/nvm.sh"
 	fi
 	if ! command -v nvm &> /dev/null
@@ -1434,7 +1435,9 @@ function nvm_is_installed {
 }
 
 function nvm_install {
-	wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+	# shellcheck disable=SC1090
+	wget -qO- "https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh" | bash
+	# shellcheck disable=SC1090
 	source "$HOME/.bashrc"
 	if command -v nvm
 	then
@@ -1479,7 +1482,7 @@ function func_config_bash {
 
 	echo "writing to: $FILE_CONFIG"
 	tee "$FILE_CONFIG" > /dev/null <<EOT
-#!/bin/bash
+#!/usr/bin/env bash
 
 func_fzf_px() {
 	TMP_SELSECTED_PROCESS=\$(ps -aux | fzf | awk '\$2 ~ /^[0-9]+$/ { print \$2 }')
@@ -1515,116 +1518,6 @@ EOT
 ##############################
 # end : custom bashrc config #
 ##############################
-
-############################
-# start : custom os config #
-############################
-
-function func_config_os {
-	echo "applying kde configs"
-	if command -v kwriteconfig5
-	then
-		echo "disabling activity tracking in settings"
-		kwriteconfig5 --file kactivitymanagerdrc --group Plugins --key org.kde.ActivityManager.ResourceScoringEnabled --type bool false
-
-		echo "disable certain KRunner searching sources"
-		kwriteconfig5 --file krunnerrc --group Plugins --key appstreamEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key CharacterRunnerEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key baloosearchEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key bookmarksEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key browserhistoryEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key browsertabsEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key calculatorEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key desktopsessionsEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key DictionaryEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key helprunnerEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key katesessionsEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key konsoleprofilesEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key krunner_spellcheckEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key kwinEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key locationsEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key org.kde.activities2Enabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key org.kde.datetimeEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key org.kde.windowedwidgetsEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key "PIM Contacts Search RunnerEnabled" --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key placesEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key plasma-desktopEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key recentdocumentsEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key shellEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key unitconverterEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key webshortcutsEnabled --type bool false
-		kwriteconfig5 --file krunnerrc --group Plugins --key windowsEnabled --type bool false
-
-		echo "enable Night Color"
-		kwriteconfig5 --file kwinrc --group NightColor --key Active --type bool true # Enable night color
-		kwriteconfig5 --file kwinrc --group NightColor --key Mode Times # set mode custom time
-		kwriteconfig5 --file kwinrc --group NightColor --key MorningBeginFixed 0800 # set start of morning
-		kwriteconfig5 --file kwinrc --group NightColor --key EveningBeginFixed 1700 # set start of evening
-		kwriteconfig5 --file kwinrc --group NightColor --key NightTemperature 5100 # set night temparature
-	else
-		echo "not found: kwriteconfig5"
-	fi
-
-	echo "disabling kactivitymanagerd"
-	local DIR_KACTIVITYMANAGERD="$HOME/.local/share/kactivitymanagerd"
-	if [[ -d "$DIR_KACTIVITYMANAGERD" ]]
-	then
-		rm -rf "$DIR_KACTIVITYMANAGERD"
-		touch "$DIR_KACTIVITYMANAGERD"
-	else
-		print_info "directory not found: $DIR_KACTIVITYMANAGERD"
-	fi
-
-	echo "disabling gnome/gtk recent files"
-	if command -v gsettings
-	then
-		gsettings set org.gnome.desktop.privacy remember-recent-files false
-		gsettings set org.gnome.desktop.privacy remember-app-usage false
-		gsettings set org.gnome.desktop.privacy recent-files-max-age 0
-	else
-		print_info "not found: gsettings"
-	fi
-
-	echo "deleting recent documents"
-	local DIR_RECENTDOCUMENTS="$HOME/.local/share/RecentDocuments"
-	if [[ -d "$DIR_RECENTDOCUMENTS" ]]
-	then
-		rm -rf "$DIR_RECENTDOCUMENTS"
-		touch "$DIR_RECENTDOCUMENTS"
-	else
-		print_info "directory not found: $DIR_RECENTDOCUMENTS"
-	fi
-
-	echo "deleting recently used history database"
-	local FILE_RECENTDOCUMENTSXBEL="$HOME/.local/share/recently-used.xbel"
-	if [[ -f "$FILE_RECENTDOCUMENTSXBEL" ]]
-	then
-		rm "$FILE_RECENTDOCUMENTSXBEL"
-		mkdir "$FILE_RECENTDOCUMENTSXBEL"
-	else
-		print_info "file not found: $FILE_RECENTDOCUMENTSXBEL"
-	fi
-
-	echo "deleting user places history database"
-	local FILE_USERPLACESXBEL="$HOME/.local/share/user-places.xbel"
-	if [[ -f "$FILE_USERPLACESXBEL" ]]
-	then
-		rm "$FILE_USERPLACESXBEL"
-	else
-		print_info "file not found: $FILE_USERPLACESXBEL"
-	fi
-
-
-	local DIR_THUMBNAILSCACHE="$HOME/.cache/thumbnails"
-	echo "deleting thumbnails in cache"
-	if [[ -d "$DIR_THUMBNAILSCACHE" ]]
-	then
-		rm -rf "$DIR_THUMBNAILSCACHE"
-		touch "$DIR_THUMBNAILSCACHE"
-	else
-		print_info "directory not found: $DIR_THUMBNAILSCACHE"
-	fi
-}
 
 ##########################
 # end : custom os config #
@@ -1752,9 +1645,6 @@ function menu_main {
 				;;
 			"config bash")
 				func_config_bash
-				;;
-			"config_os")
-				func_config_os
 				;;
 			"quit")
 				break
