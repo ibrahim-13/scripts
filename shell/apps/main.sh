@@ -394,79 +394,12 @@ function tmux_config {
 	if [[ ! -d "$CONFIG_DIR" ]]; then mkdir "$CONFIG_DIR"; fi;
 
 	git clone "https://github.com/tmux-plugins/tpm" "$PLUGIN_DIR"
-	tee "$CONFIG_FILE" > /dev/null <<EOT
-# Base config- https://github.com/dreamsofcode-io/tmux/blob/main/tmux.conf
-# Common commands:
-#	tmux		: create a default session and start
-#	tmux ls		: list sesstions
-#	tmux a		: attach to default session
-#	tmux new -s name	: create a named sesstion
-#	tmux attach -t name	: attach to a named session
-#	tmxu lscm			: list all tmux commands
-# Common bindings:
-#	[	: copy mode
-#	d	: detach
-#	z	: toggle zoom on a pane
-#	c	: create new window
-#	q	: show panes with numbers, press number to select
-#	w	: manage windows
-#	s	: manage windows and sesstions
-#	?	: show all key bindings
-#	1-9	: select pane
-#
-
-# enable 24bit color
-set-option -sa terminal-overrides ",xterm*:Tc"
-# enable mouse support
-set -g mouse on
-# enable system clipboard
-# set-clipboard on
-
-# remap binding from CTRL-b to CTRL-space
-unbind C-b
-set -g prefix C-Space
-bind C-Space send-prefix
-
-# Start windows and panes at 1, not 0
-set -g base-index 1
-set -g pane-base-index 1
-set-window-option -g pane-base-index 1
-set-option -g renumber-windows on
-
-# Use Alt-arrow keys without prefix key to switch panes
-bind -n M-Left select-pane -L
-bind -n M-Right select-pane -R
-bind -n M-Up select-pane -U
-bind -n M-Down select-pane -D
-
-# Shift arrow to switch windows
-bind -n S-Left  previous-window
-bind -n S-Right next-window
-
-# Shift Alt vim keys to switch windows
-# bind -n M-H previous-window
-# bind -n M-L next-window
-
-# Plugins
-set -g @plugin 'tmux-plugins/tpm'
-set -g @plugin 'tmux-plugins/tmux-sensible'
-# set -g @plugin 'christoomey/vim-tmux-navigator'
-# set -g @plugin 'dreamsofcode-io/catppuccin-tmux'
-set -g @plugin 'tmux-plugins/tmux-yank'
-
-run '~/.tmux/plugins/tpm/tpm'
-
-# set vi-mode
-set-window-option -g mode-keys vi
-# keybindings
-bind-key -T copy-mode-vi v send-keys -X begin-selection
-bind-key -T copy-mode-vi C-v send-keys -X rectangle-toggle
-bind-key -T copy-mode-vi y send-keys -X copy-selection-and-cancel
-
-bind '"' split-window -v -c "#{pane_current_path}"
-bind % split-window -h -c "#{pane_current_path}"
-
-EOT
+	if [[ -f "tmux.conf" ]]
+	then
+		cp "tmux.conf" "$CONFIG_FILE"
+	else
+		print_danger "tmux.conf not found at: $(pwd)"
+	fi
 }
 
 function tmux_config_remove {
@@ -587,17 +520,12 @@ function lf_config {
 	then
 		mkdir "$CONFIG_DIR"
 	fi
-	tee "$FILE_LFRC" > /dev/null <<EOT
-# keybindings
-
-map x 'cut'
-map d 'delete'
-
-# ui
-set hidden
-set info size:time
-set sortby "name"
-EOT
+	if [[ -f "lfrc" ]]
+	then
+		cp "lfrc" "$FILE_LFRC"
+	else
+		print_danger "lfrc not found: $(pwd)"
+	fi
 	chmod 666 "$FILE_LFRC"
 	echo "Fetching icon config"
 	wget -q --show-progress -O "$DIR_ICONS" "https://raw.githubusercontent.com/gokcehan/lf/master/etc/icons.example"
@@ -1478,41 +1406,15 @@ function nvm_config_remove {
 ################################
 
 function func_config_bash {
-	local FILE_CONFIG="$DIR_BASH_CONFIG/custom_bashrc.sh"
+	local FILE_CONFIG="$DIR_BASH_CONFIG/bashrc_custom_init.sh"
 
-	echo "writing to: $FILE_CONFIG"
-	tee "$FILE_CONFIG" > /dev/null <<EOT
-#!/usr/bin/env bash
-
-func_fzf_px() {
-	TMP_SELSECTED_PROCESS=\$(ps -aux | fzf | awk '\$2 ~ /^[0-9]+$/ { print \$2 }')
-	if [ "\$TMP_SELSECTED_PROCESS" = "" ]
+	if [[ -f "bashrc_custom_init.sh" ]]
 	then
-		echo no process selected
+		echo "writing to: $FILE_CONFIG"
+		cp "bashrc_custom_init.sh" "$FILE_CONFIG"
 	else
-		read -p "Kill? (Y/n) " TMP_ANS
-		case \$TMP_ANS in
-			[Nn])
-				echo will not kill
-				;;
-			*)
-				echo killing pid: \$TMP_SELSECTED_PROCESS
-				kill -s SIGKILL \$TMP_SELSECTED_PROCESS
-				;;
-			esac
+		echo "bashrc_custom_init.sh not found: $(pwd)"
 	fi
-}
-
-func_lfcd() {
-    cd "\$(command lf -single -print-last-dir "\$@")"
-}
-
-alias fd='cd \$(find . -maxdepth 1 -type d | sort | fzf)'
-alias ll='ls -AlhFr'
-alias llz='ls -AlhFr | sort | fzf'
-alias fk='func_fzf_px'
-alias lfcd='func_lfcd'
-EOT
 }
 
 ##############################

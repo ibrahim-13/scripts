@@ -1,0 +1,9 @@
+# keybindings
+
+map x 'cut'
+map d 'delete'
+
+# ui
+set hidden
+set info size:time
+set sortby "name"
