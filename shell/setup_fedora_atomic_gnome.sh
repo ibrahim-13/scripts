@@ -17,17 +17,17 @@
 
 #--------------------------------------------------------------
 
-# update pakages
-function func_update_packages {
-	sudo rpm-ostree check-update
-}
-
 # rpmfution sources
 function func_install_rpmfution_source {
 	sudo rpm-ostree install \
 		https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
 		https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 	sudo reboot
+}
+
+# update pakages
+function func_update_packages {
+	sudo rpm-ostree check-update
 }
 
 # rpmfusion source update after major os upgrade
@@ -60,19 +60,19 @@ function func_enable_flathub {
 	flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 }
 
+# add hardware codecs
+function func_install_hardware_codecs {
+	# for intel
+	sudo rpm-ostree install intel-media-driver
+	# for amd
+	# sudo rpm-ostree override remove mesa-va-drivers --install mesa-va-drivers-freeworld
+	# sudo rpm-ostree override remove mesa-vdpau-drivers --install mesa-vdpau-drivers-freeworld
+}
+
 # update sound and video group packages
 function func_install_software_codec {
 	# for kde-kionite
-	sudo rpm-ostree override remove libavcodec-free libavfilter-free libavformat-free libavutil-free libpostproc-free libswresample-free libswscale-free --install ffmpeg
-	sudo rpm-ostree install \
-		gstreamer1-plugin-libav \
-		gstreamer1-plugins-bad-free-extras \
-		gstreamer1-plugins-bad-freeworld \
-		gstreamer1-plugins-ugly \
-		gstreamer1-vaapi \
-		--allow-inactive
-
-	# for gnone-sliverblue
+	# sudo rpm-ostree override remove libavcodec-free libavfilter-free libavformat-free libavutil-free libpostproc-free libswresample-free libswscale-free --install ffmpeg
 	# sudo rpm-ostree install \
 	# 	gstreamer1-plugin-libav \
 	# 	gstreamer1-plugins-bad-free-extras \
@@ -80,6 +80,16 @@ function func_install_software_codec {
 	# 	gstreamer1-plugins-ugly \
 	# 	gstreamer1-vaapi \
 	# 	--allow-inactive
+
+	# for gnone-sliverblue
+	sudo rpm-ostree install \
+		ffmpeg \
+		gstreamer1-plugin-libav \
+		gstreamer1-plugins-bad-free-extras \
+		gstreamer1-plugins-bad-freeworld \
+		gstreamer1-plugins-ugly \
+		gstreamer1-vaapi \
+		# --allow-inactive
 }
 
 # akmod-nvidia : rhel/centos users can use kmod-nvidia instead
@@ -96,7 +106,6 @@ function func_install_software_codec {
 function func_install_nvidia_drivers {
 	sudo rpm-ostree install \
 		akmod-nvidia \
-		intel-media-driver \
 		nvidia-vaapi-backend \
 		nvidia-vaapi-driver \
 		libva-utils \
@@ -107,8 +116,6 @@ function func_install_nvidia_drivers {
 		--append=modprobe.blacklist=nouveau \
 		--append=nvidia-drm.modeset=1 \
 		initcall_blacklist=simpledrm_platform_driver_init
-	# sudo rpm-ostree override remove mesa-va-drivers --install mesa-va-drivers-freeworld
-	# sudo rpm-ostree override remove mesa-vdpau-drivers --install mesa-vdpau-drivers-freeworld
 	rpm-ostree install nvidia-vaapi-backend
 }
 
@@ -217,11 +224,11 @@ function menu_main {
 	select opt in "${options[@]}"
 	do
 		case $opt in
-			"update packages")
-				func_update_packages
-				;;
 			"rpmfution source")
 				func_install_rpmfution_source
+				;;
+			"update packages")
+				func_update_packages
 				;;
 			"rpmfusion source upgrade")
 				func_update_rpmfusion_source
@@ -234,6 +241,9 @@ function menu_main {
 				;;
 			"enable flathub")
 				func_enable_flathub
+				;;
+			"hardware codec")
+				func_install_hardware_codecs
 				;;
 			"software codec")
 				func_install_software_codec
