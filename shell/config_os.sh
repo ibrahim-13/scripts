@@ -63,6 +63,11 @@ function func_config_os {
 		gesttings set org.gnome.desktop.privacy remember-recent-files false
 		gsettings set org.gnome.desktop.privacy remember-app-usage false
 		gsettings set org.gnome.desktop.privacy recent-files-max-age 0
+		echo "disabling app usage"
+		gsettings set org.gnome.desktop.privacy remember-app-usage false
+		echo "disabling technical problem reporting and software usage"
+		gsettings set org.gnome.desktop.privacy report-technical-problems false
+		gsettings set org.gnome.desktop.privacy send-software-usage-stats false
 		echo "configuring auto removal of temp files"
 		gesttings set org.gnome.desktop.privacy remove-old-temp-files true
 		echo "configuring auto removal of trash files"

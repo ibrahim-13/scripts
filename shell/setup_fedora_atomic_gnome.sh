@@ -35,6 +35,21 @@ function func_update_rpmfusion_source {
 	sudo rpm-ostree update --uninstall rpmfusion-free-release --uninstall rpmfusion-nonfree-release --install rpmfusion-free-release --install rpmfusion-nonfree-release
 }
 
+function func_rem_unwanted_repos {
+	local REPO_NAMES=("google-chrome.repo" \
+		"rpm-fusion-nonfree-nvidia-driver.repo" \
+		"rpm-fusion-nonfree-steam.repo")
+
+	for REPO in "${REPO_NAMES[@]}"
+	do
+		if [[ -f "/etc/yum.repos.d/$REPO" ]]
+		then
+			echo "removing google-chrome.repo"
+			sudo mv "/etc/yum.repos.d/$REPO" "/etc/yum.repos.d/$REPO.bak"
+		fi
+	done
+}
+
 # configure hostname, default is `fedora`
 function func_set_hostname {
 	local TMP_ANS
@@ -57,7 +72,18 @@ function func_set_system_time_local {
 
 # enable fedora-cisco-openh264
 function func_enable_flathub {
-	flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+	if flatpak remotes | grep -q flathub
+	then
+		echo "flathub exists in the repo list"
+		if flatpak remotes --show-disabled | grep -q flathub
+		then
+			echo "flathub was disabled, enabling with no filter"
+			flatpak remote-modify --enable --no-filter flathub
+		fi
+	else
+		echo "adding flathub remote"
+		flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+	fi
 }
 
 # add hardware codecs
