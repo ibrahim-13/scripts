@@ -48,19 +48,19 @@ function func_config_os {
 		echo "configuring with: gsettings"
 		echo "---------------------------"
 		echo "disabling directory search indexes"
-		gesttings set org.freedesktop.Tracker3.Miner.Files index-recursive-directories []
-		gesttings set org.freedesktop.Tracker3.Miner.Files index-single-directories []
+		gsettings set org.freedesktop.Tracker3.Miner.Files index-recursive-directories []
+		gsettings set org.freedesktop.Tracker3.Miner.Files index-single-directories []
 		echo "setting 12h clock format"
-		gesttings set org.gnome.desktop.interface clock-format '12h'
-		gesttings set org.gtk.Settings.FileChooser clock-format '12h'
+		gsettings set org.gnome.desktop.interface clock-format '12h'
+		gsettings set org.gtk.Settings.FileChooser clock-format '12h'
 		echo "setting weekday display"
-		gesttings set org.gnome.desktop.interface clock-show-weekday true
+		gsettings set org.gnome.desktop.interface clock-show-weekday true
 		echo "setting darkmode"
-		gesttings set org.gnome.desktop.interface color-scheme 'prefer-dark'
+		gsettings set org.gnome.desktop.interface color-scheme 'prefer-dark'
 		echo "disabling lockscreen notification"
-		gesttings set org.gnome.desktop.notifications show-in-lock-screen false
+		gsettings set org.gnome.desktop.notifications show-in-lock-screen false
 		echo "disabling recent files"
-		gesttings set org.gnome.desktop.privacy remember-recent-files false
+		gsettings set org.gnome.desktop.privacy remember-recent-files false
 		gsettings set org.gnome.desktop.privacy remember-app-usage false
 		gsettings set org.gnome.desktop.privacy recent-files-max-age 0
 		echo "disabling app usage"
@@ -69,27 +69,27 @@ function func_config_os {
 		gsettings set org.gnome.desktop.privacy report-technical-problems false
 		gsettings set org.gnome.desktop.privacy send-software-usage-stats false
 		echo "configuring auto removal of temp files"
-		gesttings set org.gnome.desktop.privacy remove-old-temp-files true
+		gsettings set org.gnome.desktop.privacy remove-old-temp-files true
 		echo "configuring auto removal of trash files"
-		gesttings set org.gnome.desktop.privacy remove-old-trash-files true
+		gsettings set org.gnome.desktop.privacy remove-old-trash-files true
 		echo "configuring auto removal time for temp and trash files"
-		gesttings set org.gnome.desktop.privacy old-files-age 7
+		gsettings set org.gnome.desktop.privacy old-files-age 7
 		echo "disabling external search providers"
-		gesttings set org.gnome.desktop.search-providers disable-external true
+		gsettings set org.gnome.desktop.search-providers disable-external true
 		echo "setting desktop idle delay time"
-		gesttings set org.gnome.desktop.session idle-delay 60
+		gsettings set org.gnome.desktop.session idle-delay 60
 		echo "configuring nautilus"
-		gesttings set org.gnome.nautilus.preferences default-folder-viewer 'list-view'
-		gesttings set org.gnome.nautilus.preferences show-delete-permanently true
-		gesttings set org.gnome.nautilus.preferences show-directory-item-counts 'never'
-		gesttings set org.gnome.nautilus.preferences show-image-thumbnails 'never'
+		gsettings set org.gnome.nautilus.preferences default-folder-viewer 'list-view'
+		gsettings set org.gnome.nautilus.preferences show-delete-permanently true
+		gsettings set org.gnome.nautilus.preferences show-directory-item-counts 'never'
+		gsettings set org.gnome.nautilus.preferences show-image-thumbnails 'never'
 		echo "disabling location"
-		gesttings set org.gnome.system.location enabled false
+		gsettings set org.gnome.system.location enabled false
 		echo "disabling update notification and auto update download"
-		gesttings set org.gnome.software download-updates false
-		gesttings set org.gnome.software download-updates-notify false
+		gsettings set org.gnome.software download-updates false
+		gsettings set org.gnome.software download-updates-notify false
 		echo "other configs"
-		gesttings set org.gtk.Settings.FileChooser sort-directories-first true
+		gsettings set org.gtk.Settings.FileChooser sort-directories-first true
 		echo "configuring night time"
 		echo "TODO"
 	fi

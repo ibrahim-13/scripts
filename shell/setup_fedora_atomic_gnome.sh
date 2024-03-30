@@ -51,8 +51,8 @@ register_opt rebase_rpmfusion_source
 
 function remove_unwanted_repos {
 	local REPO_NAMES=("google-chrome.repo" \
-		"rpm-fusion-nonfree-nvidia-driver.repo" \
-		"rpm-fusion-nonfree-steam.repo")
+		"rpmfusion-nonfree-nvidia-driver.repo" \
+		"rpmfusion-nonfree-steam.repo")
 
 	for REPO in "${REPO_NAMES[@]}"
 	do
