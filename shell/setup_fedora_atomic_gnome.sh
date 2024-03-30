@@ -179,6 +179,33 @@ function install_gnome_extensions {
 }
 register_opt install_gnome_extensions
 
+# print out a curated list of gnome extensions
+function print_gnome_extension_list {
+	echo "KDE Connect for GNOME:"
+	echo "https://extensions.gnome.org/extension/1319/gsconnect/"
+	echo "UI Customization:"
+	echo "https://extensions.gnome.org/extension/3843/just-perfection/"
+	echo "Sleep and awake control:"
+	echo "https://extensions.gnome.org/extension/517/caffeine/"
+	echo "System monitoring:"
+	echo "https://extensions.gnome.org/extension/1460/vitals/"
+	echo "App Icons in Taskbar:"
+	echo "https://extensions.gnome.org/extension/4944/app-icons-taskbar/"
+	echo "Running app icon indicator:"
+	echo "https://extensions.gnome.org/extension/615/appindicator-support/"
+	echo "GNOME dock:"
+	echo "https://extensions.gnome.org/extension/307/dash-to-dock/"
+	echo "Systewide color picker:"
+	echo "https://extensions.gnome.org/extension/3396/color-picker/"
+	echo "Clipboard manager:"
+	echo "https://extensions.gnome.org/extension/779/clipboard-indicator/"
+	echo "Emoji selector:"
+	echo "https://extensions.gnome.org/extension/1162/emoji-selector/"
+	echo "Removable device icon in Taskbar:"
+	echo "https://extensions.gnome.org/extension/7/removable-drive-menu/"
+}
+register_opt print_gnome_extension_list
+
 # vscodium and add extensions
 function install_vscodium {
 	flatpak install flathub com.vscodium.codium
