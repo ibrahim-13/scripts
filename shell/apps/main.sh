@@ -123,13 +123,13 @@ function func_gh_http {
 		-qO- "$GH_URL" | \
 		jq "$JSON_QUERY")"
 	echo "$GH_RESPONSE"
-}
+	}
 
-# get lastest release asset url from github with gh cli
-# $1 : github username
-# $2 : github repo
-# $3 : jq selector for asset name
-function func_gh_cli {
+	# get lastest release asset url from github with gh cli
+	# $1 : github username
+	# $2 : github repo
+	# $3 : jq selector for asset name
+	function func_gh_cli {
 	local GH_URL
 	local HEADER_ACCEPT
 	local HEADER_VERSION
@@ -275,12 +275,12 @@ export PATH=\$PATH:$DIR_APPS_BIN
 
 # source config scripts from "$DIR_BASH_CONFIG"
 if [ -d "$DIR_BASH_CONFIG" ]; then
-	for i in "$DIR_BASH_CONFIG"/*.sh; do
-		if [ -r "\$i" ]; then
-			. "\$i"
-		fi
-	done
-	unset i
+for i in "$DIR_BASH_CONFIG"/*.sh; do
+	if [ -r "\$i" ]; then
+		. "\$i"
+	fi
+done
+unset i
 fi
 
 $ALIAS_STR_END
@@ -327,7 +327,6 @@ function package_install {
 	else
 		print_danger "err! : could not detect package manager"
 	fi
-
 }
 
 # update system package
@@ -345,7 +344,6 @@ function package_update {
 	else
 		print_danger "err! : could not detect package manager"
 	fi
-
 }
 
 ###########################
@@ -390,7 +388,7 @@ function tmux_config {
 	CONFIG_DIR="$HOME/.config/tmux"
 	CONFIG_FILE="$CONFIG_DIR/tmux.conf"
 	PLUGIN_DIR="$HOME/.tmux/plugins/tpm"
-	
+
 	if [[ ! -d "$CONFIG_DIR" ]]; then mkdir "$CONFIG_DIR"; fi;
 
 	git clone "https://github.com/tmux-plugins/tpm" "$PLUGIN_DIR"
@@ -895,14 +893,14 @@ function lazygit_config_remove {
 ####################
 
 function marktext_is_installed {
-	if ! command -v marktext &> /dev/null
-	then
-		# command not found, return 0
-		return 0
-	else
-		# command found, return 1
-		return 1
-	fi
+if ! command -v marktext &> /dev/null
+then
+	# command not found, return 0
+	return 0
+else
+	# command found, return 1
+	return 1
+fi
 }
 
 function marktext_install {
@@ -1086,7 +1084,7 @@ function golang_install {
 
 	# Clean up archive file
 	rm "$GO_TMP_ARCHIVE"
-}
+	}
 
 function golang_update {
 	local GO_VER_INSTALLED
@@ -1116,7 +1114,7 @@ function golang_remove {
 function golang_config {
 	local CONFIG_FILE="$DIR_BASH_CONFIG/golang.sh"
 	local INSTALL_DIR="$DIR_APPS/go"
-	tee "$CONFIG_FILE" > /dev/null <<EOT
+tee "$CONFIG_FILE" > /dev/null <<EOT
 #!/usr/bin/env bash
 
 # START:Golang

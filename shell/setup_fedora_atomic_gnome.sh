@@ -17,25 +17,39 @@
 
 #--------------------------------------------------------------
 
+REGISTERED_OPT=""
+
+function register_opt {
+	if [[ "$REGISTERED_OPT" == "" ]]
+	then
+		REGISTERED_OPT="$1"
+	else
+		REGISTERED_OPT="$REGISTERED_OPT:$1"
+	fi
+}
+
 # rpmfution sources
-function func_install_rpmfution_source {
+function install_rpmfusion_source {
 	sudo rpm-ostree install \
 		https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
 		https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 	sudo reboot
 }
+register_opt install_rpmfusion_source
 
 # update pakages
-function func_update_packages {
+function rpmostree_update_packages {
 	sudo rpm-ostree check-update
 }
+register_opt rpmostree_update_packages
 
 # rpmfusion source update after major os upgrade
-function func_update_rpmfusion_source {
+function rebase_rpmfusion_source {
 	sudo rpm-ostree update --uninstall rpmfusion-free-release --uninstall rpmfusion-nonfree-release --install rpmfusion-free-release --install rpmfusion-nonfree-release
 }
+register_opt rebase_rpmfusion_source
 
-function func_rem_unwanted_repos {
+function remove_unwanted_repos {
 	local REPO_NAMES=("google-chrome.repo" \
 		"rpm-fusion-nonfree-nvidia-driver.repo" \
 		"rpm-fusion-nonfree-steam.repo")
@@ -44,14 +58,15 @@ function func_rem_unwanted_repos {
 	do
 		if [[ -f "/etc/yum.repos.d/$REPO" ]]
 		then
-			echo "removing google-chrome.repo"
+			echo "removing $REPO"
 			sudo mv "/etc/yum.repos.d/$REPO" "/etc/yum.repos.d/$REPO.bak"
 		fi
 	done
 }
+register_opt remove_unwanted_repos
 
 # configure hostname, default is `fedora`
-function func_set_hostname {
+function set_hostname {
 	local TMP_ANS
 	read -p "hostname: " TMP_ANS
 	if [[ ! -z "$TMP_ANS" ]]
@@ -61,17 +76,20 @@ function func_set_hostname {
 		echo "empty input, hostname will not be changed"
 	fi
 }
+register_opt set_hostname
 
 # adjust how system time is stored
 # ################################
 # in case of dual-boot with windows, this is important to avoid system time conflict.
 # because, windows stores system time in local format but fedora stores system time in utc format.
-function func_set_system_time_local {
+function set_local_rtc_system_time {
+	echo "setting local rtc as system time"
 	sudo timedatectl set-local-rtc 1 --adjust-system-clock
 }
+register_opt set_local_rtc_system_time
 
-# enable fedora-cisco-openh264
-function func_enable_flathub {
+# enable flathub
+function enable_flathub {
 	if flatpak remotes | grep -q flathub
 	then
 		echo "flathub exists in the repo list"
@@ -85,18 +103,20 @@ function func_enable_flathub {
 		flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 	fi
 }
+register_opt enable_flathub
 
 # add hardware codecs
-function func_install_hardware_codecs {
+function install_hardware_codecs {
 	# for intel
 	sudo rpm-ostree install intel-media-driver
 	# for amd
 	# sudo rpm-ostree override remove mesa-va-drivers --install mesa-va-drivers-freeworld
 	# sudo rpm-ostree override remove mesa-vdpau-drivers --install mesa-vdpau-drivers-freeworld
 }
+register_opt install_hardware_codecs
 
 # update sound and video group packages
-function func_install_software_codec {
+function install_software_codec {
 	# for kde-kionite
 	# sudo rpm-ostree override remove libavcodec-free libavfilter-free libavformat-free libavutil-free libpostproc-free libswresample-free libswscale-free --install ffmpeg
 	# sudo rpm-ostree install \
@@ -117,6 +137,7 @@ function func_install_software_codec {
 		gstreamer1-vaapi \
 		# --allow-inactive
 }
+register_opt install_software_codec
 
 # akmod-nvidia : rhel/centos users can use kmod-nvidia instead
 # xorg-x11-drv-nvidia : nvidia dirver
@@ -129,7 +150,7 @@ function func_install_software_codec {
 # vdpauinfo : nvidia vdpau/vaapi
 # xorg-x11-drv-nvidia-cuda : optional for cuda/nvdec/nvenc support
 # xorg-x11-drv-nvidia-cuda-libs: enable nvenc/nvdec
-function func_install_nvidia_drivers {
+function install_nvidia_drivers {
 	sudo rpm-ostree install \
 		akmod-nvidia \
 		nvidia-vaapi-backend \
@@ -144,14 +165,22 @@ function func_install_nvidia_drivers {
 		initcall_blacklist=simpledrm_platform_driver_init
 	rpm-ostree install nvidia-vaapi-backend
 }
+register_opt install_nvidia_drivers
 
 # git source control
-function func_install_git {
+function install_git {
 	sudo rpm-ostree install git
 }
+register_opt install_git
+
+# gnome extension manager
+function install_gnome_extensions {
+	flatpak install flathub org.gnome.Extensions
+}
+register_opt install_gnome_extensions
 
 # vscodium and add extensions
-function func_install_vscodium {
+function install_vscodium {
 	flatpak install flathub com.vscodium.codium
 
 	echo --------------------
@@ -167,157 +196,94 @@ function func_install_vscodium {
 	# echo ----------------------
 	# flatpak run com.vscodium.codium --install-extension vscodevim.vim # VS Vimscodium.codium
 }
+register_opt install_vscodium
 
 # google chrome
-function func_install_google_chrome {
+function install_google_chrome {
 	flatpak install flathub com.google.Chrome
 }
+register_opt install_google_chrome
 
 # brave browser
-function func_install_brave_browser {
+function install_brave_browser {
 	flatpak install flathub com.brave.Browser
 }
+register_opt install_brave_browser
 
 # microsoft edge browser
-function func_install_microsoft_edge {
+function install_microsoft_edge {
 	flatpak install flathub com.microsoft.Edge
 }
+register_opt install_microsoft_edge
 
 # kid3 audio tagger
-function func_install_kid3 {
+function install_kid3 {
 	flatpak install flathub org.kde.kid3
 }
+register_opt install_kid3
 
 # discord
-function func_install_discord {
+function install_discord {
 	flatpak install flathub com.discordapp.Discord
 }
+register_opt install_discord
 
 # bleachbit
-function func_install_bleachbit {
+function install_bleachbit {
 	flatpak install flathub org.bleachbit.BleachBit
 }
+register_opt install_bleachbit
 
 # gimp
-function func_install_gimp {
+function install_gimp {
 	flatpak install flathub org.gimp.GIMP
 }
+register_opt install_gimp
 
 # vlc media player
-function func_install_vlc {
+function install_vlc {
 	flatpak install flathub org.videolan.VLC
 }
+register_opt install_vlc
 
 # thunderbird email client
-function func_install_thunderbird {
+function install_thunderbird {
 	flatpak install flathub org.mozilla.Thunderbird
 }
+register_opt install_thunderbird
 
 # bitwarder passwd manager
-function func_install_bitwarden {
+function install_bitwarden {
 	flatpak install flathub com.bitwarden.desktop
 }
+register_opt install_bitwarden
 
 # cryptomator
-function func_install_cryptomator {
+function install_cryptomator {
 	flatpak install flathub org.cryptomator.Cryptomator
 }
+register_opt install_cryptomator
 
-# This is the main menu where operations will be selected
-function menu_main {
-	local PS3=$'select operation: '
-	local options=("update packages" \
-		"rpmfution source" \
-		"rpmfusion source upgrade"\
-		"set hostname" \
-		"system time in local" \
-		"enable flathub" \
-		"software codec" \
-		"nvidia drivers" \
-		"vscodium" \
-		"google chrome" \
-		"brave browser" \
-		"microsoft edge" \
-		"kid3" \
-		"discord" \
-		"bleachbit" \
-		"gimp" \
-		"vlc" \
-		"thunderbird" \
-		"bitwarden" \
-		"cryptomator" \
-		"quit")
-	select opt in "${options[@]}"
+# Menu for managing apps installation
+function menu_opts {
+	register_opt "quit"
+	local PS3='select opt: '
+	local APPS_LIST=
+	local IFS=':'
+	read -ra APPS_LIST <<< "$REGISTERED_OPT"
+	echo $APPS_LIST
+	select opt in "${APPS_LIST[@]}"
 	do
-		case $opt in
-			"rpmfution source")
-				func_install_rpmfution_source
-				;;
-			"update packages")
-				func_update_packages
-				;;
-			"rpmfusion source upgrade")
-				func_update_rpmfusion_source
-				;;
-			"set hostname")
-				func_set_hostname
-				;;
-			"system time in local")
-				func_set_system_time_local
-				;;
-			"enable flathub")
-				func_enable_flathub
-				;;
-			"hardware codec")
-				func_install_hardware_codecs
-				;;
-			"software codec")
-				func_install_software_codec
-				;;
-			"nvidia drivers")
-				func_install_nvidia_drivers
-				;;
-			"vscodium")
-				func_install_vscodium
-				;;
-			"google chrome")
-				func_install_google_chrome
-				;;
-			"brave browser")
-				func_install_brave_browser
-				;;
-			"microsoft edge")
-				func_install_microsoft_edge
-				;;
-			"kid3")
-				func_install_kid3
-				;;
-			"discord")
-				func_install_discord
-				;;
-			"bleachbit")
-				func_install_bleachbit
-				;;
-			"gimp")
-				func_install_gimp
-				;;
-			"vlc")
-				func_install_vlc
-				;;
-			"thunderbird")
-				func_install_thunderbird
-				;;
-			"bitwarden")
-				func_install_bitwarden
-				;;
-			"cryptomator")
-				func_install_cryptomator
-				;;
-			"quit")
-				break
-				;;
-			*) print_danger "invalid operation $REPLY";;
-		esac
+		if [[ $opt == "quit" ]]
+		then
+			break
+		fi
+		if [[ $opt == "" ]] || [[ ! $APPS_LIST == *"$APPS_LIST"* ]]
+		then
+			echo "invalid opt: $REPLY"
+		else
+			$opt
+		fi
 	done
 }
 
@@ -326,4 +292,4 @@ echo "= operations ="
 echo "=============="
 
 # run main menu function
-menu_main
+menu_opts
