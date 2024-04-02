@@ -28,43 +28,6 @@ function register_opt {
 	fi
 }
 
-# rpmfution sources
-function install_rpmfusion_source {
-	sudo rpm-ostree install \
-		https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-		https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
-	sudo reboot
-}
-register_opt install_rpmfusion_source
-
-# update pakages
-function rpmostree_update_packages {
-	sudo rpm-ostree check-update
-}
-register_opt rpmostree_update_packages
-
-# rpmfusion source update after major os upgrade
-function rebase_rpmfusion_source {
-	sudo rpm-ostree update --uninstall rpmfusion-free-release --uninstall rpmfusion-nonfree-release --install rpmfusion-free-release --install rpmfusion-nonfree-release
-}
-register_opt rebase_rpmfusion_source
-
-function remove_unwanted_repos {
-	local REPO_NAMES=("google-chrome.repo" \
-		"rpmfusion-nonfree-nvidia-driver.repo" \
-		"rpmfusion-nonfree-steam.repo")
-
-	for REPO in "${REPO_NAMES[@]}"
-	do
-		if [[ -f "/etc/yum.repos.d/$REPO" ]]
-		then
-			echo "removing $REPO"
-			sudo mv "/etc/yum.repos.d/$REPO" "/etc/yum.repos.d/$REPO.bak"
-		fi
-	done
-}
-register_opt remove_unwanted_repos
-
 # configure hostname, default is `fedora`
 function set_hostname {
 	local TMP_ANS
@@ -105,68 +68,6 @@ function enable_flathub {
 }
 register_opt enable_flathub
 
-# add hardware codecs
-function install_hardware_codecs {
-	# for intel
-	sudo rpm-ostree install intel-media-driver
-	# for amd
-	# sudo rpm-ostree override remove mesa-va-drivers --install mesa-va-drivers-freeworld
-	# sudo rpm-ostree override remove mesa-vdpau-drivers --install mesa-vdpau-drivers-freeworld
-}
-register_opt install_hardware_codecs
-
-# update sound and video group packages
-function install_software_codec {
-	# for kde-kionite
-	# sudo rpm-ostree override remove libavcodec-free libavfilter-free libavformat-free libavutil-free libpostproc-free libswresample-free libswscale-free --install ffmpeg
-	# sudo rpm-ostree install \
-	# 	gstreamer1-plugin-libav \
-	# 	gstreamer1-plugins-bad-free-extras \
-	# 	gstreamer1-plugins-bad-freeworld \
-	# 	gstreamer1-plugins-ugly \
-	# 	gstreamer1-vaapi \
-	# 	--allow-inactive
-
-	# for gnone-sliverblue
-	sudo rpm-ostree install \
-		ffmpeg \
-		gstreamer1-plugin-libav \
-		gstreamer1-plugins-bad-free-extras \
-		gstreamer1-plugins-bad-freeworld \
-		gstreamer1-plugins-ugly \
-		gstreamer1-vaapi \
-		# --allow-inactive
-}
-register_opt install_software_codec
-
-# akmod-nvidia : rhel/centos users can use kmod-nvidia instead
-# xorg-x11-drv-nvidia : nvidia dirver
-# intel-media-driver : hardware accelerated codec- intel
-# mesa-va-drivers-freeworld: hardware accelerated codec- amd
-# mesa-vdpau-drivers-freeworld: hardware accelerated codec- amd
-# nvidia-vaapi-backend : hardware codec
-# nvidia-vaapi-driver : nvidia vdpau/vaapi
-# libva-utils : nvidia vdpau/vaapi
-# vdpauinfo : nvidia vdpau/vaapi
-# xorg-x11-drv-nvidia-cuda : optional for cuda/nvdec/nvenc support
-# xorg-x11-drv-nvidia-cuda-libs: enable nvenc/nvdec
-function install_nvidia_drivers {
-	sudo rpm-ostree install \
-		akmod-nvidia \
-		nvidia-vaapi-backend \
-		nvidia-vaapi-driver \
-		libva-utils \
-		vdpauinfo \
-		xorg-x11-drv-nvidia-cuda \
-		xorg-x11-drv-nvidia-cuda-libs
-	sudo rpm-ostree kargs --append=rd.driver.blacklist=nouveau \
-		--append=modprobe.blacklist=nouveau \
-		--append=nvidia-drm.modeset=1 \
-		initcall_blacklist=simpledrm_platform_driver_init
-	rpm-ostree install nvidia-vaapi-backend
-}
-register_opt install_nvidia_drivers
-
 # git source control
 function install_git {
 	sudo rpm-ostree install git
@@ -206,6 +107,42 @@ function print_gnome_extension_list {
 }
 register_opt print_gnome_extension_list
 
+function install_virt_manager {
+	if command -v apt-get
+	then
+		echo "installing virt-manager packages"
+		sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
+		echo "adding $USER to group: kvm"
+		sudo usermod -aG kvm $USER
+		echo "adding $USER to group: libvirt"
+		sudo usermod -aG libvirt $USER
+		# echo "enabling systemd service: libvirtd"
+		# sudo systemctl enable --now libvirtd
+		# echo "systemd service status: libvirtd"
+		# sudo systemctl start libvirtd
+	else
+		echo "package manager not found"
+	fi
+}
+register_opt install_virt_manager
+
+function install_podman {
+	if command -v apt-get
+	then
+		echo "installing podmand"
+		sudo apt-get -y install podman
+	else
+		echo "package manager not found while installing podman"
+	fi
+	if command -v flatpak
+	then
+		echo "installing podman desktop"
+	else
+		echo "flatpak not found while installing podman desktop"
+		flatpak install flathub io.podman_desktop.PodmanDesktop
+	fi
+}
+
 # vscodium and add extensions
 function install_vscodium {
 	flatpak install flathub com.vscodium.codium
@@ -218,10 +155,6 @@ function install_vscodium {
 	echo Extension: Golang
 	echo -----------------
 	flatpak run com.vscodium.codium --install-extension golang.go # Golang
-	# echo ----------------------
-	# echo Extension: VS Code Vim
-	# echo ----------------------
-	# flatpak run com.vscodium.codium --install-extension vscodevim.vim # VS Vimscodium.codium
 }
 register_opt install_vscodium
 
