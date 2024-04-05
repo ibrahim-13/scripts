@@ -1084,7 +1084,7 @@ function golang_install {
 
 	# Clean up archive file
 	rm "$GO_TMP_ARCHIVE"
-	}
+}
 
 function golang_update {
 	local GO_VER_INSTALLED
@@ -1398,6 +1398,56 @@ function nvm_config_remove {
 #############
 # end : nvm #
 #############
+
+#####################
+# start : distrobox #
+#####################
+
+function distrobox_is_installed {
+	# when running scritp with bash inside tmux, the sourcing of nvm
+	# does not work properly, this is the alternative
+	# if [[ -f "$HOME/.nvm/nvm.sh" ]]
+	# then
+	# 	# shellcheck disable=SC1090
+	# 	source "$HOME/.nvm/nvm.sh"
+	# fi
+	if ! command -v distrobox &> /dev/null
+	then
+		# command not found, return 0
+		return 0
+	else
+		# command found, return 1
+		return 1
+	fi
+}
+
+function distrobox_install {
+	echo "installing distrobox in $HOME/.local"
+	# shellcheck disable=SC1090
+	wget -qO- https://raw.githubusercontent.com/89luca89/distrobox/main/install | sh -s -- --prefix "$HOME/.local"
+}
+
+function distrobox_update {
+	distrobox_install
+}
+
+function distrobox_remove {
+	echo "uninstalling distrobox"
+	# shellcheck disable=SC1090
+	wget -qO- https://raw.githubusercontent.com/89luca89/distrobox/main/uninstall | sh -s -- --prefix "$HOME/.local"
+}
+
+function distrobox_config {
+	echo "no config defined"
+}
+
+function distrobox_config_remove {
+	echo "no config defined"
+}
+
+###################
+# end : distrobox #
+###################
 
 ################################
 # start : custom bashrc config #
