@@ -66,7 +66,7 @@ function print_danger {
 # 1. add a command by running `register_app APP_NAME`
 # 2. app name should not contain spaces, special characters
 # 3. each app must have the following function implementation-
-# 	- APP_NAME_is_installed : returns 1 if installed, otherwise 0
+# 	- APP_NAME_is_installed : returns 0 if installed, otherwise 1
 # 	- APP_NAME_install : installs the app
 # 	- APP_NAME_update : updates the app
 # 	- APP_NAME_remove : removes/uninstall the app
@@ -228,6 +228,22 @@ function errexit {
 	exit 1
 }
 
+# promt for confirmation of an action
+# $1 : message
+# returns 1 if yes, 0 if no
+function promt_confirmation {
+	local TMP_ANS
+	read -p "${1} (y/N) " TMP_ANS
+	case $TMP_ANS in
+	[Yy])
+		return 0
+		;;
+	*)
+		return 1
+		;;
+	esac
+}
+
 # bash config helper functions
 
 # add custom folder for config and source them
@@ -357,9 +373,9 @@ function package_update {
 function tmux_is_installed {
 	if ! command -v tmux &> /dev/null
 	then
-		return 0
-	else
 		return 1
+	else
+		return 0
 	fi
 }
 
@@ -419,11 +435,11 @@ function tmux_config_remove {
 function lf_is_installed {
 	if ! command -v lf &> /dev/null
 	then
-		# command not found, return 0
-		return 0
-	else
 		# command found, return 1
 		return 1
+	else
+		# command not found, return 0
+		return 0
 	fi
 }
 
@@ -548,11 +564,11 @@ function lf_config_remove {
 function fzf_is_installed {
 	if ! command -v fzf &> /dev/null
 	then
-		# command not found, return 0
-		return 0
-	else
 		# command found, return 1
 		return 1
+	else
+		# command not found, return 0
+		return 0
 	fi
 }
 
@@ -683,11 +699,11 @@ function fzf_config_remove {
 function hugo_is_installed {
 	if ! command -v hugo &> /dev/null
 	then
-		# command not found, return 0
-		return 0
-	else
 		# command found, return 1
 		return 1
+	else
+		# command not found, return 0
+		return 0
 	fi
 }
 
@@ -789,11 +805,11 @@ function hugo_config_remove {
 function lazygit_is_installed {
 	if ! command -v lazygit &> /dev/null
 	then
-		# command not found, return 0
-		return 0
-	else
 		# command found, return 1
 		return 1
+	else
+		# command not found, return 0
+		return 0
 	fi
 }
 
@@ -893,14 +909,14 @@ function lazygit_config_remove {
 ####################
 
 function marktext_is_installed {
-if ! command -v marktext &> /dev/null
-then
-	# command not found, return 0
-	return 0
-else
-	# command found, return 1
-	return 1
-fi
+	if ! command -v marktext &> /dev/null
+	then
+		# command found, return 1
+		return 1
+	else
+		# command not found, return 0
+		return 0
+	fi
 }
 
 function marktext_install {
@@ -1034,11 +1050,11 @@ function marktext_config_remove {
 function golang_is_installed {
 	if ! command -v go &> /dev/null
 	then
-		# command not found, return 0
-		return 0
-	else
 		# command found, return 1
 		return 1
+	else
+		# command not found, return 0
+		return 0
 	fi
 }
 
@@ -1142,32 +1158,27 @@ function golang_config_remove {
 ##################
 
 function neovim_minimal_config_propmt {
-	local TMP_ANS
 	if [[ "$NEOVIM_IS_MINIMAL_CONFIG" == "n" ]]
 	then
 		print_info "neovim will be using complete configuration"
-		read -p "use minimal config? (y/N) " TMP_ANS
-		case $TMP_ANS in
-		[Yy])
-			echo "using minimal configuration"
+		promt_confirmation "use minimal config?" && {
+			echo "using minimal config"
 			NEOVIM_IS_MINIMAL_CONFIG="t"
-			;;
-		*)
-			echo "using complete configuration"
+		} || {
+			echo "using full config"
 			NEOVIM_IS_MINIMAL_CONFIG="f"
-			;;
-		esac
+		}
 	fi
 }
 
 function neovim_is_installed {
 	if ! command -v nvim &> /dev/null
 	then
-		# command not found, return 0
-		return 0
-	else
 		# command found, return 1
 		return 1
+	else
+		# command not found, return 0
+		return 0
 	fi
 }
 
@@ -1249,10 +1260,14 @@ function neovim_install {
 	echo "$GH_CREATED_AT" | tee "$FILE_CREATED_AT"
 
 	# install ripgrep if not installed
-	if ! command -v ripgrep &> /dev/null
+	if ! command -v rg &> /dev/null
 	then
-		echo "installing: ripgrep"
-		package_install ripgrep
+		promt_confirmation "ripgrep is required for telescope, install now?" && {
+			echo "installing: ripgrep"
+			package_install ripgrep
+		} || {
+			echo "ripgrep will not be installed"
+		}
 	else
 		echo "already installed: ripgrep"
 	fi
@@ -1265,17 +1280,17 @@ function neovim_install {
 		if ! command -v gcc &> /dev/null
 		then
 			echo "installing: gcc"
-			package_install gcc
+			promt_confirmation "gcc is required for treesitter, install now?" && package_install gcc
 		else
-			echo "already installed: ripgrep"
+			echo "already installed: gcc"
 		fi
 		# treesitter: install g++ if not installed
 		if ! command -v g++ &> /dev/null
 		then
 			echo "installing: g++"
-			package_install g++
+			promt_confirmation "g++ is required for treesitter, install now?" && package_install g++
 		else
-			echo "already installed: ripgrep"
+			echo "already installed: g++"
 		fi
 		# mason: check if golang is installed
 		if ! command -v go &> /dev/null
@@ -1352,11 +1367,11 @@ function nvm_is_installed {
 	fi
 	if ! command -v nvm &> /dev/null
 	then
-		# command not found, return 0
-		return 0
-	else
 		# command found, return 1
 		return 1
+	else
+		# command not found, return 0
+		return 0
 	fi
 }
 
@@ -1413,11 +1428,11 @@ function distrobox_is_installed {
 	# fi
 	if ! command -v distrobox &> /dev/null
 	then
-		# command not found, return 0
-		return 0
-	else
 		# command found, return 1
 		return 1
+	else
+		# command not found, return 0
+		return 0
 	fi
 }
 
@@ -1482,7 +1497,7 @@ function menu_manage_app {
 	AVAILABLE_APP_OPTS="set_config:remove_config:remove:back"
 
 	run_func "${1}_is_installed"
-	if [[ "$?" == 1 ]]
+	if [[ "$?" == 0 ]]
 	then
 		AVAILABLE_APP_OPTS="update:$AVAILABLE_APP_OPTS"
 	else
@@ -1558,7 +1573,7 @@ function menu_apps {
 	do
 		run_func "${app}_is_installed"
 		local IS_INSTALLED=$?
-		if [[ $IS_INSTALLED == 1 ]]
+		if [[ $IS_INSTALLED == 0 ]]
 		then
 			MENU_OPTS="${MENU_OPTS}[X] $app:"
 		else

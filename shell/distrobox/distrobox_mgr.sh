@@ -71,8 +71,9 @@ register_opt setup_devenv
 # this is required for some system file mapping
 function remount_root_as_shared {
 	promt_confirmation "make root mountponit as shared?" && {
+		echo "mounting root filesystem as sharabe"
 		mount --make-rshared /
-	}
+	} || echo "root filesystem won't be mounted as sharable"
 }
 register_opt remount_root_as_shared
 
