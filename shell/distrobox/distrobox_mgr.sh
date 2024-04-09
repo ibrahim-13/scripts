@@ -19,10 +19,10 @@ function register_opt {
 	fi
 }
 
-# promt for confirmation of an action
+# prompt for confirmation of an action
 # $1 : message
 # returns 1 if yes, 0 if no
-function promt_confirmation {
+function prompt_confirmation {
 	local TMP_ANS
 	read -p "${1} (y/N) " TMP_ANS
 	case $TMP_ANS in
@@ -38,62 +38,42 @@ function promt_confirmation {
 function setup_devenv {
 	local DEVENV_HOME="$HOME/devenv"
 	local CONFIG_OUTPUT_DIR="$HOME/.config/distrobox"
-	local CONFIG_OUTPUT_FILE="$CONFIG_OUTPUT_DIR/devenv.ini"
 	local SHARED_PROJECTS_SRC="$HOME/Projects"
 	local SHARED_PROJECTS_DEST="$DEVENV_HOME/Projects"
 	echo "setting up devenv: $CONFIG_OUTPUT_FILE"
 	mkdir -p "$DEVENV_HOME"
 	mkdir -p "$CONFIG_OUTPUT_DIR"
-	mkdir -p "$SHARED_PROJECTS_SRC"
 	mkdir -p "$SHARED_PROJECTS_DEST"
-	cp "$SCRIPT_DIR/devenv-pre-init.sh" "$DEVENV_HOME/devenv-pre-init.sh"
-	cat > "$CONFIG_OUTPUT_FILE" <<EOT
-[devenv]
-home="$DEVENV_HOME"
-image=ubuntu:22.04
-nvidia=true
-init=false
-start_now=false
-pull=true
-root=false
-replace=true
-pre_init_hooks="\$HOME/devenv-pre-init.sh" # add external repositories
-additional_packages="openssl git git-credential-libsecret" # system apps
-additional_packages="gh codium" # development apps
-init_hooks="codium --install-extension mhutchie.git-graph" # install git graph extension in vscoium
-init_hooks="codium --install-extension golang.go" # install golang extension in vscoium
-volume="$SHARED_PROJECTS_SRC:\$HOME/Projects"
-EOT
-	if promt_confirmation "dry-run?"
-	then
-		echo "dry-run for devenv assembly"
-		distrobox assemble create --replace --file "$CONFIG_OUTPUT_FILE" --dry-run
-	else
-		echo "creating devenv assembly, will be replaced if already created"
-		distrobox assemble create --replace --file "$CONFIG_OUTPUT_FILE"
-	fi
+	echo "copying setup script: $DEVENV_HOME/devenv-setup.sh"
+	cp "$SCRIPT_DIR/devenv-setup.sh" "$DEVENV_HOME/devenv-setup.sh"
+	echo "creating devenv"
+	distrobox create --image "ubuntu:jammy" \
+		--name devenv \
+		--pull \
+		--home "$DEVENV_HOME" \
+		# --volume # TODO \
+		# --init # use with container that has init system
+		# --nvidia # use with container that has nvidia drivers
+		--verbose
 }
 register_opt setup_devenv
 
 function remove_devenv {
-	if promt_confirmation "remove devenv?"
+	local DEVENV_HOME="$HOME/devenv"
+	local CONFIG_OUTPUT_DIR="$HOME/.config/distrobox"
+	if prompt_confirmation "remove devenv?"
 	then
-		if promt_confirmation "dry-run?"
-		then
-			echo "dry-run for removing assembly"
-			distrobox assemble rm --file "$CONFIG_OUTPUT_FILE" --dry-run
-		else
-			echo "removing devenv assembly"
-			distrobox assemble rm --file "$CONFIG_OUTPUT_FILE"
-		fi
+		echo "removing devenv assembly"
+		distrobox rm devenv --force --verbose
 	fi
+	rm -rf "$CONFIG_OUTPUT_DIR"
 }
 register_opt remove_devenv
 
 # sometimes, the root is not mounted as shared mount,
 # this is required for some system file mapping
 function remount_root_as_shared {
-	if promt_confirmation "make root mountponit as shared?"
+	if prompt_confirmation "make root mountponit as shared?"
 	then
 		echo "mounting root filesystem as sharabe"
 		mount --make-rshared /
