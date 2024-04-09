@@ -92,6 +92,7 @@ register_app marktext
 register_app golang
 register_app neovim
 register_app nvm
+register_app distrobox
 
 #############################
 # start : utility functions #
@@ -1161,13 +1162,14 @@ function neovim_minimal_config_propmt {
 	if [[ "$NEOVIM_IS_MINIMAL_CONFIG" == "n" ]]
 	then
 		print_info "neovim will be using complete configuration"
-		promt_confirmation "use minimal config?" && {
+		if promt_confirmation "use minimal config?"
+		then
 			echo "using minimal config"
 			NEOVIM_IS_MINIMAL_CONFIG="t"
-		} || {
+		else
 			echo "using full config"
 			NEOVIM_IS_MINIMAL_CONFIG="f"
-		}
+		fi
 	fi
 }
 
@@ -1262,12 +1264,13 @@ function neovim_install {
 	# install ripgrep if not installed
 	if ! command -v rg &> /dev/null
 	then
-		promt_confirmation "ripgrep is required for telescope, install now?" && {
+		if promt_confirmation "ripgrep is required for telescope, install now?"
+		then
 			echo "installing: ripgrep"
 			package_install ripgrep
-		} || {
+		else
 			echo "ripgrep will not be installed"
-		}
+		fi
 	else
 		echo "already installed: ripgrep"
 	fi
@@ -1280,7 +1283,13 @@ function neovim_install {
 		if ! command -v gcc &> /dev/null
 		then
 			echo "installing: gcc"
-			promt_confirmation "gcc is required for treesitter, install now?" && package_install gcc
+			if promt_confirmation "gcc is required for treesitter, install now?"
+			then
+				echo "installing gcc"
+				package_install gcc
+			else
+				echo "gcc will not be installed"
+			fi
 		else
 			echo "already installed: gcc"
 		fi
@@ -1288,7 +1297,13 @@ function neovim_install {
 		if ! command -v g++ &> /dev/null
 		then
 			echo "installing: g++"
-			promt_confirmation "g++ is required for treesitter, install now?" && package_install g++
+			if promt_confirmation "g++ is required for treesitter, install now?"
+			then
+				echo "installing g++"
+				package_install g++
+			else
+				echo "g++ will not be installed"
+			fi
 		else
 			echo "already installed: g++"
 		fi
@@ -1453,11 +1468,24 @@ function distrobox_remove {
 }
 
 function distrobox_config {
-	echo "no config defined"
+	local CONFIG_FILE="$DIR_BASH_CONFIG/distrobox.sh"
+	local INSTALL_DIR="$HOME/.local"
+tee "$CONFIG_FILE" > /dev/null <<EOT
+#!/usr/bin/env bash
+
+# START:distrobox
+export PATH=\$PATH:$INSTALL_DIR/bin
+
+# END:distrobox
+EOT
 }
 
 function distrobox_config_remove {
-	echo "no config defined"
+	local CONFIG_FILE="$DIR_BASH_CONFIG/distrobox.sh"
+	if [[ -f "$CONFIG_FILE" ]]
+	then
+		rm "$CONFIG_FILE"
+	fi
 }
 
 ###################

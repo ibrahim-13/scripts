@@ -27,10 +27,10 @@ function promt_confirmation {
 	read -p "${1} (y/N) " TMP_ANS
 	case $TMP_ANS in
 	[Yy])
-		return 1
+		return 0
 		;;
 	*)
-		return 0
+		return 1
 		;;
 	esac
 }
@@ -64,16 +64,42 @@ init_hooks="codium --install-extension mhutchie.git-graph" # install git graph e
 init_hooks="codium --install-extension golang.go" # install golang extension in vscoium
 volume="$SHARED_PROJECTS_SRC:\$HOME/Projects"
 EOT
+	if promt_confirmation "dry-run?"
+	then
+		echo "dry-run for devenv assembly"
+		distrobox assemble create --replace --file "$CONFIG_OUTPUT_FILE" --dry-run
+	else
+		echo "creating devenv assembly, will be replaced if already created"
+		distrobox assemble create --replace --file "$CONFIG_OUTPUT_FILE"
+	fi
 }
 register_opt setup_devenv
+
+function remove_devenv {
+	if promt_confirmation "remove devenv?"
+	then
+		if promt_confirmation "dry-run?"
+		then
+			echo "dry-run for removing assembly"
+			distrobox assemble rm --file "$CONFIG_OUTPUT_FILE" --dry-run
+		else
+			echo "removing devenv assembly"
+			distrobox assemble rm --file "$CONFIG_OUTPUT_FILE"
+		fi
+	fi
+}
+register_opt remove_devenv
 
 # sometimes, the root is not mounted as shared mount,
 # this is required for some system file mapping
 function remount_root_as_shared {
-	promt_confirmation "make root mountponit as shared?" && {
+	if promt_confirmation "make root mountponit as shared?"
+	then
 		echo "mounting root filesystem as sharabe"
 		mount --make-rshared /
-	} || echo "root filesystem won't be mounted as sharable"
+	else
+		echo "root filesystem won't be mounted as sharable"
+	fi
 }
 register_opt remount_root_as_shared
 

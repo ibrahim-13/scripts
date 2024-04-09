@@ -137,11 +137,13 @@ function install_podman {
 	if command -v flatpak
 	then
 		echo "installing podman desktop"
+		flatpak install flathub io.podman_desktop.PodmanDesktop
 	else
 		echo "flatpak not found while installing podman desktop"
 		flatpak install flathub io.podman_desktop.PodmanDesktop
 	fi
 }
+register_opt install_podman
 
 # vscodium and add extensions
 function install_vscodium {
