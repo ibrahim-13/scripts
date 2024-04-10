@@ -37,23 +37,23 @@ function prompt_confirmation {
 
 function setup_devenv {
 	local DEVENV_HOME="$HOME/devenv"
-	local CONFIG_OUTPUT_DIR="$HOME/.config/distrobox"
 	local SHARED_PROJECTS_SRC="$HOME/Projects"
 	local SHARED_PROJECTS_DEST="$DEVENV_HOME/Projects"
 	echo "setting up devenv: $CONFIG_OUTPUT_FILE"
 	mkdir -p "$DEVENV_HOME"
-	mkdir -p "$CONFIG_OUTPUT_DIR"
 	mkdir -p "$SHARED_PROJECTS_DEST"
 	echo "copying setup script: $DEVENV_HOME/devenv-setup.sh"
 	cp "$SCRIPT_DIR/devenv-setup.sh" "$DEVENV_HOME/devenv-setup.sh"
 	echo "creating devenv"
+	# --no-entry: do not generate container entry in app list
+	# --init: use with container that has init system
+	# --nvidia: use with container that has nvidia drivers
 	distrobox create --image "ubuntu:jammy" \
 		--name devenv \
 		--pull \
 		--home "$DEVENV_HOME" \
-		# --volume # TODO \
-		# --init # use with container that has init system
-		# --nvidia # use with container that has nvidia drivers
+		--no-entry \
+		--volume "$SHARED_PROJECTS_SRC:$SHARED_PROJECTS_DEST:rw" \
 		--verbose
 }
 register_opt setup_devenv
