@@ -56,6 +56,7 @@ if command -v codium
 then
 	codium --install-extension mhutchie.git-graph
 	codium --install-extension golang.go
+	codium --install-extension streetsidesoftware.code-spell-checker
 else
 	echo "binary not found: codium"
 	echo "extensions will not be installed"

@@ -100,11 +100,20 @@ register_app distrobox
 
 # gitHub functions
 
+function func_check_jq_installed {
+	if ! commad -v jq
+	then
+		echo "jq is required, installing"
+		package_install jq || errexit "can not install binaries from github without jq"
+	fi
+}
+
 # get lastest release asset url from github with http api
 # $1 : github username
 # $2 : github repo
 # $3 : jq selector for asset name
 function func_gh_http {
+	func_check_jq_installed
 	local GH_URL
 	local HEADER_ACCEPT
 	local HEADER_VERSION
@@ -131,6 +140,7 @@ function func_gh_http {
 	# $2 : github repo
 	# $3 : jq selector for asset name
 	function func_gh_cli {
+	func_check_jq_installed
 	local GH_URL
 	local HEADER_ACCEPT
 	local HEADER_VERSION
@@ -1375,10 +1385,10 @@ function neovim_config_remove {
 function nvm_is_installed {
 	# when running scritp with bash inside tmux, the sourcing of nvm
 	# does not work properly, this is the alternative
-	if [[ -f "$HOME/.nvm/nvm.sh" ]]
+	if [[ -f "$HOME/.config/nvm/nvm.sh" ]]
 	then
 		# shellcheck disable=SC1090
-		source "$HOME/.nvm/nvm.sh"
+		source "$HOME/.config/nvm/nvm.sh"
 	fi
 	if ! command -v nvm &> /dev/null
 	then
@@ -1629,7 +1639,7 @@ function menu_apps {
 # This is the main menu where operations will be selected
 function menu_main {
 	local PS3=$'select operation: '
-	local options=("manage apps" "config bash" "config_os" "quit")
+	local options=("manage apps" "config bash" "quit")
 	select opt in "${options[@]}"
 	do
 		case $opt in
