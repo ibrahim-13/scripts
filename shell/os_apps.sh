@@ -145,6 +145,28 @@ function install_podman {
 }
 register_opt install_podman
 
+function install_font_mononoki {
+	local FILE_ARCHIVE="/tmp/font-mononoki.tag.xz"
+	local FONT_DOWNLOAD_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.0/Mononoki.tar.xz"
+	local DIR_EXTRACT="/tmp/font-mononoki"
+	local DIR_FONT="$HOME/.local/share/fonts"
+
+	mkdir -p "$DIR_EXTRACT"
+	mkdir -p "$DIR_FONT"
+
+	wget -q --show-progress -O "$FILE_ARCHIVE" "$FONT_DOWNLOAD_URL" || errexit "error downloading font archive"
+	tar -xvf "$FILE_ARCHIVE" -C "$DIR_EXTRACT"
+	cp "$DIR_EXTRACT/MononokiNerdFontMono-Regular.ttf" "$DIR_FONT/MononokiNerdFontMono-Regular.ttf"
+	echo "installing mononoki font"
+	fc-cache -fv
+
+	# cleanup
+	echo "cleaning up"
+	rm "$FILE_ARCHIVE"
+	rm -rf "$DIR_EXTRACT"
+}
+register_opt install_font_mononoki
+
 # vscodium and add extensions
 function install_vscodium {
 	flatpak install flathub com.vscodium.codium
@@ -157,6 +179,10 @@ function install_vscodium {
 	echo Extension: Golang
 	echo -----------------
 	flatpak run com.vscodium.codium --install-extension golang.go # Golang
+	echo ------------------------
+	echo Extension: Spell Checker
+	echo ------------------------
+	flatpak run com.vscodium.codium --install-extension streetsidesoftware.code-spell-checker # Spell checker
 }
 register_opt install_vscodium
 
