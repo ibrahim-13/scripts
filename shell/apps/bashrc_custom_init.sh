@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 function func_fzf_px {
-	TMP_SELSECTED_PROCESS=$(ps -aux | fzf | awk '$2 ~ /^[0-9]+$/ { print $2 }')
+	TMP_SELSECTED_PROCESS=$(ps -e -o user,pid,comm | fzf | awk '$2 ~ /^[0-9]+$/ { print $2 }')
 	if [ "$TMP_SELSECTED_PROCESS" = "" ]
 	then
 		echo no process selected
