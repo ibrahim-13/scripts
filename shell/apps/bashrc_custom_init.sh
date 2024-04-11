@@ -19,6 +19,19 @@ function func_fzf_px {
 	fi
 }
 
+function func_http_server {
+	if ! command -v python3 &>/dev/null
+	then
+		echo "python3 is required"
+		exit 1
+	fi
+	echo "ip addresses:"
+	for i in $(hostname -I); do echo "> $i"; done
+	echo "port: 9000"
+	echo "if firewall is enabled, add rule for port 9000"
+	python3 -m http.server 9000
+}
+
 function func_lfcd {
     cd "$(command lf -single -print-last-dir "$@")"
 }
@@ -28,6 +41,7 @@ alias ll='ls -AlhFr'
 alias llz='ls -AlhFr | sort | fzf'
 alias fk='func_fzf_px'
 alias lfcd='func_lfcd'
+alias http_server='func_http_server'
 
 # prompt customization: https://wiki.archlinux.org/title/Bash/Prompt_customization
 # nerd prompt cheatsheet: https://www.nerdfonts.com/cheat-sheet

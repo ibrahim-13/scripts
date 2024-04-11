@@ -1478,9 +1478,11 @@ function distrobox_remove {
 }
 
 function distrobox_config {
-	local CONFIG_FILE="$DIR_BASH_CONFIG/distrobox.sh"
+	local BASH_CONFIG_FILE="$DIR_BASH_CONFIG/distrobox.sh"
 	local INSTALL_DIR="$HOME/.local"
-tee "$CONFIG_FILE" > /dev/null <<EOT
+	local CONFIG_DIR="$HOME/.config/distrobox"
+	mkdir -p "$CONFIG_DIR"
+	tee "$BASH_CONFIG_FILE" > /dev/null <<EOT
 #!/usr/bin/env bash
 
 # START:distrobox
@@ -1488,13 +1490,23 @@ export PATH=\$PATH:$INSTALL_DIR/bin
 
 # END:distrobox
 EOT
+	tee "$CONFIG_DIR/distrobox.conf" > /dev/null <<EOT
+container_name_default="devenv"
+container_user_custom_home="\$HOME/devenv"
+skip_workdir="0"
+EOT
 }
 
 function distrobox_config_remove {
-	local CONFIG_FILE="$DIR_BASH_CONFIG/distrobox.sh"
-	if [[ -f "$CONFIG_FILE" ]]
+	local BASH_CONFIG_FILE="$DIR_BASH_CONFIG/distrobox.sh"
+	local CONFIG_DIR="$HOME/.config/distrobox"
+	if [[ -f "$BASH_CONFIG_FILE" ]]
 	then
-		rm "$CONFIG_FILE"
+		rm "$BASH_CONFIG_FILE"
+	fi
+	if [[ -d "$CONFIG_DIR" ]]
+	then
+		rm -rf "$CONFIG_DIR"
 	fi
 }
 
