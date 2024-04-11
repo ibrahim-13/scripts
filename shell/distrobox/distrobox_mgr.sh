@@ -52,7 +52,6 @@ function setup_devenv {
 		--name devenv \
 		--pull \
 		--home "$DEVENV_HOME" \
-		--no-entry \
 		--volume "$SHARED_PROJECTS_SRC:$SHARED_PROJECTS_DEST:rw" \
 		--verbose
 }
