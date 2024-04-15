@@ -48,25 +48,27 @@ alias http_server='func_http_server'
 
 PROMPT_COMMAND=_prompt_command
 
-TXT_RESET="\033[0m"
-TXT_COL_BLACK="\033[30m"
-TXT_COL_RED="\033[31m"
-TXT_COL_GREEN="\033[32m"
-TXT_COL_YELLOW="\033[33m"
-TXT_COL_BLUE="\033[34m"
-TXT_COL_MAGENTA="\033[35m"
-TXT_COL_CYAN="\033[36m"
-TXT_COL_WHITE="\033[37m"
-TXT_COL_BH_BLACK="\033[40m"
-TXT_COL_BG_RED="\033[41m"
-TXT_COL_BG_GREEN="\033[42m"
-TXT_COL_BG_YELLOW="\033[43m"
-TXT_COL_BG_BLUE="\033[44m"
-TXT_COL_BG_MAGENTA="\033[45m"
-TXT_COL_BG_CYAN="\033[46m"
-TXT_COL_BG_WHITE="\033[47m"
-TXT_COL_BOLD="\e[1m"
-TXT_COL_DIM="\e[2m"
+# codes need to be escaped, otherwise, readline can not properly determine the length
+# of the multiline input (ex. newline)
+TXT_RESET="\[\033[0m\]"
+TXT_COL_BLACK="\[\033[30m\]"
+TXT_COL_RED="\[\033[31m\]"
+TXT_COL_GREEN="\[\033[32m\]"
+TXT_COL_YELLOW="\[\033[33m\]"
+TXT_COL_BLUE="\[\033[34m\]"
+TXT_COL_MAGENTA="\[\033[35m\]"
+TXT_COL_CYAN="\[\033[36m\]"
+TXT_COL_WHITE="\[\033[37m\]"
+TXT_COL_BH_BLACK="\[\033[40m\]"
+TXT_COL_BG_RED="\[\033[41m\]"
+TXT_COL_BG_GREEN="\[\033[42m\]"
+TXT_COL_BG_YELLOW="\[\033[43m\]"
+TXT_COL_BG_BLUE="\[\033[44m\]"
+TXT_COL_BG_MAGENTA="\[\033[45m\]"
+TXT_COL_BG_CYAN="\[\033[46m\]"
+TXT_COL_BG_WHITE="\[\033[47m\]"
+TXT_COL_BOLD="\[\e[1m\]"
+TXT_COL_DIM="\[\e[2m\]"
 _HOSTNAME="$(hostname -s)"
 
 _prompt_command() {
@@ -90,3 +92,4 @@ _prompt_command() {
 		PS1="${TXT_COL_BLACK}${TXT_COL_BG_YELLOW} ${DEVEVN} ${TXT_COL_YELLOW}${TXT_COL_BG_CYAN}${DIVIDER_START}$PS1"
 	fi
 }
+
