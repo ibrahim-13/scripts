@@ -134,10 +134,10 @@ if not isMinimal then
 	})
 
 	-- Run command :Mason to manage packages
-	-- Commands are prefixed with Mason, they can be cycled by typing :Maon and then TAB
+	-- Commands are prefixed with Mason, they can be cycled by typing :Maosn and then TAB
 	require('mason').setup({})
 	require('mason-lspconfig').setup({
-		ensure_installed = { 'lua_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'jsonls', 'tsserver', 'sqls', 'yamlls' },
+		ensure_installed = { 'lua_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'gopls', 'jsonls', 'tsserver', 'sqls', 'yamlls' },
 		handlers = {
 			lsp_zero.default_setup,
 		},
