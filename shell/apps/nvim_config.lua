@@ -51,6 +51,8 @@ vim.opt.tabstop = 4
 vim.opt.shiftwidth = 4
 -- Convert TAB to SPACE
 vim.opt.expandtab = false
+-- Enable spell check: https://neovim.io/doc/user/spell.html
+vim.opt.spell = true
 
 --[[
 lazy.nvim
@@ -134,7 +136,7 @@ if not isMinimal then
 	})
 
 	-- Run command :Mason to manage packages
-	-- Commands are prefixed with Mason, they can be cycled by typing :Maosn and then TAB
+	-- Commands are prefixed with Mason, they can be cycled by typing :Mason and then TAB
 	require('mason').setup({})
 	require('mason-lspconfig').setup({
 		ensure_installed = { 'lua_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'gopls', 'jsonls', 'tsserver', 'sqls', 'yamlls' },

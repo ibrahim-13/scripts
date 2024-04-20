@@ -1285,6 +1285,20 @@ function neovim_install {
 		echo "already installed: ripgrep"
 	fi
 
+	# install xsel if not installed
+	if ! command -v xsel &> /dev/null
+	then
+		if promt_confirmation "xsel is required for clipboard operations, install now?"
+		then
+			echo "installing: xsel"
+			package_install xsel
+		else
+			echo "xsel will not be installed"
+		fi
+	else
+		echo "already installed: xsel"
+	fi
+
 	neovim_minimal_config_propmt
 	if [[ "$NEOVIM_IS_MINIMAL_CONFIG" == "f" ]]
 	then
