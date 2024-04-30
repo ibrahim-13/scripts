@@ -101,7 +101,7 @@ register_app distrobox
 # gitHub functions
 
 function func_check_jq_installed {
-	if ! commad -v jq
+	if ! command -v jq &> /dev/null
 	then
 		echo "jq is required, installing"
 		package_install jq || errexit "can not install binaries from github without jq"
@@ -1399,10 +1399,10 @@ function neovim_config_remove {
 function nvm_is_installed {
 	# when running scritp with bash inside tmux, the sourcing of nvm
 	# does not work properly, this is the alternative
-	if [[ -f "$HOME/.config/nvm/nvm.sh" ]]
+	if [[ -f "$HOME/.nvm/nvm.sh" ]]
 	then
 		# shellcheck disable=SC1090
-		source "$HOME/.config/nvm/nvm.sh"
+		. "$HOME/.nvm/nvm.sh"
 	fi
 	if ! command -v nvm &> /dev/null
 	then
@@ -1418,13 +1418,17 @@ function nvm_install {
 	# shellcheck disable=SC1090
 	wget -qO- "https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh" | bash
 	# shellcheck disable=SC1090
-	source "$HOME/.bashrc"
+	if [[ -f "$HOME/.nvm/nvm.sh" ]]
+	then
+		# shellcheck disable=SC1090
+		. "$HOME/.nvm/nvm.sh"
+	fi
 	if command -v nvm
 	then
 		print_success "nvm: installed successfully"
+		echo "installing latest lts version of node.js"
+		nvm install --reinstall-packages-from=current 'lts/*'
 	fi
-	echo "installing latest lts version of node.js"
-	nvm install --reinstall-packages-from=current 'lts/*'
 }
 
 function nvm_update {
