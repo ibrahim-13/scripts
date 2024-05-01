@@ -1271,6 +1271,20 @@ function neovim_install {
 	# Store created_at so that we can compare later for updating the app
 	echo "$GH_CREATED_AT" | tee "$FILE_CREATED_AT"
 
+	# install ensurepip module for python3 if not installed
+	if ! python -c "help('modules');" | grep ensurepip &> /dev/null
+	then
+		if promt_confirmation "ensurepip module for python3 is required for mason (autotools_ls), install python3-venv now?"
+		then
+			echo "installing: python3-venv"
+			package_install python3-venv
+		else
+			echo "python3-venv will not be installed"
+		fi
+	else
+		echo "already installed: python3-venv"
+	fi
+
 	# install ripgrep if not installed
 	if ! command -v rg &> /dev/null
 	then

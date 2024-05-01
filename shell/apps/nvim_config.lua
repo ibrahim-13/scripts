@@ -137,9 +137,10 @@ if not isMinimal then
 
 	-- Run command :Mason to manage packages
 	-- Commands are prefixed with Mason, they can be cycled by typing :Mason and then TAB
+	-- Alternatively, list of LSPs can be found here: https://github.com/williamboman/mason-lspconfig.nvim
 	require('mason').setup({})
 	require('mason-lspconfig').setup({
-		ensure_installed = { 'lua_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'gopls', 'jsonls', 'tsserver', 'sqls', 'yamlls' },
+		ensure_installed = { 'lua_ls', 'autotools_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'gopls', 'jsonls', 'tsserver', 'sqls', 'yamlls' },
 		handlers = {
 			lsp_zero.default_setup,
 		},
