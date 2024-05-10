@@ -40,9 +40,9 @@ vim.opt.smartcase = true
 -- Disable search highlight
 vim.opt.hlsearch = false
 
--- Enalbe line wrap
+-- Enable line wrap
 vim.opt.wrap = true
--- Perserve indentation of a virtual line - ex. wraped lines
+-- Preserve indentation of a virtual line - ex. wrap lines
 vim.opt.breakindent = true
 
 -- Amount of space on screen a TAB character occupy
@@ -81,7 +81,7 @@ local plugins_default = {
 	{ "folke/tokyonight.nvim",               lazy = false,                                    priority = 1000,                           opts = {} },
 	-- Lualine
 	{ 'nvim-lualine/lualine.nvim',           dependencies = { 'nvim-tree/nvim-web-devicons' } },
-	-- Indent-Blanckline
+	-- Indent-Blankline
 	{ "lukas-reineke/indent-blankline.nvim", main = "ibl",                                    opts = {} },
 	-- Hop
 	{ 'smoka7/hop.nvim' },
@@ -489,8 +489,9 @@ vim.keymap.set('n', '<LEADER>fh', builtin.help_tags, {})
 -- List built-in pickers and run them on <CR>
 vim.keymap.set('n', '<LEADER>pp', builtin.builtin, {})
 
--- Tabs can be traversed with 'gt' and 'gT', thus the followin
+-- Tabs can be traversed with 'gt' and 'gT', thus the following
 -- bindings were also added with 'g' prefix
+-- use '1gtT', '2gt', '3gt', etc. to go to specific tab
 -- https://neovim.io/doc/user/tabpage.html
 
 -- Create the current buffer in new tab with 'gn' in normal mode
