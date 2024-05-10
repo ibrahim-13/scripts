@@ -340,6 +340,86 @@ require('Comment').setup({
 })
 
 --[[
+-- tabline
+-- the following configuration is based on the following repo
+-- https://github.com/crispgm/nvim-tabline/
+--]]
+
+local nvim_tabline_opt = {
+	show_index = true,
+	show_modify = true,
+	fnamemodify = ':t',
+	brackets = { '', '' },
+	no_name = 'No Name',
+	modify_indicator = ' [+]',
+	inactive_tab_max_length = 0,
+}
+
+local function tabline(options)
+    local s = ''
+    for index = 1, vim.fn.tabpagenr('$') do
+        local winnr = vim.fn.tabpagewinnr(index)
+        local buflist = vim.fn.tabpagebuflist(index)
+        local bufnr = buflist[winnr]
+        local bufname = vim.fn.bufname(bufnr)
+        local bufmodified = vim.fn.getbufvar(bufnr, '&mod')
+
+        s = s .. '%' .. index .. 'T'
+        if index == vim.fn.tabpagenr() then
+            s = s .. '%#TabLineSel#'
+        else
+            s = s .. '%#TabLine#'
+        end
+        -- tab index
+        s = s .. ' '
+        -- index
+        if options.show_index then
+            s = s .. index .. ':'
+        end
+        -- buf name
+        s = s .. options.brackets[1]
+        local pre_title_s_len = string.len(s)
+        if bufname ~= '' then
+            s = s .. vim.fn.fnamemodify(bufname, options.fnamemodify)
+        else
+            s = s .. options.no_name
+        end
+        if
+            options.inactive_tab_max_length
+            and options.inactive_tab_max_length > 0
+            and index ~= vim.fn.tabpagenr()
+        then
+            s = string.sub(
+                s,
+                1,
+                pre_title_s_len + options.inactive_tab_max_length
+            )
+        end
+        s = s .. options.brackets[2]
+        -- modify indicator
+        if
+            bufmodified == 1
+            and options.show_modify
+            and options.modify_indicator ~= nil
+        then
+            s =  s .. options.modify_indicator
+        end
+        -- additional space at the end of each tab segment
+        s = s .. ' '
+    end
+
+    s = s .. '%#TabLineFill#'
+    return s
+end
+
+function _G.nvim_tabline()
+	return tabline(nvim_tabline_opt)
+end
+
+vim.o.tabline = '%!v:lua.nvim_tabline()'
+vim.opt.showtabline = 2
+
+--[[
 ===========
 Keybindings
 ===========
@@ -417,6 +497,10 @@ vim.keymap.set('n', '<LEADER>pp', builtin.builtin, {})
 vim.keymap.set('n', 'gn', ':tab split<CR>')
 -- Close the current tab with 'gc' in normal mode
 vim.keymap.set('n', 'gc', ':tabc<CR>')
+-- Go to the previous tab with 'ctrl-left' in normal and input mode
+vim.keymap.set({ 'n', 'i' }, '<C-Left>', '<ESC>:tabm -1<CR>', { remap = true })
+-- Go to the next tab with 'ctrl-right' in normal and input mode
+vim.keymap.set({ 'n', 'i' }, '<C-Right>', '<ESC>:tabm +1<CR>', { remap = true })
 
 --[[
 Custom Commands
