@@ -499,9 +499,13 @@ vim.keymap.set('n', 'gn', ':tab split<CR>')
 -- Close the current tab with 'gc' in normal mode
 vim.keymap.set('n', 'gc', ':tabc<CR>')
 -- Go to the previous tab with 'ctrl-left' in normal and input mode
-vim.keymap.set({ 'n', 'i' }, '<C-Left>', '<ESC>:tabm -1<CR>', { remap = true })
+vim.keymap.set({ 'n', 'i' }, '<C-Left>', '<ESC>:tabnext -1<CR>', { remap = false })
 -- Go to the next tab with 'ctrl-right' in normal and input mode
-vim.keymap.set({ 'n', 'i' }, '<C-Right>', '<ESC>:tabm +1<CR>', { remap = true })
+vim.keymap.set({ 'n', 'i' }, '<C-Right>', '<ESC>:tabnext +1<CR>', { remap = false })
+-- Move current tab to the previous tab with 'ctrl-up' in normal and input mode
+vim.keymap.set({ 'n', 'i' }, '<C-Up>', '<ESC>:tabm -1<CR>', { remap = false })
+-- Move current tab to the next tab with 'ctrl-down' in normal and input mode
+vim.keymap.set({ 'n', 'i' }, '<C-Down>', '<ESC>:tabm +1<CR>', { remap = false })
 
 --[[
 Custom Commands
