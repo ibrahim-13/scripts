@@ -43,7 +43,9 @@ alias fk='func_fzf_px'
 alias lfcd='func_lfcd'
 alias http_server='func_http_server'
 
-# prompt customization: https://wiki.archlinux.org/title/Bash/Prompt_customization
+# prompt customization:
+# 	https://wiki.archlinux.org/title/Bash/Prompt_customization
+# 	https://opensource.com/article/17/7/bash-prompt-tips-and-tricks
 # nerd prompt cheatsheet: https://www.nerdfonts.com/cheat-sheet
 
 PROMPT_COMMAND=_prompt_command
@@ -59,7 +61,7 @@ TXT_COL_BLUE="\[\033[34m\]"
 TXT_COL_MAGENTA="\[\033[35m\]"
 TXT_COL_CYAN="\[\033[36m\]"
 TXT_COL_WHITE="\[\033[37m\]"
-TXT_COL_BH_BLACK="\[\033[40m\]"
+TXT_COL_BG_BLACK="\[\033[40m\]"
 TXT_COL_BG_RED="\[\033[41m\]"
 TXT_COL_BG_GREEN="\[\033[42m\]"
 TXT_COL_BG_YELLOW="\[\033[43m\]"
@@ -70,6 +72,8 @@ TXT_COL_BG_WHITE="\[\033[47m\]"
 TXT_COL_BOLD="\[\e[1m\]"
 TXT_COL_DIM="\[\e[2m\]"
 _HOSTNAME="$(hostname -s)"
+_OS="$(cat /etc/os-release | grep "^ID=" | cut -b4-)"
+_OS_VER="$(cat /etc/os-release | grep "^VERSION_ID=" | cut -b12- | tr -d '"')"
 
 _prompt_command() {
 	local EXIT_CODE="$?";
@@ -84,7 +88,7 @@ _prompt_command() {
 		EXIT_CODE_COLOR_BG="$TXT_COL_BG_RED"
 		EXIT_CODE_COLOR="$TXT_COL_RED"
 	fi
-	PS1="${TXT_COL_CYAN}${TXT_COL_BLACK}${TXT_COL_BG_CYAN}\u ${TXT_COL_CYAN}${TXT_COL_BG_BLUE}${TXT_COL_WHITE}${TXT_COL_BG_BLUE} \h ${TXT_COL_BLUE}${TXT_COL_BG_MAGENTA}${TXT_COL_WHITE} \w ${TXT_COL_MAGENTA}${EXIT_CODE_COLOR_BG}${TXT_COL_BLACK} $EXIT_CODE ${TXT_RESET}${EXIT_CODE_COLOR}${TXT_RESET}${TXT_RESET} "
+	PS1="${TXT_COL_CYAN}${TXT_COL_BLACK}${TXT_COL_BG_CYAN}${_OS}-${_OS_VER} ${TXT_COL_CYAN}${TXT_COL_BG_BLUE}${TXT_COL_WHITE}${TXT_COL_BG_BLUE} \u@\h ${TXT_COL_BLUE}${TXT_COL_BG_MAGENTA}${TXT_COL_WHITE} \w ${TXT_COL_MAGENTA}${TXT_COL_BG_BLACK}${TXT_COL_WHITE}${TXT_COL_BG_BLACK} \D{%I:%M:%S %p} ${TXT_COL_BLACK}${EXIT_CODE_COLOR_BG}${TXT_COL_BLACK} $EXIT_CODE ${TXT_RESET}${EXIT_CODE_COLOR}${TXT_RESET}${TXT_RESET}\n \$ "
 	if [[ "$_HOSTNAME" == "devenv" ]]
 	then
 		PS1="${TXT_COL_BLACK}${TXT_COL_BG_YELLOW}  ${TXT_COL_YELLOW}${TXT_COL_BG_CYAN}$PS1"
