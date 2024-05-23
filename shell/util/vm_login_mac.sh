@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# this function is for running in windows
+# this works for command output of `arp` command in windows
 login_vm() {
 	local vm_host_mac="<MAC_HERE>"
 	local vm_host_ip=$(arp -a | grep -i "${vm_host_mac}" | awk '{ print $1 }')
