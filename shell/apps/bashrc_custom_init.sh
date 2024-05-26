@@ -75,6 +75,14 @@ _HOSTNAME="$(hostname -s)"
 _OS="$(cat /etc/os-release | grep "^ID=" | cut -b4-)"
 _OS_VER="$(cat /etc/os-release | grep "^VERSION_ID=" | cut -b12- | tr -d '"')"
 
+# Alternative multi-line arrows-
+# Straight:
+# ┌─
+# └──
+# Curved:
+# ╭─
+# ╰──
+
 _prompt_command() {
 	local EXIT_CODE="$?";
 
@@ -88,7 +96,7 @@ _prompt_command() {
 		EXIT_CODE_COLOR_BG="$TXT_COL_BG_RED"
 		EXIT_CODE_COLOR="$TXT_COL_RED"
 	fi
-	PS1="${TXT_COL_CYAN}${TXT_COL_BLACK}${TXT_COL_BG_CYAN}${_OS}-${_OS_VER} ${TXT_COL_CYAN}${TXT_COL_BG_BLUE}${TXT_COL_WHITE}${TXT_COL_BG_BLUE} \u@\h ${TXT_COL_BLUE}${TXT_COL_BG_MAGENTA}${TXT_COL_WHITE} \w ${TXT_COL_MAGENTA}${TXT_COL_BG_BLACK}${TXT_COL_WHITE}${TXT_COL_BG_BLACK} \D{%I:%M:%S %p} ${TXT_COL_BLACK}${EXIT_CODE_COLOR_BG}${TXT_COL_BLACK} $EXIT_CODE ${TXT_RESET}${EXIT_CODE_COLOR}${TXT_RESET}${TXT_RESET}\n \$ "
+	PS1="╭─${TXT_COL_CYAN}${TXT_COL_BLACK}${TXT_COL_BG_CYAN}${_OS}-${_OS_VER} ${TXT_COL_CYAN}${TXT_COL_BG_BLUE}${TXT_COL_WHITE}${TXT_COL_BG_BLUE} \u@\h ${TXT_COL_BLUE}${TXT_COL_BG_MAGENTA}${TXT_COL_WHITE} \w ${TXT_COL_MAGENTA}${TXT_COL_BG_BLACK}${TXT_COL_WHITE}${TXT_COL_BG_BLACK} \D{%I:%M:%S %p} ${TXT_COL_BLACK}${EXIT_CODE_COLOR_BG}${TXT_COL_BLACK} $EXIT_CODE ${TXT_RESET}${EXIT_CODE_COLOR}${TXT_RESET}${TXT_RESET}\n╰──\$ "
 	if [[ "$_HOSTNAME" == "devenv" ]]
 	then
 		PS1="${TXT_COL_BLACK}${TXT_COL_BG_YELLOW}  ${TXT_COL_YELLOW}${TXT_COL_BG_CYAN}$PS1"
