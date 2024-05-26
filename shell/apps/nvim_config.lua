@@ -100,6 +100,8 @@ local plugins_extended = {
 	{ 'L3MON4D3/LuaSnip' },
 	-- Treesitter
 	{ "nvim-treesitter/nvim-treesitter",  build = ":TSUpdate" },
+	-- NvimTree
+	{ "nvim-tree/nvim-tree.lua",          version = "*",      lazy = false, dependencies = { "nvim-tree/nvim-web-devicons" } }
 }
 
 local plugins = {}
@@ -176,6 +178,45 @@ if not isMinimal then
 			additional_vim_regex_highlighting = false,
 		}
 	}
+
+	--[[
+	NvimTree
+	--------
+	https://github.com/nvim-tree/nvim-tree.lua
+	Commands:
+		help nvim-tree		: Show help
+		NvimTreeToggle		: Open or close the tree. Takes an optional path argument
+		NvimTreeFocus		: Open the tree if it is closed, and then focus on the tree
+		NvimTreeFindFile	: Move the cursor in the tree for the current buffer, opening folders if needed
+		NvimTreeCollapse	: Collapses the nvim-tree recursively
+	Help keymap:
+		g?	: Show mappings
+	--]]
+	-- disable netrw at the very start of your init.lua
+	vim.g.loaded_netrw = 1
+	vim.g.loaded_netrwPlugin = 1
+
+	-- optionally enable 24-bit colour
+	vim.opt.termguicolors = true
+
+	-- empty setup using defaults
+	require("nvim-tree").setup()
+
+	-- OR setup with some options
+	require("nvim-tree").setup({
+		sort = {
+			sorter = "case_sensitive",
+		},
+		view = {
+			width = 30,
+		},
+		renderer = {
+			group_empty = true,
+		},
+		filters = {
+			dotfiles = true,
+		},
+	})
 end
 
 --[[
@@ -356,60 +397,60 @@ local nvim_tabline_opt = {
 }
 
 local function tabline(options)
-    local s = ''
-    for index = 1, vim.fn.tabpagenr('$') do
-        local winnr = vim.fn.tabpagewinnr(index)
-        local buflist = vim.fn.tabpagebuflist(index)
-        local bufnr = buflist[winnr]
-        local bufname = vim.fn.bufname(bufnr)
-        local bufmodified = vim.fn.getbufvar(bufnr, '&mod')
+	local s = ''
+	for index = 1, vim.fn.tabpagenr('$') do
+		local winnr = vim.fn.tabpagewinnr(index)
+		local buflist = vim.fn.tabpagebuflist(index)
+		local bufnr = buflist[winnr]
+		local bufname = vim.fn.bufname(bufnr)
+		local bufmodified = vim.fn.getbufvar(bufnr, '&mod')
 
-        s = s .. '%' .. index .. 'T'
-        if index == vim.fn.tabpagenr() then
-            s = s .. '%#TabLineSel#'
-        else
-            s = s .. '%#TabLine#'
-        end
-        -- tab index
-        s = s .. ' '
-        -- index
-        if options.show_index then
-            s = s .. index .. ':'
-        end
-        -- buf name
-        s = s .. options.brackets[1]
-        local pre_title_s_len = string.len(s)
-        if bufname ~= '' then
-            s = s .. vim.fn.fnamemodify(bufname, options.fnamemodify)
-        else
-            s = s .. options.no_name
-        end
-        if
-            options.inactive_tab_max_length
-            and options.inactive_tab_max_length > 0
-            and index ~= vim.fn.tabpagenr()
-        then
-            s = string.sub(
-                s,
-                1,
-                pre_title_s_len + options.inactive_tab_max_length
-            )
-        end
-        s = s .. options.brackets[2]
-        -- modify indicator
-        if
-            bufmodified == 1
-            and options.show_modify
-            and options.modify_indicator ~= nil
-        then
-            s =  s .. options.modify_indicator
-        end
-        -- additional space at the end of each tab segment
-        s = s .. ' '
-    end
+		s = s .. '%' .. index .. 'T'
+		if index == vim.fn.tabpagenr() then
+			s = s .. '%#TabLineSel#'
+		else
+			s = s .. '%#TabLine#'
+		end
+		-- tab index
+		s = s .. ' '
+		-- index
+		if options.show_index then
+			s = s .. index .. ':'
+		end
+		-- buf name
+		s = s .. options.brackets[1]
+		local pre_title_s_len = string.len(s)
+		if bufname ~= '' then
+			s = s .. vim.fn.fnamemodify(bufname, options.fnamemodify)
+		else
+			s = s .. options.no_name
+		end
+		if
+			options.inactive_tab_max_length
+			and options.inactive_tab_max_length > 0
+			and index ~= vim.fn.tabpagenr()
+		then
+			s = string.sub(
+				s,
+				1,
+				pre_title_s_len + options.inactive_tab_max_length
+			)
+		end
+		s = s .. options.brackets[2]
+		-- modify indicator
+		if
+			bufmodified == 1
+			and options.show_modify
+			and options.modify_indicator ~= nil
+		then
+			s = s .. options.modify_indicator
+		end
+		-- additional space at the end of each tab segment
+		s = s .. ' '
+	end
 
-    s = s .. '%#TabLineFill#'
-    return s
+	s = s .. '%#TabLineFill#'
+	return s
 end
 
 function _G.nvim_tabline()
@@ -455,10 +496,6 @@ vim.keymap.set({ 'n', 'x' }, 'x', '"_x')
 vim.keymap.set({ 'n', 'x' }, 'X', '"_d')
 -- Select all with 'space+a' in normal mode
 vim.keymap.set('n', '<LEADER>a', ':keepjumps normal! ggVG<CR>')
--- Open Netrw in the current directory of the file (buffer) when in normal mode
-vim.keymap.set('n', '<LEADER>df', ':Lexplore %:p:h<CR>')
--- Open/Close (toggle) Netrw in the initial directory when in normal mode
-vim.keymap.set('n', '<LEADER>dd', ':Lexplore<CR>')
 -- Scroll up 7 lines with ctrl+k when in normal+visual mode
 vim.keymap.set({ 'n', 'x' }, '<C-k>', '7<C-y>')
 -- Scroll down 7 lines with ctrl+j when in normal+visual mode
@@ -506,6 +543,18 @@ vim.keymap.set({ 'n', 'i' }, '<C-Right>', '<ESC>:tabnext +1<CR>', { remap = fals
 vim.keymap.set({ 'n', 'i' }, '<C-Up>', '<ESC>:tabm -1<CR>', { remap = false })
 -- Move current tab to the next tab with 'ctrl-down' in normal and input mode
 vim.keymap.set({ 'n', 'i' }, '<C-Down>', '<ESC>:tabm +1<CR>', { remap = false })
+
+if not isMinimal then
+	-- nvim-tree
+	-- Open/Close (toggle) NvimTree with '<leader>dd' when in normal and input mode
+	vim.keymap.set({ 'n', 'i' }, '<LEADER>dd', '<ESC>:NvimTreeToggle<CR>')
+	-- Open (if not open) and focus on NvimTree with '<leader>dw' when in normal and input mode
+	vim.keymap.set({ 'n', 'i' }, '<LEADER>dw', '<ESC>:NvimTreeFocus<CR>')
+	-- Find files in NvimTree with '<leader>df' when in normal and input mode
+	vim.keymap.set({ 'n', 'i' }, '<LEADER>df', '<ESC>:NvimTreeFindFile<CR>')
+	-- Collapse recursively in NvimTree with '<leader>dc' when in normal and input mode
+	vim.keymap.set({ 'n', 'i' }, '<LEADER>dc', '<ESC>:NvimTreeCollapse<CR>')
+end
 
 --[[
 Custom Commands
