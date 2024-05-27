@@ -547,9 +547,9 @@ vim.keymap.set({ 'n', 'i' }, '<C-Down>', '<ESC>:tabm +1<CR>', { remap = false })
 if not isMinimal then
 	-- nvim-tree
 	-- Open/Close (toggle) NvimTree with '<leader>dd' when in normal and input mode
-	vim.keymap.set({ 'n', 'i' }, '<LEADER>dd', '<ESC>:NvimTreeToggle<CR>')
+	vim.keymap.set({ 'n', 'i' }, '<LEADER>dx', '<ESC>:NvimTreeToggle<CR>')
 	-- Open (if not open) and focus on NvimTree with '<leader>dw' when in normal and input mode
-	vim.keymap.set({ 'n', 'i' }, '<LEADER>dw', '<ESC>:NvimTreeFocus<CR>')
+	vim.keymap.set({ 'n', 'i' }, '<LEADER>dd', '<ESC>:NvimTreeFocus<CR>')
 	-- Find files in NvimTree with '<leader>df' when in normal and input mode
 	vim.keymap.set({ 'n', 'i' }, '<LEADER>df', '<ESC>:NvimTreeFindFile<CR>')
 	-- Collapse recursively in NvimTree with '<leader>dc' when in normal and input mode
