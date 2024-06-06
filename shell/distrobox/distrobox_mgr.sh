@@ -37,11 +37,8 @@ function prompt_confirmation {
 
 function setup_devenv {
 	local DEVENV_HOME="$HOME/devenv"
-	local SHARED_PROJECTS_SRC="$HOME/Projects"
-	local SHARED_PROJECTS_DEST="$DEVENV_HOME/Projects"
 	echo "setting up devenv: $CONFIG_OUTPUT_FILE"
 	mkdir -p "$DEVENV_HOME"
-	mkdir -p "$SHARED_PROJECTS_DEST"
 	echo "copying setup script: $DEVENV_HOME/devenv-setup.sh"
 	cp "$SCRIPT_DIR/devenv-setup.sh" "$DEVENV_HOME/devenv-setup.sh"
 	echo "creating devenv"
@@ -52,7 +49,6 @@ function setup_devenv {
 		--name devenv \
 		--pull \
 		--home "$DEVENV_HOME" \
-		--volume "$SHARED_PROJECTS_SRC:$SHARED_PROJECTS_DEST:rw" \
 		--verbose
 }
 register_opt setup_devenv

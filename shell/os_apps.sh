@@ -156,7 +156,7 @@ function install_font_mononoki {
 
 	wget -q --show-progress -O "$FILE_ARCHIVE" "$FONT_DOWNLOAD_URL" || errexit "error downloading font archive"
 	tar -xvf "$FILE_ARCHIVE" -C "$DIR_EXTRACT"
-	cp "$DIR_EXTRACT/MononokiNerdFontMono-Regular.ttf" "$DIR_FONT/MononokiNerdFontMono-Regular.ttf"
+	cp "$DIR_EXTRACT/MononokiNerdFont-Regular.ttf" "$DIR_FONT/MononokiNerdFont-Regular.ttf"
 	echo "installing mononoki font"
 	fc-cache -fv
 
