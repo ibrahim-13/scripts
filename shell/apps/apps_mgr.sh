@@ -103,8 +103,7 @@ register_app distrobox
 function func_check_jq_installed {
 	if ! command -v jq &> /dev/null
 	then
-		echo "jq is required, installing"
-		package_install jq || errexit "can not install binaries from github without jq"
+		package_install_quite jq || errexit "can not install binaries from github without jq"
 	fi
 }
 
@@ -169,7 +168,7 @@ function func_gh_http {
 # $2 : github repo
 # $3 : jq selector for asset name
 function func_github_asset {
-	if ! [ -x "$(command -v gh)" ]
+	if ! command -v gh &> /dev/null
 	then
 		func_gh_http "$1" "$2" "$3" "gh: command not found, using http api"
 	else
@@ -186,6 +185,7 @@ function func_github_asset {
 
 # $1 : github response
 function func_ghutil_get_downloadurl {
+	func_check_jq_installed
 	local GH_DL_URL
 	GH_DL_URL=$(echo "$1" | jq -r '.download_url')
 	echo "$GH_DL_URL"
@@ -193,6 +193,7 @@ function func_ghutil_get_downloadurl {
 
 # $1 : github response
 function func_ghutil_get_created_at {
+	func_check_jq_installed
 	local GH_CREATED_AT
 	GH_CREATED_AT=$(echo "$1" | jq -r '.created_at')
 	echo "$GH_CREATED_AT"
@@ -200,6 +201,7 @@ function func_ghutil_get_created_at {
 
 # $1 : github response
 function func_ghutil_get_source {
+	func_check_jq_installed
 	local GH_SOURCE
 	GH_SOURCE=$(echo "$1" | jq -r '.source')
 	echo "$GH_SOURCE"
@@ -207,6 +209,7 @@ function func_ghutil_get_source {
 
 # $1 : github response
 function func_ghutil_get_msg {
+	func_check_jq_installed
 	local GH_MSG
 	GH_MSG=$(echo "$1" | jq -r '.msg')
 	echo "$GH_MSG"
@@ -215,6 +218,7 @@ function func_ghutil_get_msg {
 # check if json is valid
 # $1 : json string
 function func_ghutil_check_valid_json {
+	func_check_jq_installed
 	if [ "$(echo "$1" | jq empty > /dev/null 2>&1; echo $?)" -eq 0 ]
 	then
 		return 0
@@ -339,6 +343,23 @@ function package_list_update {
 	fi
 }
 
+# update system package list quitely
+function package_list_update_quite {
+	if [[ ! "$HAS_RUN_SYSTEM_PACKAGE_LIST_UPDATE" == "t" ]]
+	then
+		if command -v dnf &> /dev/null
+		then
+			sudo dnf check-update
+		elif command -v apt-get &> /dev/null
+		then
+			sudo apt-get update &> /dev/null
+		else
+			errexit "err! : could not detect package manager"
+		fi
+		HAS_RUN_SYSTEM_PACKAGE_LIST_UPDATE="t"
+	fi
+}
+
 # install system package
 # $1 : package name
 function package_install {
@@ -350,9 +371,23 @@ function package_install {
 	elif command -v apt-get &> /dev/null
 	then
 		echo "apt-get: installing $1"
-		sudo apt-get install "$1"
+		sudo apt-get install -y "$1"
 	else
 		print_danger "err! : could not detect package manager"
+	fi
+}
+# install system package quitely
+# $1 : package name
+function package_install_quite {
+	package_list_update_quite
+	if command -v dnf &> /dev/null
+	then
+		sudo dnf install "$1" &> /dev/null
+	elif command -v apt-get &> /dev/null
+	then
+		sudo apt-get install -y "$1" &> /dev/null
+	else
+		errexit "err! : could not detect package manager"
 	fi
 }
 
@@ -367,7 +402,7 @@ function package_update {
 	elif command -v apt-get &> /dev/null
 	then
 		echo "apt-get: installing $1"
-		sudo apt-get install "$1"
+		sudo apt-get install -y "$1"
 	else
 		print_danger "err! : could not detect package manager"
 	fi

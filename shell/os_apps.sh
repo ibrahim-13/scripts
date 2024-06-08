@@ -126,6 +126,34 @@ function install_virt_manager {
 }
 register_opt install_virt_manager
 
+function install_font_mononoki {
+	local DIR_TMP="$HOME/.tmp"
+	local FILE_ARCHIVE="$DIR_TMP/font-mononoki.tag.xz"
+	local FONT_DOWNLOAD_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.0/Mononoki.tar.xz"
+	local DIR_EXTRACT="$DIR_TMP/font-mononoki"
+	local DIR_FONT="$HOME/.local/share/fonts"
+
+	mkdir -p "$DIR_EXTRACT"
+	mkdir -p "$DIR_FONT"
+
+	if wget --help | grep -i "show-progress" &> /dev/null
+	then
+		wget -q --show-progress -O "$FILE_ARCHIVE" "$FONT_DOWNLOAD_URL" || errexit "error downloading font archive"
+	else
+		wget -q -O "$FILE_ARCHIVE" "$FONT_DOWNLOAD_URL" || errexit "error downloading font archive"
+	fi
+	tar -xvf "$FILE_ARCHIVE" -C "$DIR_EXTRACT"
+	cp "$DIR_EXTRACT/MononokiNerdFont-Regular.ttf" "$DIR_FONT/MononokiNerdFont-Regular.ttf"
+	echo "installing mononoki font"
+	fc-cache -fv
+
+	# cleanup
+	echo "cleaning up"
+	rm "$FILE_ARCHIVE"
+	rm -rf "$DIR_EXTRACT"
+}
+register_opt install_font_mononoki
+
 function install_podman {
 	if command -v apt-get
 	then
@@ -144,28 +172,6 @@ function install_podman {
 	fi
 }
 register_opt install_podman
-
-function install_font_mononoki {
-	local FILE_ARCHIVE="/tmp/font-mononoki.tag.xz"
-	local FONT_DOWNLOAD_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.0/Mononoki.tar.xz"
-	local DIR_EXTRACT="/tmp/font-mononoki"
-	local DIR_FONT="$HOME/.local/share/fonts"
-
-	mkdir -p "$DIR_EXTRACT"
-	mkdir -p "$DIR_FONT"
-
-	wget -q --show-progress -O "$FILE_ARCHIVE" "$FONT_DOWNLOAD_URL" || errexit "error downloading font archive"
-	tar -xvf "$FILE_ARCHIVE" -C "$DIR_EXTRACT"
-	cp "$DIR_EXTRACT/MononokiNerdFont-Regular.ttf" "$DIR_FONT/MononokiNerdFont-Regular.ttf"
-	echo "installing mononoki font"
-	fc-cache -fv
-
-	# cleanup
-	echo "cleaning up"
-	rm "$FILE_ARCHIVE"
-	rm -rf "$DIR_EXTRACT"
-}
-register_opt install_font_mononoki
 
 # vscodium and add extensions
 function install_vscodium {
