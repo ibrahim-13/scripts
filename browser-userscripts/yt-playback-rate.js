@@ -1,12 +1,14 @@
 // ==UserScript==
 // @name        YT Playback
-// @namespace   __personal_yt_playback_rate
+// @namespace   __gh_ibrahim13_yt_playback_rate
 // @match       https://*.youtube.com/*
 // @version     2024.07.27
-// @author      ibrahim.khan
+// @author      github/ibrahim-13
 // @description Increase playback rate of YouTube
 // @noframes
 // @grant       GM_registerMenuCommand
+// @grant       GM_addElement
+// @grant       GM_addStyle
 // ==/UserScript==
 
 var _conf = {
@@ -30,91 +32,53 @@ var _conf = {
 
 function inject_ui() {
   let isDragging = false;
+  GM_addStyle(`
+.__us_settings_view{background:black;color:green;font-size: 13px;border:1px solid yellow;padding:7px;position:absolute;top:0px;width:150px;height:150px;z-index:99993;display:none;}
+.__us_pb_rate{font-weight:bold;}
+.__us_btn{background:green;}
+.__us_overlay {position:absolute;cursor:pointer;top:0px;left:0px;width:100%;height:100%;z-index:99992;opacity:0.7;background:black;display:none;}
+`)
 
-  const settings = document.createElement("div");
-  settings.style.background = "black";
-  settings.style.color = "green";
-  settings.style.fontSize = "13px";
-  settings.style.border = "1px solid yellow";
-  settings.style.padding = "7px";
-  settings.style.position = "absolute";
-  settings.style.top = "0px";
-  settings.style.width = "150px";
-  settings.style.height = "150px";
-  settings.style.zIndex = 99993;
-  settings.style.background = "black";
-  settings.style.display = "none";
+  const settings = GM_addElement("div", {class: "__us_settings_view"});
+  GM_addElement(settings, "h2", { textContent: "settings"});
+  GM_addElement(settings, "label", { textContent: "monitor: "});
 
-  function util_create_text(type, text) {
-    const elem = document.createElement(type);
-    elem.innerText = text;
-    settings.appendChild(elem);
-  }
+  const settings_input_monitor = GM_addElement(settings, "input", {
+    type: "checkbox",
+    checked: _conf.isEnabled,
+  });
+  settings_input_monitor.addEventListener("change", function(e) {_conf.isEnabled = e.target.checked;});
+  GM_addElement(settings, "br", {});
 
-  util_create_text("h2", "settings");
-  util_create_text("label", "monitor:");
-
-  const settings_input_monitor = document.createElement("input");
-  settings_input_monitor.type = "checkbox";
-  settings_input_monitor.checked = _conf.isEnabled;
-  settings.appendChild(settings_input_monitor);
-  settings_input_monitor.addEventListener("change", function(e) {_conf.isEnabled = e.target.checked;})
-  settings.appendChild(document.createElement("br"))
-
-  util_create_text("label", "default speed: ");
-
-  const settings_span_playback_rate = document.createElement("label");
-  settings_span_playback_rate.style.fontWeight = "bold";
-  settings_span_playback_rate.innerText = _conf.override_playback ? _conf.override_playback_rate : _conf.default_playback_rate;
-  settings.appendChild(settings_span_playback_rate);
-  settings.appendChild(document.createElement("br"))
-
-  util_create_text("label", "override: ");
-
-  const settings_btn_reset = document.createElement("button");
-  settings_btn_reset.style.background = "green";
-  settings_btn_reset.innerText = "reset";
-  settings_btn_reset.onclick = function() {
-    _conf.override_playback_rate = _conf.default_playback_rate;
-    _conf.override_playback = false;
-    settings_span_playback_rate.innerText = _conf.default_playback_rate;
-  }
-  settings.appendChild(settings_btn_reset);
+  GM_addElement(settings, "label", { textContent: "default speed: "});
+  const settings_span_playback_rate = GM_addElement(settings, "label", {
+    class: "__us_pb_rate",
+    textContent: String(_conf.override_playback ? _conf.override_playback_rate : _conf.default_playback_rate),
+  });
+  GM_addElement(settings, "br", {});
 
   function action_set_rate(rate) {
-    _conf.override_playback_rate = rate;
-    _conf.override_playback = true;
-    settings_span_playback_rate.innerText = _conf.override_playback_rate;
+    if(typeof rate == "string" && rate == "reset") {
+      _conf.override_playback_rate = _conf.default_playback_rate;
+      _conf.override_playback = false;
+      settings_span_playback_rate.innerText = _conf.default_playback_rate;
+    } else if(typeof rate == "number") {
+      _conf.override_playback_rate = rate;
+      _conf.override_playback = true;
+      settings_span_playback_rate.innerText = _conf.override_playback_rate;
+    }
   }
 
-  function util_create_rate_btn(rate) {
-    const btn = document.createElement("button");
-    btn.style.background = "green";
-    btn.innerText = String(rate);
-    btn.onclick = function() {action_set_rate(rate);}
-    settings.appendChild(btn);
-  }
+  GM_addElement(settings, "label", { textContent: "override: "});
+  ["reset", 0.75, 1, 1.25, 1.5, 1.75].forEach(function(r) {
+    const btn = GM_addElement(settings, "button", {
+      class: "__us_btn",
+      textContent: String(r),
+    });
+    btn.onclick = function() {action_set_rate(r);}
+  });
 
-  util_create_rate_btn(0.75);
-  util_create_rate_btn(1);
-  util_create_rate_btn(1.25);
-  util_create_rate_btn(1.5);
-  util_create_rate_btn(1.75);
-
-  document.body.appendChild(settings);
-
-  const overlay = document.createElement("div");
-  overlay.style.position = "absolute";
-  overlay.style.cursor = "pointer";
-  overlay.style.top = "0px";
-  overlay.style.left = "0px";
-  overlay.style.width = "100%";
-  overlay.style.height = "100%";
-  overlay.style.zIndex = 99992;
-  overlay.style.opacity = 0.7;
-  overlay.style.background = "black";
-  overlay.style.display = "none";
-  document.body.appendChild(overlay);
+  const overlay = GM_addElement("div", { class: "__us_overlay"});
   overlay.addEventListener("click", function() {
     settings.style.display = "none";
     overlay.style.display = "none";
