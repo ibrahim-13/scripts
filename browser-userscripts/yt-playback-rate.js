@@ -2,9 +2,9 @@
 // @name        YT Playback
 // @namespace   __gh_ibrahim13_yt_playback_rate
 // @match       https://*.youtube.com/*
-// @version     2024.12.15
+// @version     2024.12.16
 // @author      github/ibrahim-13
-// @description Increase playback rate of YouTube
+// @description Control playback speed of YouTube
 // @noframes
 // @grant       GM_registerMenuCommand
 // @grant       GM_unregisterMenuCommand
@@ -21,10 +21,11 @@ var _conf = {
   default_playback_rate: 1,
   playback_rate: 1,
   last_set_playback_speed: "",
-  palyback_storage_key: "palyback_rate",
   playback_opt: [0.75, 1, 1.25, 1.5, 2],
   preset: {},
+  enabled_storage_key: "isEnabled",
   preset_storage_key: "preset",
+  palyback_storage_key: "palyback_rate",
 };
 
 /**
@@ -34,8 +35,8 @@ var _conf = {
 function with_debounce(func) {
   var prev_timeout_id;
   return function(mutations) {
-    if(!_conf.isEnabled) return;
     clearTimeout(prev_timeout_id);
+    if(!_conf.isEnabled) return;
     prev_timeout_id = setTimeout(func, 500);
   };
 }
@@ -72,16 +73,16 @@ function action_toggle_pause() {
   if(_conf.isEnabled) {
     _conf.isEnabled = false;
     _conf.playback_rate = 1;
-    yt_set_playback_rate();
     GM_unregisterMenuCommand("Pause");
     GM_registerMenuCommand("Resume", action_toggle_pause);
   } else {
     _conf.isEnabled = true;
     _conf.playback_rate = GM_getValue(_conf.palyback_storage_key, _conf.default_playback_rate);
-    yt_set_playback_rate();
     GM_unregisterMenuCommand("Resume");
     GM_registerMenuCommand("Pause", action_toggle_pause);
   }
+  GM_setValue(_conf.enabled_storage_key, _conf.isEnabled);
+  yt_set_playback_rate();
 }
 
 function action_set_playback_rate() {
@@ -147,6 +148,7 @@ function menu() {
 (function() {
   "use strict";
 
+  _conf.isEnabled = GM_getValue(_conf.enabled_storage_key, _conf.isEnabled);
   _conf.playback_rate = GM_getValue(_conf.palyback_storage_key, _conf.default_playback_rate);
   _conf.preset = GM_getValue(_conf.preset_storage_key, {});
 
