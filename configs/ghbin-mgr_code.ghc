@@ -1,0 +1,154 @@
+## load storage file
+kvload "/Users/arshad/Projects/ghbin-mgr/test_storage.ghc"
+
+## set default install dir in kv
+push "/Users/arshad/Projects/ghbin-mgr/ghbin"
+kvset "default_install_dir"
+pop
+
+## run main func
+goto :main:
+exit
+
+:main:
+goto :lazygit:
+goto :lf:
+goto :fzf:
+goto :hugo:
+return
+
+##
+## lazygit
+##
+:lazygit:
+kvget "lazygit_tag"
+push "lazygit" "jesseduffield"
+ghcheck
+push "true"
+jumpeq :lazygit_update:
+jumpeqn :lazygit_no_update:
+pop 5
+return
+
+:lazygit_update:
+push "updating lazygit..."
+print
+pop
+kvget "default_install_dir"
+push "lazygit" "jesseduffield" "lazygit" "__os__,__arch__,tar.gz" "lazygit"
+ghinstallx
+kvset "lazygit_tag"
+kvsave
+pop 6
+push "lazygit updated successfully"
+print
+pop
+return
+
+:lazygit_no_update:
+push "no update available"
+print
+pop
+return
+
+##
+## lf
+##
+:lf:
+kvget "lf_tag"
+push "lf" "gokcehan"
+ghcheck
+push "true"
+jumpeq :lf_update:
+jumpeqn :lf_no_update:
+pop 5
+return
+
+:lf_update:
+push "updating lf..."
+print
+pop
+kvget "default_install_dir"
+push "lf" "gokcehan" "lf" "__os__,__arch__,tar.gz" "lf"
+ghinstallx
+kvset "lf_tag"
+kvsave
+pop 6
+push "lf updated successfully"
+print
+pop
+return
+
+:lf_no_update:
+push "no update available"
+print
+pop
+return
+
+##
+## fzf
+##
+:fzf:
+kvget "fzf_tag"
+push "fzf" "junegunn"
+ghcheck
+push "true"
+jumpeq :fzf_update:
+jumpeqn :fzf_no_update:
+pop 5
+return
+
+:fzf_update:
+push "updating fzf..."
+print
+pop
+kvget "default_install_dir"
+push "fzf" "junegunn" "fzf" "__os__,__arch__,tar.gz" "fzf"
+ghinstallx
+kvset "fzf_tag"
+kvsave
+pop 6
+push "fzf updated successfully"
+print
+pop
+return
+
+:fzf_no_update:
+push "no update available"
+print
+pop
+return
+
+##
+## hugo
+##
+:hugo:
+kvget "hugo_tag"
+push "hugo" "gohugoio"
+ghcheck
+push "true"
+jumpeq :hugo_update:
+jumpeqn :hugo_no_update:
+pop 5
+return
+
+:hugo_update:
+push "updating hugo..."
+print
+pop
+kvget "default_install_dir"
+push "hugo" "gohugoio" "hugo" "__os__,universal,^extended,tar.gz" "hugo"
+ghinstallx
+kvset "hugo_tag"
+kvsave
+pop 6
+push "hugo updated successfully"
+print
+pop
+return
+
+:hugo_no_update:
+push "no update available"
+print
+pop
+return
