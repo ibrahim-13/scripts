@@ -23,6 +23,14 @@ local function check_if_minimal_conf()
 	end
 end
 
+local function check_if_exec_exists(exec, msg)
+	if vim.fn.executable('rg') == 0 then
+		print("ripgrep is installed and available in the PATH")
+	  else
+		print("ripgrep is not installed or not available in the PATH")
+	end
+end
+
 -------------
 -- Options --
 -------------
@@ -142,7 +150,7 @@ if not isMinimal then
 	-- Alternatively, list of LSPs can be found here: https://github.com/williamboman/mason-lspconfig.nvim
 	require('mason').setup({})
 	require('mason-lspconfig').setup({
-		ensure_installed = { 'lua_ls', 'autotools_ls', 'bashls', 'cssls', 'cssmodules_ls', 'dockerls', 'docker_compose_language_service', 'eslint', 'gopls', 'jsonls', 'tsserver', 'sqls', 'yamlls' },
+		ensure_installed = { 'lua_ls' },
 		handlers = {
 			lsp_zero.default_setup,
 		},
@@ -159,7 +167,7 @@ if not isMinimal then
 	Commands are prefixed with TS, they can by cycled by typing :TS and then TAB
 	--]]
 	require("nvim-treesitter.configs").setup {
-		ensure_installed = { "bash", "c", "cpp", "css", "diff", "dockerfile", "dot", "go", "gosum", "gowork", "gpg", "graphql", "html", "ini", "javascript", "json", "jsonc", "lua", "make", "markdown", "passwd", "pem", "printf", "proto", "python", "scss", "sql", "templ", "terraform", "toml", "tsx", "typescript", "xml", "yaml" },
+		ensure_installed = { "lua" },
 		sync_install = false,
 		auto_install = true,
 		-- ignore_install = { "javascript" },
@@ -254,6 +262,7 @@ Default Mappings:
 	<M-q>	Send all selected items to qflist
 	<C-r><C-w>	Insert cword in original window into prompt (insert mode)
 --]]
+check_if_exec_exists("rg", "rg command (ripgrep) not found, required for telescope: https://github.com/BurntSushi/ripgrep")
 require("telescope").setup({
 	defaults = {
 		layout_config = {
@@ -460,6 +469,11 @@ end
 vim.o.tabline = '%!v:lua.nvim_tabline()'
 vim.opt.showtabline = 2
 
+------------------
+-- Other checks --
+------------------
+check_if_exec_exists("xsel", "xsel command not found, required for clipboard operations")
+
 --[[
 ===========
 Keybindings
@@ -596,8 +610,12 @@ vim.keymap.set('',
 	{ remap = true })
 
 --[[
--- Handing binary files:
-------------------------
+NeoVim Lua Guide
+----------------
+https://neovim.io/doc/user/lua-guide.html
+
+Handing binary files:
+---------------------
 -- Open file in binary mode so that NVIM does not apply any special modification
 -- nvim -b file.bin
 --
@@ -623,18 +641,25 @@ vim.keymap.set('',
 -- Convert file format
 -- :set fileformat=unix
 -- :write
---
--- VIM motions
+
+VIM motions
 --------------
--- https://neovim.io/doc/user/motion.html
---
--- Get LSP logs location
-------------------------
--- :lua =require('vim.lsp.log').get_filename()
--- Set log level in init.lua
--- vim.lsp.set_log_level('debug')
---
--- View log messages
+https://neovim.io/doc/user/motion.html
+
+Get LSP logs location
+---------------------
+lua =require('vim.lsp.log').get_filename()
+Set log level in init.lua
+vim.lsp.set_log_level('debug')
+
+ View log messages
 --------------------
--- :messages
+https://neovim.io/doc/user/message.html
+
+	:mes[sages]		Show all messages.
+	:{count}mes[sages]	Show the {count} most recent messages.
+	:mes[sages] clear	Clear all messages.
+	:{count}mes[sages] clear
+				Clear messages, keeping only the {count} most
+				recent ones.
 --]]

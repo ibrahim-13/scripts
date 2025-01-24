@@ -2,9 +2,22 @@
 
 ## Index
 
+- [nerd-font](#nerd-font)
 - [lf](#lf)
 - [nvim](#nvim)
 - [tmux](#tmux)
+
+## nerd-font
+
+- [ryanoasis/nerd-fonts/](https://github.com/ryanoasis/nerd-fonts/)
+
+### Mononoki
+
+- Go to the release page of nerd-fonts
+- Download Mononoki.zip/Mononoki.tar.xz
+- Extract
+- Install the font
+  - MacOs: use Font Book
 
 ## lf
 
@@ -106,20 +119,6 @@ rm -rf "$HOME/.local/state/nvim"
 rmdir /s /q "%LOCALAPPDATA%/nvim"
 rmdir /s /q "%USERPROFILE%\AppData\Local\nvim-data"
 ```
-
-Check if binary executable exists:
-
-```lua
-local function rg_exists()
-  return vim.fn.executable('rg') == 1
-end
-
-if rg_exists() then
-  print("ripgrep is installed and available in the PATH")
-else
-  print("ripgrep is not installed or not available in the PATH")
-end
-
 
 ```
 
