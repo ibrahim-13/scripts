@@ -4,6 +4,7 @@
 
 - [nerd-font](#nerd-font)
 - [lf](#lf)
+- [fzf](#fzf)
 - [nvim](#nvim)
 - [tmux](#tmux)
 
@@ -54,6 +55,92 @@ Windows
     %LF_CONFIG_HOME%
     %LOCALAPPDATA%
     C:\Users\<user>\AppData\Local
+```
+
+## fzf
+
+- [Github](https://github.com/junegunn/fzf)
+
+### Files and directories
+Fuzzy completion for files and directories can be triggered if the word before the cursor ends with the trigger sequence, which is by default **.
+
+COMMAND [DIRECTORY/][FUZZY_PATTERN]**<TAB>
+
+```
+# Files under the current directory
+# - You can select multiple items with TAB key
+vim **<TAB>
+
+# Files under parent directory
+vim ../**<TAB>
+
+# Files under parent directory that match `fzf`
+vim ../fzf**<TAB>
+
+# Files under your home directory
+vim ~/**<TAB>
+
+
+# Directories under current directory (single-selection)
+cd **<TAB>
+
+# Directories under ~/github that match `fzf`
+cd ~/github/fzf**<TAB>
+```
+
+### Process IDs
+Fuzzy completion for PIDs is provided for kill command.
+
+```
+# Can select multiple processes with <TAB> or <Shift-TAB> keys
+kill -9 **<TAB>
+```
+
+### Host names
+For ssh and telnet commands, fuzzy completion for hostnames is provided. The names are extracted from /etc/hosts and ~/.ssh/config.
+
+```
+ssh **<TAB>
+telnet **<TAB>
+```
+
+### Environment variables / Aliases
+
+```
+unset **<TAB>
+export **<TAB>
+unalias **<TAB>
+```
+
+### Customizing fzf options for completion
+
+```
+# Use ~~ as the trigger sequence instead of the default **
+export FZF_COMPLETION_TRIGGER='~~'
+
+# Options to fzf command
+export FZF_COMPLETION_OPTS='--border --info=inline'
+
+# Options for path completion (e.g. vim **<TAB>)
+export FZF_COMPLETION_PATH_OPTS='--walker file,dir,follow,hidden'
+
+# Options for directory completion (e.g. cd **<TAB>)
+export FZF_COMPLETION_DIR_OPTS='--walker dir,follow'
+
+# Advanced customization of fzf options via _fzf_comprun function
+# - The first argument to the function is the name of the command.
+# - You should make sure to pass the rest of the arguments ($@) to fzf.
+_fzf_comprun() {
+  local command=$1
+  shift
+
+  case "$command" in
+    cd)           fzf --preview 'tree -C {} | head -200'   "$@" ;;
+    export|unset) fzf --preview "eval 'echo \$'{}"         "$@" ;;
+    ssh)          fzf --preview 'dig {}'                   "$@" ;;
+    *)            fzf --preview 'bat -n --color=always {}' "$@" ;;
+  esac
+}
 ```
 
 ## nvim

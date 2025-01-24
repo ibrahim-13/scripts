@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+#########
+# Alias #
+#########
 
 function func_fzf_px {
 	TMP_SELSECTED_PROCESS=$(ps -e -o user,pid,comm | fzf | awk '$2 ~ /^[0-9]+$/ { print $2 }')
@@ -43,7 +45,9 @@ alias fk='func_fzf_px'
 alias lfcd='func_lfcd'
 alias http_server='func_http_server'
 
-# prompt customization:
+########################
+# Prompt Customization #
+########################
 # 	https://wiki.archlinux.org/title/Bash/Prompt_customization
 # 	https://opensource.com/article/17/7/bash-prompt-tips-and-tricks
 # nerd prompt cheatsheet: https://www.nerdfonts.com/cheat-sheet
@@ -72,16 +76,6 @@ TXT_COL_BG_WHITE="\[\033[47m\]"
 TXT_COL_BOLD="\[\e[1m\]"
 TXT_COL_DIM="\[\e[2m\]"
 _HOSTNAME="$(hostname -s)"
-_OS="$(cat /etc/os-release | grep "^ID=" | cut -b4-)"
-_OS_VER="$(cat /etc/os-release | grep "^VERSION_ID=" | cut -b12- | tr -d '"')"
-
-# Alternative multi-line arrows-
-# Straight:
-# ┌─
-# └──
-# Curved:
-# ╭─
-# ╰──
 
 _prompt_command() {
 	local EXIT_CODE="$?";
@@ -96,11 +90,17 @@ _prompt_command() {
 		EXIT_CODE_COLOR_BG="$TXT_COL_BG_RED"
 		EXIT_CODE_COLOR="$TXT_COL_RED"
 	fi
-	PS1="${TXT_COL_CYAN}${TXT_COL_BLACK}${TXT_COL_BG_CYAN}${_OS}-${_OS_VER} ${TXT_COL_CYAN}${TXT_COL_BG_BLUE}${TXT_COL_WHITE}${TXT_COL_BG_BLUE} \u@\h ${TXT_COL_BLUE}${TXT_COL_BG_MAGENTA}${TXT_COL_WHITE} \w ${TXT_COL_MAGENTA}${TXT_COL_BG_BLACK}${TXT_COL_WHITE}${TXT_COL_BG_BLACK} \D{%I:%M:%S %p} ${TXT_COL_BLACK}${EXIT_CODE_COLOR_BG}${TXT_COL_BLACK} $EXIT_CODE ${TXT_RESET}${EXIT_CODE_COLOR}${TXT_RESET}${TXT_RESET}\n╰──\$ "
-	if "$HOME" | grep -i "/devenv" &> /dev/null
-	then
-		PS1="${TXT_COL_YELLOW}${TXT_COL_BLACK}${TXT_COL_BG_YELLOW} dev${TXT_RESET}${TXT_COL_YELLOW}${TXT_RESET}${PS1}"
-	fi
-	PS1="╭─${PS1}"
+	PS1="\u@\h | \w \D{%I:%M:%S %p} | $EXIT_CODE > "
 }
 
+#########
+# Paths #
+#########
+
+# add golang binaries to path
+export PATH="$PATH:$HOME/go/bin"
+
+###############
+# Completions #
+###############ngs and fuzzy completion
+eval "$(fzf --bash)"
