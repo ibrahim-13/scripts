@@ -207,6 +207,18 @@ rmdir /s /q "%LOCALAPPDATA%/nvim"
 rmdir /s /q "%USERPROFILE%\AppData\Local\nvim-data"
 ```
 
+## tmux
+
+Configuration directory
+
+```
+Configuratin:   $HOME/.config/tmux
+Plugin:         $HOME/.tmux/plugins/tpm
 ```
 
-## tmux
+- Setup plugin
+
+```sh
+# git is required
+git clone "https://github.com/tmux-plugins/tpm" "$HOME/.tmux/plugins/tpm"
+```
