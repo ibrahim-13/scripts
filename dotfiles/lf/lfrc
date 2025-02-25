@@ -7,3 +7,5 @@ map d 'delete'
 set hidden
 set info size:time
 set sortby "name"
+set icons true
+set colors true 
