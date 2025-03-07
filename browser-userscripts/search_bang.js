@@ -21,14 +21,19 @@ var _search_engines = [
     default: true,
   },
   {
-    key: "rd",
-    name: "Reddit",
-    url: "https://www.reddit.com/search/?q={{{s}}}",
-  },
-  {
     key: "gg",
     name: "Google",
     url: "https://www.google.com/search?q={{{s}}}",
+  },
+  {
+    key: "gh",
+    name: "GitHub",
+    url: "https://github.com/search?q={{{s}}}",
+  },
+  {
+    key: "rd",
+    name: "Reddit",
+    url: "https://www.reddit.com/search/?q={{{s}}}",
   },
   {
     key: "yt",
@@ -37,9 +42,9 @@ var _search_engines = [
   },
 ];
 
-
 function search_prompt() {
-  const query = prompt("Search:");
+  const helper = _search_engines.map(i => i.name + ': ' + i.key).join(', ');
+  const query = prompt("Search (" + helper + ")");
   if (!query) return;
 
   const match = query.match(/!(\S+)/i);
