@@ -2,7 +2,7 @@
 // @name        YT Playback
 // @namespace   __gh_ibrahim13_yt_playback_rate
 // @match       https://*.youtube.com/*
-// @version     2024.12.16
+// @version     2025.5.31
 // @author      github/ibrahim-13
 // @description Control playback speed of YouTube
 // @noframes
@@ -12,31 +12,65 @@
 // @grant       GM_setValue
 // ==/UserScript==
 
-var _conf = {
+const _ytpb_conf_init = {
   elem: {
     video: "#movie_player > div.html5-video-container > video",
     channel: "#owner #upload-info #channel-name yt-formatted-string a",
   },
   isEnabled: true,
-  default_playback_rate: 1,
   playback_rate: 1,
   last_set_playback_speed: "",
   playback_opt: [0.75, 1, 1.25, 1.5, 2],
   preset: {},
-  enabled_storage_key: "isEnabled",
-  preset_storage_key: "preset",
-  palyback_storage_key: "palyback_rate",
+  enabled_storage_key: "ytpb__isEnabled",
+  preset_storage_key: "ytpb__preset",
+  palyback_storage_key: "ytpb__palyback_rate",
 };
+
+const _ytpb_conf_handler = {
+  get(target, prop, receiver) {
+    return Reflect.get(...arguments);
+  },
+  set(obj, prop, value) {
+    if (prop === "isEnabled") {
+      GM_setValue(_ytpb_conf.enabled_storage_key, value);
+    } else if (prop === "preset") {
+      GM_setValue(_ytpb_conf.preset_storage_key, value);
+    } else if (prop === "playback_rate") {
+      GM_setValue(_ytpb_conf.palyback_storage_key, value);
+    }
+    return Reflect.set(...arguments);
+  },
+};
+
+var _ytpb_conf = new Proxy(_ytpb_conf_init, _ytpb_conf_handler);
+
+/**
+ * Utils
+**/
+
+const _$ = function(query) { return document.querySelector(query); };
+
+function migrate_storage() {
+    for (const k of ["isEnabled", "preset", "palyback_rate"]) {
+        const prevVal = GM_getValue(k, null);
+        if (!!prevVal) {
+            GM_setValue("ytpb__"+k, prevVal);
+            GM_setValue(k, null);
+            console.log("yt_playback: migrating: "+k);
+        }
+    }
+}
 
 /**
  * App
 **/
 
-function with_debounce(func) {
+function with_debounce(func, check) {
   var prev_timeout_id;
   return function(mutations) {
     clearTimeout(prev_timeout_id);
-    if(!_conf.isEnabled) return;
+    if(!check()) return;
     prev_timeout_id = setTimeout(func, 500);
   };
 }
@@ -50,14 +84,19 @@ function get_channel_id(elem) {
 }
 
 function yt_set_playback_rate() {
-  const elem_vid = document.querySelector(_conf.elem.video);
-  const elem_channel = document.querySelector(_conf.elem.channel);
+  const elem_vid = _$(_ytpb_conf.elem.video);
+  const elem_channel = _$(_ytpb_conf.elem.channel);
   if (elem_vid && elem_channel) {
-    let pbr = _conf.preset[get_channel_id(elem_channel)];
-    _conf.last_set_playback_speed = pbr + " (channel)";
+    let pbr = _ytpb_conf.preset[get_channel_id(elem_channel)];
+    if (!_ytpb_conf.isEnabled) {
+        pbr = 1;
+        _ytpb_conf.last_set_playback_speed = pbr + " (paused)";
+    } else {
+        _ytpb_conf.last_set_playback_speed = pbr + " (channel)";
+    }
     if (!pbr) {
-      pbr = _conf.playback_rate;
-      _conf.last_set_playback_speed = pbr + " (global)";
+      pbr = _ytpb_conf.playback_rate;
+      _ytpb_conf.last_set_playback_speed = pbr + " (global)";
     }
     if(pbr != elem_vid.playbackRate) {
       elem_vid.playbackRate = pbr;
@@ -69,40 +108,38 @@ function yt_set_playback_rate() {
  * UI
 **/
 
+let _ytpb_toggle_menu_id;
+
 function action_toggle_pause() {
-  if(_conf.isEnabled) {
-    _conf.isEnabled = false;
-    _conf.playback_rate = 1;
-    GM_unregisterMenuCommand("Pause");
-    GM_registerMenuCommand("Resume", action_toggle_pause);
+  if(_ytpb_conf.isEnabled) {
+    _ytpb_conf.isEnabled = false;
+    GM_unregisterMenuCommand(_ytpb_toggle_menu_id);
+    _ytpb_toggle_menu_id = GM_registerMenuCommand("[Stopped] Toggle", action_toggle_pause);
   } else {
-    _conf.isEnabled = true;
-    _conf.playback_rate = GM_getValue(_conf.palyback_storage_key, _conf.default_playback_rate);
-    GM_unregisterMenuCommand("Resume");
-    GM_registerMenuCommand("Pause", action_toggle_pause);
+    _ytpb_conf.isEnabled = true;
+    GM_unregisterMenuCommand(_ytpb_toggle_menu_id);
+    _ytpb_toggle_menu_id = GM_registerMenuCommand("[Running] Toggle", action_toggle_pause);
   }
-  GM_setValue(_conf.enabled_storage_key, _conf.isEnabled);
   yt_set_playback_rate();
 }
 
 function action_set_playback_rate() {
-  const spd_str = prompt("Speed (" + _conf.playback_opt.join(",") + ") :");
+  const spd_str = prompt("Speed (" + _ytpb_conf.playback_opt.join(",") + ") :");
   if (isNaN(spd_str)) {
     alert("invalid playback speed");
     return;
   }
   const spd = parseFloat(spd_str)
-  if (!_conf.playback_opt.includes(spd)) {
-    alert("Speed " + spd + " is not allowed, allowed: " + _conf.playback_opt.join(","));
+  if (!_ytpb_conf.playback_opt.includes(spd)) {
+    alert("Speed " + spd + " is not allowed, allowed: " + _ytpb_conf.playback_opt.join(","));
     return;
   }
-  _conf.playback_rate = spd;
-  GM_setValue(_conf.palyback_storage_key, spd);
+  _ytpb_conf.playback_rate = spd;
   yt_set_playback_rate();
 }
 
 function action_set_channel_playback_rate() {
-  const elem_channel = document.querySelector(_conf.elem.channel);
+  const elem_channel = _$(_ytpb_conf.elem.channel);
   if (!elem_channel) {
     alert("could not find channel element");
     return;
@@ -112,33 +149,33 @@ function action_set_channel_playback_rate() {
     alert("could not find channel id");
     return;
   }
-  const spd_str = prompt("Speed (" + _conf.playback_opt.join(",") + "), -1 to remove :");
+  const spd_str = prompt("Speed (" + _ytpb_conf.playback_opt.join(",") + "), -1 to remove :");
   if (isNaN(spd_str)) {
     alert("invalid playback speed");
     return;
   }
   const spd = parseFloat(spd_str)
   if (spd == -1) {
-    delete _conf.preset[channel_id];
-  } else if (!_conf.playback_opt.includes(spd)) {
-    alert("Speed " + spd + " is not allowed, allowed: " + _conf.playback_opt.join(","));
+    delete _ytpb_conf.preset[channel_id];
+  } else if (!_ytpb_conf.playback_opt.includes(spd)) {
+    alert("Speed " + spd + " is not allowed, allowed: " + _ytpb_conf.playback_opt.join(","));
     return;
   } else {
-    _conf.preset[channel_id] = spd;
+    //_ytpb_conf.preset[channel_id] = spd;
+    _ytpb_conf.preset[channel_id] = spd;
   }
-  GM_setValue(_conf.preset_storage_key, _conf.preset);
   yt_set_playback_rate();
 }
 
 function action_show_playback_rate() {
-  alert("Playback speed: " + _conf.last_set_playback_speed);
+  alert("Playback speed: " + _ytpb_conf.last_set_playback_speed);
 }
 
 function menu() {
   GM_registerMenuCommand("Default Speed", action_set_playback_rate);
   GM_registerMenuCommand("Channel Speed", action_set_channel_playback_rate);
   GM_registerMenuCommand("Show Speed", action_show_playback_rate);
-  GM_registerMenuCommand(_conf.isEnabled ? "Pause" : "Resume", action_toggle_pause);
+  _ytpb_toggle_menu_id = GM_registerMenuCommand(_ytpb_conf.isEnabled ? "[Running] Toggle" : "[Stopped] Toggle", action_toggle_pause);
 }
 
 /**
@@ -148,11 +185,14 @@ function menu() {
 (function() {
   "use strict";
 
-  _conf.isEnabled = GM_getValue(_conf.enabled_storage_key, _conf.isEnabled);
-  _conf.playback_rate = GM_getValue(_conf.palyback_storage_key, _conf.default_playback_rate);
-  _conf.preset = GM_getValue(_conf.preset_storage_key, {});
+  migrate_storage();
 
-  const observer = new MutationObserver(with_debounce(yt_set_playback_rate));
+  _ytpb_conf.isEnabled = GM_getValue(_ytpb_conf.enabled_storage_key, _ytpb_conf.isEnabled);
+  _ytpb_conf.playback_rate = GM_getValue(_ytpb_conf.palyback_storage_key, 1);
+  _ytpb_conf.preset = GM_getValue(_ytpb_conf.preset_storage_key, {});
+
+  function ytpb_check() { return _ytpb_conf.isEnabled; };
+  const observer = new MutationObserver(with_debounce(yt_set_playback_rate, ytpb_check));
 
   // use document.documentElement in case of this "parameter 1 is not of type 'Node'"
   observer.observe(document.body, {
