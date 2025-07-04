@@ -2,7 +2,7 @@
 // @name        YT Helper
 // @namespace   __gh_ibrahim13_yt_helper
 // @match       https://*.youtube.com/*
-// @version     2025.6.1
+// @version     2025.7.4
 // @author      github/ibrahim-13
 // @description Control playback speed and CC of YouTube videos
 // @noframes
@@ -11,19 +11,60 @@
 // @grant       GM_setValue
 // ==/UserScript==
 
+/**
+  create proxy handler to store preset data
+  presetKey (string): key used to store the preset data
+**/
+var _preset_hander = function (presetKey) {
+  const _presetKey = presetKey || "";
+  return {
+    get(target, prop, receiver) {
+      return Reflect.get(...arguments);
+    },
+    set(obj, prop, value) {
+      const val = Reflect.set(...arguments);
+      GM_setValue(_presetKey, obj);
+      return val;
+    },
+    deleteProperty(obj, propKey) {
+      const val = Reflect.deleteProperty(obj, propKey);
+      GM_setValue(_presetKey, obj);
+      return val;
+    }
+  };
+}
+
+/**
+  create proxy handler to store specific keys in config object
+  prefix (string): prefix added to the key to store value
+  keys (string[]): list of keys which will be store
+**/
+var _value_hander = function (prefix, keys) {
+  const _prefix = prefix || "";
+  const _keys = keys || [];
+  return {
+    get(target, prop, receiver) {
+      return Reflect.get(...arguments);
+    },
+    set(obj, prop, value) {
+      if (_keys.includes(prop)) {
+        GM_setValue(_prefix + "__" + prop, value);
+      }
+      return Reflect.set(...arguments);
+    },
+  }
+}
+
 const _ytpb_conf_init = {
   elem: {
     video: "#movie_player > div.html5-video-container > video",
     channel: "#owner #upload-info #channel-name yt-formatted-string a",
   },
-  isEnabled: true,
-  playback_rate: 1,
+  isEnabled: GM_getValue("ytpb__isEnabled", true),
+  playback_rate: GM_getValue("ytpb__palyback_rate", 1),
   last_set_playback_speed: "",
   playback_opt: [0.75, 1, 1.25, 1.5, 2],
   preset: {},
-  enabled_storage_key: "ytpb__isEnabled",
-  preset_storage_key: "ytpb__preset",
-  palyback_storage_key: "ytpb__palyback_rate",
 };
 
 var _ytcc_conf_init = {
@@ -32,45 +73,16 @@ var _ytcc_conf_init = {
     ccbtn: "#movie_player div.ytp-chrome-controls button.ytp-subtitles-button.ytp-button",
     channel: "#owner #upload-info #channel-name yt-formatted-string a",
   },
-  isEnabled: true,
+  isEnabled: GM_getValue("ytcc__isEnabled", true),
   last_set_cc: "",
   preset: {},
-  enabled_storage_key: "ytcc__isEnabled",
-  preset_storage_key: "ytcc__preset",
 };
 
-const _ytpb_conf_handler = {
-  get(target, prop, receiver) {
-    return Reflect.get(...arguments);
-  },
-  set(obj, prop, value) {
-    if (prop === "isEnabled") {
-      GM_setValue(obj.enabled_storage_key, value);
-    } else if (prop === "preset") {
-      GM_setValue(obj.preset_storage_key, value);
-    } else if (prop === "playback_rate") {
-      GM_setValue(obj.palyback_storage_key, value);
-    }
-    return Reflect.set(...arguments);
-  },
-};
+_ytpb_conf_init.preset = new Proxy(GM_getValue("ytpb__preset", {}), _preset_hander("ytpb__preset"));
+var _ytpb_conf = new Proxy(_ytpb_conf_init, _value_hander("ytpb", ["isEnabled", "playback_rate"]));
 
-const _ytcc_conf_handler = {
-  get(target, prop, receiver) {
-    return Reflect.get(...arguments);
-  },
-  set(obj, prop, value) {
-    if (prop === "isEnabled") {
-      GM_setValue(obj.enabled_storage_key, value);
-    } else if (prop === "preset") {
-      GM_setValue(obj.preset_storage_key, value);
-    }
-    return Reflect.set(...arguments);
-  },
-};
-
-var _ytpb_conf = new Proxy(_ytpb_conf_init, _ytpb_conf_handler);
-var _ytcc_conf = new Proxy(_ytcc_conf_init, _ytcc_conf_handler);
+_ytcc_conf_init.preset = new Proxy(GM_getValue("ytcc__preset", {}), _preset_hander("ytcc__preset"));
+var _ytcc_conf = new Proxy(_ytpb_conf_init, _value_hander("ytcc", ["isEnabled"]));
 
 /**
  * Utils
@@ -288,13 +300,6 @@ function ytcc_menu() {
 
 (function() {
   "use strict";
-
-  _ytpb_conf.isEnabled = GM_getValue(_ytpb_conf.enabled_storage_key, _ytpb_conf.isEnabled);
-  _ytpb_conf.playback_rate = GM_getValue(_ytpb_conf.palyback_storage_key, 1);
-  _ytpb_conf.preset = GM_getValue(_ytpb_conf.preset_storage_key, {});
-
-  _ytcc_conf.isEnabled = GM_getValue(_ytcc_conf.enabled_storage_key, _ytcc_conf.isEnabled);
-  _ytcc_conf.preset = GM_getValue(_ytcc_conf.preset_storage_key, {});
 
   function ytpb_check() { return _ytpb_conf.isEnabled; };
   function ytcc_check() { return _ytcc_conf.isEnabled; };
