@@ -1,14 +1,14 @@
 // ==UserScript==
-// @name        YT Helper
-// @namespace   __gh_ibrahim13_yt_helper
-// @match       https://*.youtube.com/*
-// @version     2025.7.4
-// @author      github/ibrahim-13
-// @description Control playback speed and CC of YouTube videos
+// @name         YT Helper
+// @namespace    __gh_ibrahim13_yt_helper
+// @match        https://*.youtube.com/*
+// @version      2025.7.6_11.29
+// @author       github/ibrahim-13
+// @description  Control playback speed and CC of YouTube videos
 // @noframes
-// @grant       GM_registerMenuCommand
-// @grant       GM_getValue
-// @grant       GM_setValue
+// @grant        GM_registerMenuCommand
+// @grant        GM_getValue
+// @grant        GM_setValue
 // ==/UserScript==
 
 /**
@@ -19,10 +19,10 @@ var _preset_hander = function (presetKey) {
   const _presetKey = presetKey || "";
   return {
     get(target, prop, receiver) {
-      return Reflect.get(...arguments);
+      return Reflect.get(target, prop, receiver);
     },
     set(obj, prop, value) {
-      const val = Reflect.set(...arguments);
+      const val = Reflect.set(obj, prop, value);
       GM_setValue(_presetKey, obj);
       return val;
     },
@@ -30,7 +30,7 @@ var _preset_hander = function (presetKey) {
       const val = Reflect.deleteProperty(obj, propKey);
       GM_setValue(_presetKey, obj);
       return val;
-    }
+    },
   };
 }
 
@@ -44,13 +44,13 @@ var _value_hander = function (prefix, keys) {
   const _keys = keys || [];
   return {
     get(target, prop, receiver) {
-      return Reflect.get(...arguments);
+      return Reflect.get(target, prop, receiver);
     },
     set(obj, prop, value) {
       if (_keys.includes(prop)) {
         GM_setValue(_prefix + "__" + prop, value);
       }
-      return Reflect.set(...arguments);
+      return Reflect.set(obj, prop, value);
     },
   }
 }
@@ -61,7 +61,7 @@ const _ytpb_conf_init = {
     channel: "#owner #upload-info #channel-name yt-formatted-string a",
   },
   isEnabled: GM_getValue("ytpb__isEnabled", true),
-  playback_rate: GM_getValue("ytpb__palyback_rate", 1),
+  playback_rate: GM_getValue("ytpb__playback_rate", 1),
   last_set_playback_speed: "",
   playback_opt: [0.75, 1, 1.25, 1.5, 2],
   preset: {},
@@ -82,7 +82,7 @@ _ytpb_conf_init.preset = new Proxy(GM_getValue("ytpb__preset", {}), _preset_hand
 var _ytpb_conf = new Proxy(_ytpb_conf_init, _value_hander("ytpb", ["isEnabled", "playback_rate"]));
 
 _ytcc_conf_init.preset = new Proxy(GM_getValue("ytcc__preset", {}), _preset_hander("ytcc__preset"));
-var _ytcc_conf = new Proxy(_ytpb_conf_init, _value_hander("ytcc", ["isEnabled"]));
+var _ytcc_conf = new Proxy(_ytcc_conf_init, _value_hander("ytcc", ["isEnabled"]));
 
 /**
  * Utils
@@ -145,10 +145,10 @@ function yt_enable_cc() {
   var elem_ccbtn = _$(_ytcc_conf.elem.ccbtn);
   var elem_channel = _$(_ytcc_conf.elem.channel);
   if (elem_vid && elem_ccbtn && elem_channel) {
-	// if video is paused, do nothing
+    // if video is paused, do nothing
     if (elem_vid.paused) return;
-	// check if CC is unavailable
-	// if so, then do nothing
+    // check if CC is unavailable
+    // if so, then do nothing
     var title = elem_ccbtn.getAttribute("title") || "";
     if(title.toLowerCase().indexOf("unavailable") !== -1) {
       // return because there are no cc
@@ -177,6 +177,8 @@ function yt_enable_cc() {
         elem_ccbtn.click();
       }
     }, 1000);
+  } else {
+    _ytcc_conf.last_set_cc = "err: selector";
   }
 }
 
@@ -301,8 +303,8 @@ function ytcc_menu() {
 (function() {
   "use strict";
 
-  function ytpb_check() { return _ytpb_conf.isEnabled; };
-  function ytcc_check() { return _ytcc_conf.isEnabled; };
+  function ytpb_check() { return _ytpb_conf.isEnabled; }
+  function ytcc_check() { return _ytcc_conf.isEnabled; }
   const listeners = [with_debounce(yt_set_playback_rate, ytpb_check), with_debounce(yt_enable_cc, ytcc_check)];
   const observer = new MutationObserver(func_merge(listeners));
 
