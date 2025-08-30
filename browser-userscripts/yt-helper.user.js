@@ -2,7 +2,7 @@
 // @name         YT Helper
 // @namespace    __gh_ibrahim13_yt_helper
 // @match        https://*.youtube.com/*
-// @version      2.2.0
+// @version      2.3.0
 // @author       github/ibrahim-13
 // @description  Control playback speed and CC of YouTube videos
 // @noframes
@@ -72,8 +72,8 @@ var _ytcc_conf = {
   last_set_cc: "",
   preset: {},
 };
-_ytpb_conf.state = __create_persistant_value("ytcc__state", _ytpb_conf.state);
-_ytpb_conf.preset = __create_persistant_value("ytcc__preset", _ytpb_conf.preset);
+_ytcc_conf.state = __create_persistant_value("ytcc__state", _ytpb_conf.state);
+_ytcc_conf.preset = __create_persistant_value("ytcc__preset", _ytpb_conf.preset);
 
 /**
  * Utils
