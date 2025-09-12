@@ -2,7 +2,7 @@
 // @name         YT Helper
 // @namespace    __gh_ibrahim13_yt_helper
 // @match        https://*.youtube.com/*
-// @version      2.3.0
+// @version      2.3.2
 // @author       github/ibrahim-13
 // @description  Control playback speed and CC of YouTube videos
 // @noframes
@@ -10,6 +10,10 @@
 // @grant        GM_getValue
 // @grant        GM_setValue
 // ==/UserScript==
+
+function GM_log(msg) {
+  console.log("%c[ YT Helper ]%c " + msg, "color: black; background-color: cyan;", "color: yellow; background-color: red;");
+}
 
 /**
   * proxy handler to store data
@@ -142,9 +146,9 @@ function yt_enable_cc() {
     if (elem_vid.paused) return;
     // check if CC is unavailable
     // if so, then do nothing
-    var title = elem_ccbtn.getAttribute("title") || "";
-    if(title.toLowerCase().indexOf("unavailable") !== -1) {
-      // return because there are no cc
+    var airaDisabled = elem_ccbtn.getAttribute("aria-disabled") || "";
+    if(airaDisabled === 'true') {
+      GM_log("returning because there are no cc");
       return;
     }
     let cc_status = _ytcc_conf.preset[get_channel_id(elem_channel)] || 'true';
@@ -152,6 +156,7 @@ function yt_enable_cc() {
         cc_status = 'false';
     }
     if(elem_ccbtn.getAttribute("aria-pressed") === cc_status) {
+      //GM_log("returning because cc button is alread pressed");
       return;
     }
     setTimeout(function() {
@@ -172,6 +177,7 @@ function yt_enable_cc() {
     }, 1000);
   } else {
     _ytcc_conf.last_set_cc = "err: selector";
+    GM_log("could not find element for cc button selector");
   }
 }
 
