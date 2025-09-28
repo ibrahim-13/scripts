@@ -49,7 +49,7 @@ function CreateFloatingMenu(prefix) {
   border-radius: 4px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   display: none;
-  z-index: 999;
+  z-index: 9999;
 }
 
 #{{idContextMenu}} div {
@@ -61,6 +61,10 @@ function CreateFloatingMenu(prefix) {
   background-color: #eee;
 }
 `;
+
+  const _htmlPolicy = trustedTypes.createPolicy("myEscapePolicy", {
+    createHTML: (str) => str,
+  });
 
   const _prefix = String(!!prefix ? prefix : Math.floor(Math.random() * 10e7));
   const idMenu = "menu_" + _prefix;
@@ -113,7 +117,7 @@ function CreateFloatingMenu(prefix) {
 
       if (prop === 'actions' && !!elemCtxMenu) {
         // Refresh with new actions
-        elemCtxMenu.innerHTML = '';
+        elemCtxMenu.innerHTML = _htmlPolicy.createHTML('');
         value.forEach(action => {
           const item = document.createElement('div');
           item.textContent = action.label;
@@ -139,8 +143,8 @@ function CreateFloatingMenu(prefix) {
     const elemStyle = document.createElement('style');
     elemMenu.id = idMenu;
     elemCtxMenu.id = idContextMenu;
-    elemStyle.innerHTML = __menuStyleInner.replaceAll("{{idContextMenu}}", idContextMenu)
-      .replaceAll("{{idMenu}}", idMenu);
+    elemStyle.innerHTML = _htmlPolicy.createHTML(__menuStyleInner.replaceAll("{{idContextMenu}}", idContextMenu)
+      .replaceAll("{{idMenu}}", idMenu));
 
     document.body.appendChild(elemMenu);
     document.body.appendChild(elemCtxMenu);

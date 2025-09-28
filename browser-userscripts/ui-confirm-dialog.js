@@ -1,11 +1,10 @@
-
-
-  const _htmlPolicy = trustedTypes.createPolicy("myEscapePolicy", {
-    createHTML: (str) => str,
-  });/**
+/**
  * @typedef {object} ConfirmCtrl controller proxy for confirm dialog
  * @property {boolean} show show or hide dialog
+ * @property {boolean} noOp no operation mode, only show Yes button and callback is not invoked
  * @property {string} message message to show in the dialog
+ * @property {string} textYes text for button Yes
+ * @property {string} textNo text for button No
  * @property {(confirm: boolean) => void} callback callback function that will be triggered
  * @property {(confirm: boolean) => void} exec used internally to execute callback
  */
@@ -71,8 +70,11 @@ function CreateConfirmDialog(prefix) {
    * @type {ConfirmCtrl}
    */
   const dialogState = {
-    show: true,
+    show: false,
     message: "Are you sure?",
+    textYes: "Yes",
+    textNo: "No",
+    noOp: false,
     callback: () => { },
     exec: function (param) {
       if (typeof this.callback == 'function') {
@@ -98,6 +100,19 @@ function CreateConfirmDialog(prefix) {
           elemDialog.close();
         }
       }
+      if (prop === 'textYes' && !!elemYes) {
+        elemYes.innerText = String(value);
+      }
+      if (prop === 'textNo' && !!elemNo) {
+        elemNo.innerText = String(value);
+      }
+      if (prop === 'noOp' && !!elemNo) {
+        if(!!value) {
+          elemNo.style.display = 'none';
+        } else  {
+          elemNo.style.display = 'initial';
+        }
+      }
       return Reflect.set(target, prop, value);
     }
   });
@@ -121,12 +136,17 @@ function CreateConfirmDialog(prefix) {
 
     elemYes.addEventListener('click', () => {
       dialogProxy.show = false;
-      dialogProxy.exec.apply(dialogProxy, [true]);
+      dialogProxy.show = false;
+      if (!dialogProxy.noOp) {
+        dialogProxy.exec.apply(dialogProxy, [true]);
+      }
     });
 
     elemNo.addEventListener('click', () => {
       dialogProxy.show = false;
-      dialogProxy.exec.apply(dialogProxy, [false]);
+      if (!dialogProxy.noOp) {
+        dialogProxy.exec.apply(dialogProxy, [false]);
+      }
     });
 
     dialogProxy.message = dialogProxy.message;
