@@ -2,7 +2,7 @@
 // @name         YT Helper
 // @namespace    __gh_ibrahim13_yt_helper
 // @match        https://*.youtube.com/*
-// @version      2.5.1
+// @version      2.5.2
 // @author       github/ibrahim-13
 // @description  Control playback speed and CC of YouTube videos
 // @noframes
@@ -353,6 +353,7 @@ function CreateConfirmDialog(prefix) {
  */
 /**
  * @typedef {object} FloatingMenuCtrl controller proxy for floating menu
+ * @property {boolean} show show/hide menu
  * @property {number} x x-axis position
  * @property {number} y y-axis position
  * @property {number} offsetX x-axis offset
@@ -441,6 +442,10 @@ function CreateFloatingMenu(prefix) {
    */
   const menuState = new Proxy(state, {
     set(target, prop, value) {
+      if (prop === 'show' && !!elemMenu) {
+        elemMenu.style.display = value ? 'initial' : 'none';
+      }
+
       if (prop === 'x') {
         if (value < 0 || value > window.innerWidth - elemMenu.clientWidth) {
           return true;
@@ -661,6 +666,13 @@ _ui_float_menu.actions = [{
     GM_setValue("yt_helper_menu_y", _ui_float_menu.y);
   },
 }];
+document.addEventListener('fullscreenchange', () => {
+  if(document.fullscreenElement) {
+    _ui_float_menu.show = false;
+  } else {
+    _ui_float_menu.show = true;
+  }
+});
 
 const __show_alert = (msg) => {
   _ui_confirm.message = msg;
@@ -775,7 +787,7 @@ function yt_enable_cc() {
         cc_status = 'false';
     }
     if(elem_ccbtn.getAttribute("aria-pressed") === cc_status) {
-      GM_log("returning because cc button is alread pressed");
+      //GM_log("returning because cc button is alread pressed");
       return;
     }
     setTimeout(function() {
