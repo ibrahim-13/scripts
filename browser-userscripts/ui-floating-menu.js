@@ -5,6 +5,7 @@
  */
 /**
  * @typedef {object} FloatingMenuCtrl controller proxy for floating menu
+ * @property {boolean} show show/hide menu
  * @property {number} x x-axis position
  * @property {number} y y-axis position
  * @property {number} offsetX x-axis offset
@@ -93,6 +94,10 @@ function CreateFloatingMenu(prefix) {
    */
   const menuState = new Proxy(state, {
     set(target, prop, value) {
+      if (prop === 'show' && !!elemMenu) {
+        elemMenu.style.display = value ? 'initial' : 'none';
+      }
+
       if (prop === 'x') {
         if (value < 0 || value > window.innerWidth - elemMenu.clientWidth) {
           return true;

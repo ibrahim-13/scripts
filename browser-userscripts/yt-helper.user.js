@@ -2,7 +2,7 @@
 // @name         YT Helper
 // @namespace    __gh_ibrahim13_yt_helper
 // @match        https://*.youtube.com/*
-// @version      2.5.1
+// @version      2.5.5
 // @author       github/ibrahim-13
 // @description  Control playback speed and CC of YouTube videos
 // @noframes
@@ -114,6 +114,11 @@ function CreateOptionDialog(prefix) {
       }
       if (prop === 'show' && !!elemDialog) {
         if (!!value) {
+          for(const elem of document.querySelectorAll('#' + idForm + ' div input')) {
+            if(elem.checked) {
+              elem.checked = false;
+            }
+          }
           elemDialog.showModal();
         } else {
           elemDialog.close();
@@ -353,6 +358,7 @@ function CreateConfirmDialog(prefix) {
  */
 /**
  * @typedef {object} FloatingMenuCtrl controller proxy for floating menu
+ * @property {boolean} show show/hide menu
  * @property {number} x x-axis position
  * @property {number} y y-axis position
  * @property {number} offsetX x-axis offset
@@ -441,6 +447,10 @@ function CreateFloatingMenu(prefix) {
    */
   const menuState = new Proxy(state, {
     set(target, prop, value) {
+      if (prop === 'show' && !!elemMenu) {
+        elemMenu.style.display = value ? 'initial' : 'none';
+      }
+
       if (prop === 'x') {
         if (value < 0 || value > window.innerWidth - elemMenu.clientWidth) {
           return true;
@@ -615,7 +625,8 @@ var __create_persistant_value = function (storageKey, defaultValue) {
 const _ytpb_conf = {
   elem: {
     video: "#movie_player > div.html5-video-container > video",
-    channel: "#owner #upload-info #channel-name yt-formatted-string a",
+    //channel: "#owner #upload-info #channel-name yt-formatted-string a",
+    channel: "ytd-structured-description-content-renderer #header.yt-simple-endpoint",
   },
   state: {
     isEnabled: true,
@@ -632,7 +643,8 @@ const _ytcc_conf = {
   elem: {
     video: "#movie_player > div.html5-video-container > video",
     ccbtn: "#movie_player div.ytp-chrome-controls button.ytp-subtitles-button.ytp-button",
-    channel: "#owner #upload-info #channel-name yt-formatted-string a",
+    //channel: "#owner #upload-info #channel-name yt-formatted-string a",
+    channel: "ytd-structured-description-content-renderer #header.yt-simple-endpoint",
   },
   state: {
     isEnabled: true,
@@ -646,7 +658,6 @@ _ytcc_conf.preset = __create_persistant_value("ytcc__preset", _ytpb_conf.preset)
 
 const _ui_options = CreateOptionDialog();
 _ui_options.show = false;
-_ui_options.message = "Select video speed:";
 _ui_options.options = _ytpb_conf.playback_opt.map(i => ({ label: String(i), value: i }));
 
 const _ui_confirm = CreateConfirmDialog();
@@ -661,6 +672,13 @@ _ui_float_menu.actions = [{
     GM_setValue("yt_helper_menu_y", _ui_float_menu.y);
   },
 }];
+document.addEventListener('fullscreenchange', () => {
+  if(document.fullscreenElement) {
+    _ui_float_menu.show = false;
+  } else {
+    _ui_float_menu.show = true;
+  }
+});
 
 const __show_alert = (msg) => {
   _ui_confirm.message = msg;
@@ -728,12 +746,13 @@ function yt_set_playback_rate() {
   const elem_vid = _$(_ytpb_conf.elem.video);
   const elem_channel = _$(_ytpb_conf.elem.channel);
   if (elem_vid && elem_channel) {
-    let pbr = _ytpb_conf.preset[get_channel_id(elem_channel)];
+    const channelId = get_channel_id(elem_channel);
+    let pbr = _ytpb_conf.preset[channelId];
     if (!_ytpb_conf.state.isEnabled) {
         pbr = 1;
         _ytpb_conf.last_set_playback_speed = "stopped";
     } else {
-        _ytpb_conf.last_set_playback_speed = pbr + " (channel)";
+        _ytpb_conf.last_set_playback_speed = pbr + " (" + channelId + ")";
     }
     if (!pbr) {
       pbr = _ytpb_conf.state.playback_rate;
@@ -744,7 +763,7 @@ function yt_set_playback_rate() {
       __upd_menu();
     }
   } else {
-    _ytcc_conf.last_set_playback_speed = "pb err: selector";
+    _ytpb_conf.last_set_playback_speed = "pb err: selector";
     GM_log("could not find element for vid/channel button selector");
     __upd_menu();
   }
@@ -775,16 +794,17 @@ function yt_enable_cc() {
         cc_status = 'false';
     }
     if(elem_ccbtn.getAttribute("aria-pressed") === cc_status) {
-      GM_log("returning because cc button is alread pressed");
+      //GM_log("returning because cc button is alread pressed");
       return;
     }
     setTimeout(function() {
-      let current_cc_status = _ytcc_conf.preset[get_channel_id(elem_channel)];
+      const channelId = get_channel_id(elem_channel);
+      let current_cc_status = _ytcc_conf.preset[channelId];
       if (!_ytcc_conf.state.isEnabled) {
           current_cc_status = 'false';
           _ytcc_conf.last_set_cc = "stopped";
       } else {
-          _ytcc_conf.last_set_cc = current_cc_status + " (channel)";
+          _ytcc_conf.last_set_cc = current_cc_status + " (" + channelId + ")";
       }
       if (!current_cc_status) {
         current_cc_status = 'true';
@@ -838,6 +858,7 @@ const __cb_palyback_rate = (spd_str) => {
 
 function ytpb_action_set_playback_rate() {
   _ui_options.callback = __cb_palyback_rate;
+  _ui_options.message = "Select video speed (global):";
   _ui_options.show = true;
 }
 
@@ -869,6 +890,7 @@ function ytpb_action_set_channel_playback_rate() {
     return;
   }
   _ui_options.callback = __cb_channel_speed;
+  _ui_options.message = "Select video speed (" + channel_id + "):";
   _ui_options.show = true;
 }
 

@@ -100,6 +100,11 @@ function CreateOptionDialog(prefix) {
       }
       if (prop === 'show' && !!elemDialog) {
         if (!!value) {
+          for(const elem of document.querySelectorAll('#' + idForm + ' div input')) {
+            if(elem.checked) {
+              elem.checked = false;
+            }
+          }
           elemDialog.showModal();
         } else {
           elemDialog.close();
