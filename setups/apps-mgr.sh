@@ -8,13 +8,6 @@
 # 	exit 1
 # fi
 
-# echo ==============
-# echo = GitHub Cli =
-# echo ==============
-# dnf install 'dnf-command(config-manager)'
-# dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
-# dnf install gh
-
 #--------------------------------------------------------------
 
 REGISTERED_OPT=""
@@ -56,7 +49,7 @@ function os_set_local_rtc_system_time {
 register_opt os_set_local_rtc_system_time
 
 # Mononoki font from github
-function os_install_font_mononoki {
+function os_font_mononoki_install {
 	local DIR_TMP="$HOME/.tmp"
 	local FILE_ARCHIVE="$DIR_TMP/font-mononoki.tag.xz"
 	local FONT_DOWNLOAD_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.0/Mononoki.tar.xz"
@@ -82,7 +75,7 @@ function os_install_font_mononoki {
 	rm "$FILE_ARCHIVE"
 	rm -rf "$DIR_EXTRACT"
 }
-register_opt os_install_font_mononoki
+register_opt os_font_mononoki_install
 
 ###############################
 # END: Configuration for `os` #
@@ -92,7 +85,7 @@ register_opt os_install_font_mononoki
 # START: System apps #
 ######################
 
-function system_install_git {
+function system_git_install {
 	if command -v dnf
 	then
 		echo "installing git"
@@ -101,9 +94,9 @@ function system_install_git {
 		echo "package manager not found"
 	fi
 }
-register_opt system_install_git
+register_opt system_git_install
 
-function system_install_github_cli {
+function system_github_cli_install {
 	if command -v dnf
 	then
 		echo "installing github cli"
@@ -114,9 +107,27 @@ function system_install_github_cli {
 		echo "package manager not found"
 	fi
 }
-register_opt system_install_github_cli
+register_opt system_github_cli_install
 
-function system_install_tmux {
+function system_neovim_install {
+	if command -v dnf
+	then
+		echo "installing neovim"
+		sudo dnf install neovim
+	else
+		echo "package manager not found"
+	fi
+}
+register_opt system_neovim_install
+
+function system_neovim_reset_conf {
+	rm -rf "$HOME/.config/nvim"
+	rm -rf "$HOME/.local/share/nvim"
+	rm -rf "$HOME/.local/state/nvim"
+}
+register_opt system_neovim_reset_conf
+
+function system_tmux_install {
 	if command -v dnf
 	then
 		echo "installing tmux"
@@ -125,10 +136,22 @@ function system_install_tmux {
 		echo "package manager not found"
 	fi
 }
-register_opt system_install_tmux
+register_opt system_tmux_install
 
-function system_install_virt_manager {
-	if command -v dnf
+function system_virt_manager_install {
+	if command -v apt-get
+	then
+		echo "installing virt-manager packages"
+		sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
+		echo "adding $USER to group: kvm"
+		sudo usermod -aG kvm $USER
+		echo "adding $USER to group: libvirt"
+		sudo usermod -aG libvirt $USER
+		# echo "enabling systemd service: libvirtd"
+		# sudo systemctl enable --now libvirtd
+		# echo "systemd service status: libvirtd"
+		# sudo systemctl start libvirtd
+	elif command -v dnf
 	then
 		echo "installing virtualization packages"
 		sudo dnf install @virtualization
@@ -145,7 +168,7 @@ function system_install_virt_manager {
 		echo "package manager not found"
 	fi
 }
-register_opt system_install_virt_manager
+register_opt system_virt_manager_install
 
 ####################
 # END: System apps #
@@ -155,7 +178,6 @@ register_opt system_install_virt_manager
 # START: Flatpak apps #
 #######################
 
-# enable flathub
 function flatpak_enable_flathub {
 	if flatpak remotes | grep -q flathub
 	then
@@ -172,34 +194,18 @@ function flatpak_enable_flathub {
 }
 register_opt flatpak_enable_flathub
 
-# gnome extension manager
-function flatpak_install_gnome_extensions {
+function flatpak_gnome_extensions_install {
 	flatpak install flathub org.gnome.Extensions
 }
-register_opt flatpak_install_gnome_extensions
+register_opt flatpak_gnome_extensions_install
 
-# podman container manager
-function flatpak_install_podman {
-	if command -v apt-get
-	then
-		echo "installing podmand"
-		sudo apt-get -y install podman
-	else
-		echo "package manager not found while installing podman"
-	fi
-	if command -v flatpak
-	then
-		echo "installing podman desktop"
-		flatpak install flathub io.podman_desktop.PodmanDesktop
-	else
-		echo "flatpak not found while installing podman desktop"
-		flatpak install flathub io.podman_desktop.PodmanDesktop
-	fi
+function flatpak_podman_install {	
+	echo "installing podman desktop"
+	flatpak install flathub io.podman_desktop.PodmanDesktop
 }
-register_opt flatpak_install_podman
+register_opt flatpak_podman_install
 
-# vscodium and add extensions
-function flatpak_install_vscodium {
+function flatpak_vscodium_install {
 	flatpak install flathub com.vscodium.codium
 
 	echo --------------------
@@ -219,79 +225,67 @@ function flatpak_install_vscodium {
 	echo ------------------------
 	flatpak run com.vscodium.codium --install-extension vscodevim.vim
 }
-register_opt flatpak_install_vscodium
+register_opt flatpak_vscodium_install
 
-# google chrome
-function flatpak_install_google_chrome {
+function flatpak_google_chrome_install {
 	flatpak install flathub com.google.Chrome
 }
-register_opt flatpak_install_google_chrome
+register_opt flatpak_google_chrome_install
 
-# brave browser
-function flatpak_install_brave_browser {
+function flatpak_brave_browser_install {
 	flatpak install flathub com.brave.Browser
 }
-register_opt flatpak_install_brave_browser
+register_opt flatpak_brave_browser_install
 
-# microsoft edge browser
-function flatpak_install_microsoft_edge {
+function flatpak_microsoft_edge_install {
 	flatpak install flathub com.microsoft.Edge
 }
-register_opt flatpak_install_microsoft_edge
+register_opt flatpak_microsoft_edge_install
 
-# kid3 audio tagger
-function flatpak_install_kid3 {
+function flatpak_kid3_install {
 	flatpak install flathub org.kde.kid3
 }
-register_opt flatpak_install_kid3
+register_opt flatpak_kid3_install
 
-# discord
-function flatpak_install_discord {
+function flatpak_discord_install {
 	flatpak install flathub com.discordapp.Discord
 }
-register_opt flatpak_install_discord
+register_opt flatpak_discord_install
 
-# bleachbit
-function flatpak_install_bleachbit {
+function flatpak_bleachbit_install {
 	flatpak install flathub org.bleachbit.BleachBit
 }
-register_opt flatpak_install_bleachbit
+register_opt flatpak_bleachbit_install
 
-# gimp
-function flatpak_install_gimp {
+function flatpak_gimp_install {
 	flatpak install flathub org.gimp.GIMP
 }
-register_opt flatpak_install_gimp
+register_opt flatpak_gimp_install
 
-# vlc media player
-function flatpak_install_vlc {
+function flatpak_vlc_install {
 	flatpak install flathub org.videolan.VLC
 }
-register_opt flatpak_install_vlc
+register_opt flatpak_vlc_install
 
-# thunderbird email client
-function flatpak_install_thunderbird {
+function flatpak_thunderbird_install {
 	flatpak install flathub org.mozilla.Thunderbird
 }
-register_opt flatpak_install_thunderbird
+register_opt flatpak_thunderbird_install
 
-# bitwarder passwd manager
-function flatpak_install_bitwarden {
+function flatpak_bitwarden_install {
 	flatpak install flathub com.bitwarden.desktop
 }
-register_opt flatpak_install_bitwarden
+register_opt flatpak_bitwarden_install
 
-# cryptomator
-function flatpak_install_cryptomator {
+function flatpak_cryptomator_install {
 	flatpak install flathub org.cryptomator.Cryptomator
 }
-register_opt flatpak_install_cryptomator
+register_opt flatpak_cryptomator_install
 
-# cryptomator
-function flatpak_install_flatseal {
+function flatpak_flatseal_install {
 	flatpak install flathub com.github.tchx84.Flatseal
 }
-register_opt flatpak_install_flatseal
+register_opt flatpak_flatseal_install
 
 #####################
 # END: Flatpak apps #
