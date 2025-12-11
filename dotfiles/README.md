@@ -2,23 +2,34 @@
 
 ## Index
 
-- [nerd-font](#nerd-font)
+- [Disable Access Time in File System](#disable_access_time_in_file_system)
+- [VLC](#vlc)
 - [lf](#lf)
 - [fzf](#fzf)
 - [nvim](#nvim)
 - [tmux](#tmux)
+- [nerd-font](#nerd-font)
 
-## nerd-font
+## Disable Access Time in File System
 
-- [ryanoasis/nerd-fonts/](https://github.com/ryanoasis/nerd-fonts/)
+After setup has finished and reboot button is shown, then go to another `tty` with `alt + ctrl + F3` and then edit `fstab` file
 
-### Mononoki
+```diff
+# In Fedora: /mnt/sysroot/etc/fstab
+# Use nano or vi
+-subvol=root,compress-zstd:1
++subvol=root,noatime,compress-zstd:1
 
-- Go to the release page of nerd-fonts
-- Download Mononoki.zip/Mononoki.tar.xz
-- Extract
-- Install the font
-  - MacOs: use Font Book
+# alternatively
+-defaults
++defaults,noatime
+```
+
+## VLC
+
+Configuration Location:
+Unix: `~/.config/vlc/vlcrc`
+Windows: `%APPDATA%\vlc\vlcrc`
 
 ## lf
 
@@ -222,3 +233,15 @@ Plugin:         $HOME/.tmux/plugins/tpm
 # git is required
 git clone "https://github.com/tmux-plugins/tpm" "$HOME/.tmux/plugins/tpm"
 ```
+
+## nerd-font
+
+- [ryanoasis/nerd-fonts/](https://github.com/ryanoasis/nerd-fonts/)
+
+### Mononoki
+
+- Go to the release page of nerd-fonts
+- Download Mononoki.zip/Mononoki.tar.xz
+- Extract
+- Install the font
+  - MacOs: use Font Book

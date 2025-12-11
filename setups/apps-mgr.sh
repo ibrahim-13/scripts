@@ -25,6 +25,21 @@ function register_opt {
 # START: Configuration for `os` #
 #################################
 
+# add noatime option for filesystem, to get better performance
+function os_set_fs_noatime {
+	echo "instructions to add noatime for filesystem in /etc/fstab:"
+	echo ""
+	echo "#In Fedora, also see: /mnt/sysroot/etc/fstab"
+	echo "# Use nano or vi"
+	echo "-subvol=root,compress-zstd:1"
+	echo "+subvol=root,noatime,compress-zstd:1"
+	echo ""
+	echo "# alternatively"
+	echo "-defaults"
+	echo "+defaults,noatime"
+}
+register_opt os_set_fs_noatime
+
 # configure hostname, default is `fedora`
 function os_set_hostname {
 	local TMP_ANS

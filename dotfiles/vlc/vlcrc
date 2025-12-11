@@ -1,0 +1,4 @@
+# --no-qt-recentplay : Save the recently played items in the menu
+qt-recentplay=1
+# --qt-continue={0 (Never), 1 (Ask), 2 (Always)} Continue playback?
+qt-continue=0
