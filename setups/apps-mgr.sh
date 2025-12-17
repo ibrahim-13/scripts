@@ -100,10 +100,29 @@ register_opt os_font_mononoki_install
 # START: System apps #
 ######################
 
+function system_upgrade_packages {
+	# https://docs.fedoraproject.org/en-US/quick-docs/dnf-vs-apt/
+	if command -v apt-get
+	then
+		echo "upgrading packages"
+		sudo apt-get update
+		sudo apt-get upgrade
+	elif command -v dnf
+	then
+		echo "upgrading packages"
+		sudo dnf check-update
+		sudo dnf upgrade
+	else
+		echo "package manager not found"
+	fi
+}
+register_opt system_upgrade_packages
+
 function system_git_install {
 	if command -v dnf
 	then
 		echo "installing git"
+		sudo dnf check-update
 		sudo dnf install git
 	else
 		echo "package manager not found"
@@ -115,6 +134,7 @@ function system_github_cli_install {
 	if command -v dnf
 	then
 		echo "installing github cli"
+		sudo dnf check-update
 		sudo dnf install dnf5-plugins
 		sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
 		sudo dnf install gh --repo gh-cli
@@ -128,6 +148,7 @@ function system_neovim_install {
 	if command -v dnf
 	then
 		echo "installing neovim"
+		sudo dnf check-update
 		sudo dnf install neovim
 	else
 		echo "package manager not found"
@@ -153,10 +174,29 @@ function system_tmux_install {
 }
 register_opt system_tmux_install
 
+function system_install_distrobox {
+	# https://docs.fedoraproject.org/en-US/quick-docs/dnf-vs-apt/
+	if command -v apt-get
+	then
+		echo "installing distrobox"
+		sudo apt-get update
+		sudo apt-get instal distrobox
+	elif command -v dnf
+	then
+		echo "installing distrobox"
+		sudo dnf check-update
+		sudo dnf install distrobox
+	else
+		echo "package manager not found"
+	fi
+}
+register_opt system_install_distrobox
+
 function system_virt_manager_install {
 	if command -v apt-get
 	then
 		echo "installing virt-manager packages"
+		sudo apt-get update
 		sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
 		echo "adding $USER to group: kvm"
 		sudo usermod -aG kvm $USER
@@ -169,6 +209,7 @@ function system_virt_manager_install {
 	elif command -v dnf
 	then
 		echo "installing virtualization packages"
+		sudo dnf check-update
 		sudo dnf install @virtualization
 		echo "use the following command to start virtualization service: sudo systemctl start libvirtd"
 		# echo "adding $USER to group: kvm"
@@ -184,6 +225,23 @@ function system_virt_manager_install {
 	fi
 }
 register_opt system_virt_manager_install
+
+function system_build_tools {
+	if command -v apt-get
+	then
+		echo "installing build tools"
+		sudo apt-get update
+		sudo apt-get install build-essential
+	elif command -v dnf
+	then
+		echo "installing build tools"
+		sudo dnf check-update
+		sudo dnf install @c-development @development-tools
+	else
+		echo "package manager not found"
+	fi
+}
+register_opt system_build_tools
 
 ####################
 # END: System apps #
