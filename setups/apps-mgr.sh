@@ -76,6 +76,22 @@ function os_set_local_rtc_system_time {
 }
 register_opt os_set_local_rtc_system_time
 
+
+function os_setup_tplink_tl_wn722n {
+	echo "setting up module for TPLINK TL-WN722N"
+	echo "removing pci module: rtl8192cu"
+	sudo modprobe -r rtl8192cu
+	# If the command above doesn't work, try this
+	# echo 'blacklist rtl8192cu' | sudo tee /etc/modprobe.d/blacklist-rtl8192cu.conf 
+	echo "loading usb module: rtl8xxxu"
+	sudo modprobe rtl8xxxu
+	# This will update initramfs to always remove the PCI module
+	# and load the USB module, when booting
+	echo "updating initramfs"
+	sudo update-initramfs -uk all
+}
+register_opt os_setup_tplink_tl_wn722n
+
 # Mononoki font from github
 function os_font_mononoki_install {
 	local 
