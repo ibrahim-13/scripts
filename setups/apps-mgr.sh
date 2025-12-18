@@ -21,6 +21,19 @@ function register_opt {
 	fi
 }
 
+DIR_TMP="$HOME/.tmp"
+
+function cleanup {
+	if [ -d "$DIR_TMP" ]; then
+			rm -rf "$DIR_TMP"
+	fi
+	mkdir -p $DIR_TMP
+}
+# cleanup when exiting
+trap cleanup EXIT
+# cleanup at startup
+cleanup
+
 #################################
 # START: Configuration for `os` #
 #################################
@@ -65,7 +78,7 @@ register_opt os_set_local_rtc_system_time
 
 # Mononoki font from github
 function os_font_mononoki_install {
-	local DIR_TMP="$HOME/.tmp"
+	local 
 	local FILE_ARCHIVE="$DIR_TMP/font-mononoki.tag.xz"
 	local FONT_DOWNLOAD_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.0/Mononoki.tar.xz"
 	local DIR_EXTRACT="$DIR_TMP/font-mononoki"
