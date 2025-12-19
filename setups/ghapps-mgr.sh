@@ -29,7 +29,7 @@ function app_lf {
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/lf.tar.gz"
     mkdir -p $DOWNLOAD_DIR
 
-    bash ./ghbin-dl.sh -upd -d "$DOWNLOAD_FILE" -u "gokcehan" -r "lf" -p 'select(.name | contains("lf-linux-amd64.tar.gz"))' -s "$STATE_DIR/lf.gh.state"
+    bash ../util/ghbin-dl.sh -upd -d "$DOWNLOAD_FILE" -u "gokcehan" -r "lf" -p 'select(.name | contains("lf-linux-amd64.tar.gz"))' -s "$STATE_DIR/lf.gh.state"
     local GH_EXIT_CODE="$?"
     if ! [ "$GH_EXIT_CODE" == "0" ]; then
         if [ "$GH_EXIT_CODE" == "255" ]; then return; fi
@@ -51,7 +51,7 @@ function app_fzf {
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/fzf.tar.gz"
     mkdir -p $DOWNLOAD_DIR
 
-    bash ./ghbin-dl.sh -upd -d "$DOWNLOAD_FILE" -u "junegunn" -r "fzf" -p 'select(.name | contains("linux_amd64.tar.gz"))' -s "$STATE_DIR/fzf.gh.state"
+    bash ../util/ghbin-dl.sh -upd -d "$DOWNLOAD_FILE" -u "junegunn" -r "fzf" -p 'select(.name | contains("linux_amd64.tar.gz"))' -s "$STATE_DIR/fzf.gh.state"
     local GH_EXIT_CODE="$?"
     if ! [ "$GH_EXIT_CODE" == "0" ]; then
         if [ "$GH_EXIT_CODE" == "255" ]; then return; fi

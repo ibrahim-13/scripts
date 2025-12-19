@@ -157,6 +157,9 @@ function usage() {
     if [ -n "$1" ]; then
         echo -e "[ error ] $1\n";
     fi
+    echo "Download or update binaries from Github releases"
+    echo "State file stores the information required to check for updates"
+    echo ""
     echo "Usage: $0 [-u|--update] [[-d|--download] FILE_PATH] [[-u|--user] GITHUB_USER_NAME]"
     echo "                       [[-r|--repo] GITHUB_REPO_NAME] [[-p|--pattern] PATTERN] [[-s|--state] STATE_FILE_PATH]"
     echo ""
@@ -172,6 +175,7 @@ function usage() {
 }
 
 # parse params
+# https://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash
 while [[ "$#" > 0 ]]; do case $1 in
     -upd|--update) ARG_UPDATE=1; shift;;
     -d|--download) ARG_DOWNLOAD=1; ARG_DOWNLOAD_PATH="$2"; shift; shift;;
