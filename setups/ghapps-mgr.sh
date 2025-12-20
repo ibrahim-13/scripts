@@ -11,10 +11,20 @@
 # trap read DEBUG : stop before every line, can be put at the top
 # trap '(read -p "[$BASE_SOURCE:$lineno] $bash_command")' DEBUG
 
+SCRIPT_SOURCE=${BASH_SOURCE[0]}
+while [ -L "$SCRIPT_SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  SCRIPT_DIR=$( cd -P "$( dirname "$SCRIPT_SOURCE" )" >/dev/null 2>&1 && pwd )
+  SCRIPT_SOURCE=$(readlink "$SCRIPT_SOURCE")
+  [[ $SCRIPT_SOURCE != /* ]] && SCRIPT_SOURCE=$SCRIPT_DIR/$SCRIPT_SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+SCRIPT_DIR=$( cd -P "$( dirname "$SCRIPT_SOURCE" )" >/dev/null 2>&1 && pwd )
+
+source "$SCRIPT_DIR/../util/msg.sh"
+
 # print error msg and exit
 # $1 : error msg
 function errexit {
-	echo "[ error ] $1" >&2
+	print_error "[ error ] $1" >&2
 	exit 1
 }
 
@@ -29,7 +39,7 @@ function app_lf {
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/lf.tar.gz"
     mkdir -p $DOWNLOAD_DIR
 
-    bash ../util/ghbin-dl.sh -upd -d "$DOWNLOAD_FILE" -u "gokcehan" -r "lf" -p 'select(.name | contains("lf-linux-amd64.tar.gz"))' -s "$STATE_DIR/lf.gh.state"
+    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "gokcehan" -r "lf" -p 'select(.name | contains("lf-linux-amd64.tar.gz"))' -s "$STATE_DIR/lf.gh.state"
     local GH_EXIT_CODE="$?"
     if ! [ "$GH_EXIT_CODE" == "0" ]; then
         if [ "$GH_EXIT_CODE" == "255" ]; then return; fi
@@ -51,7 +61,7 @@ function app_fzf {
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/fzf.tar.gz"
     mkdir -p $DOWNLOAD_DIR
 
-    bash ../util/ghbin-dl.sh -upd -d "$DOWNLOAD_FILE" -u "junegunn" -r "fzf" -p 'select(.name | contains("linux_amd64.tar.gz"))' -s "$STATE_DIR/fzf.gh.state"
+    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "junegunn" -r "fzf" -p 'select(.name | contains("linux_amd64.tar.gz"))' -s "$STATE_DIR/fzf.gh.state"
     local GH_EXIT_CODE="$?"
     if ! [ "$GH_EXIT_CODE" == "0" ]; then
         if [ "$GH_EXIT_CODE" == "255" ]; then return; fi

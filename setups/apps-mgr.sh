@@ -10,6 +10,23 @@
 
 #--------------------------------------------------------------
 
+SCRIPT_SOURCE=${BASH_SOURCE[0]}
+while [ -L "$SCRIPT_SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  SCRIPT_DIR=$( cd -P "$( dirname "$SCRIPT_SOURCE" )" >/dev/null 2>&1 && pwd )
+  SCRIPT_SOURCE=$(readlink "$SCRIPT_SOURCE")
+  [[ $SCRIPT_SOURCE != /* ]] && SCRIPT_SOURCE=$SCRIPT_DIR/$SCRIPT_SOURCE # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+done
+SCRIPT_DIR=$( cd -P "$( dirname "$SCRIPT_SOURCE" )" >/dev/null 2>&1 && pwd )
+
+source "$SCRIPT_DIR/../util/msg.sh"
+
+# print error msg and exit
+# $1 : error msg
+function errexit {
+	print_error "[ error ] $1" >&2
+	exit 1
+}
+
 # prompt for confirmation of an action
 # $1 : message
 # returns 1 if yes, 0 if no
@@ -431,7 +448,6 @@ function menu_opts {
 	local APPS_LIST=
 	local IFS=':'
 	read -ra APPS_LIST <<< "$REGISTERED_OPT"
-	echo $APPS_LIST
 	select opt in "${APPS_LIST[@]}"
 	do
 		if [[ $opt == "quit" ]]
@@ -447,9 +463,9 @@ function menu_opts {
 	done
 }
 
-echo "=============="
-echo "= operations ="
-echo "=============="
+print_header "=============="
+print_header "= operations ="
+print_header "=============="
 
 # run main menu function
 menu_opts
