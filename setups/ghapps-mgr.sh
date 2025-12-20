@@ -19,14 +19,7 @@ while [ -L "$SCRIPT_SOURCE" ]; do # resolve $SOURCE until the file is no longer 
 done
 SCRIPT_DIR=$( cd -P "$( dirname "$SCRIPT_SOURCE" )" >/dev/null 2>&1 && pwd )
 
-source "$SCRIPT_DIR/../util/msg.sh"
-
-# print error msg and exit
-# $1 : error msg
-function errexit {
-	print_error "[ error ] $1" >&2
-	exit 1
-}
+source "$SCRIPT_DIR/../util/common.sh"
 
 INSTALL_DIR="$HOME/apps"
 STATE_DIR="$INSTALL_DIR/state"

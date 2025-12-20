@@ -54,8 +54,33 @@ function print_debug {
 	printf "${TXT_COL_BG_WHITE} ${1} ${TXT_RESET}\n"
 }
 
+# print error msg and exit
+# $1 : error msg
+function errexit {
+	print_error "[ error ] $1" >&2
+	exit 1
+}
+
+# prompt for confirmation of an action
+# $1 : message
+# returns 1 if yes, 0 if no
+function prompt_confirmation {
+	local TMP_ANS
+	read -p "${1} (y/N) " TMP_ANS
+	case $TMP_ANS in
+	[Yy])
+		return 0
+		;;
+	*)
+		return 1
+		;;
+	esac
+}
+
 export -f print_header
 export -f print_info
 export -f print_success
 export -f print_error
 export -f print_debug
+export -f errexit
+export -f prompt_confirmation

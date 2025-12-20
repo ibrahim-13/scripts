@@ -18,30 +18,7 @@ while [ -L "$SCRIPT_SOURCE" ]; do # resolve $SOURCE until the file is no longer 
 done
 SCRIPT_DIR=$( cd -P "$( dirname "$SCRIPT_SOURCE" )" >/dev/null 2>&1 && pwd )
 
-source "$SCRIPT_DIR/../util/msg.sh"
-
-# print error msg and exit
-# $1 : error msg
-function errexit {
-	print_error "[ error ] $1" >&2
-	exit 1
-}
-
-# prompt for confirmation of an action
-# $1 : message
-# returns 1 if yes, 0 if no
-function promt_confirmation {
-	local TMP_ANS
-	read -p "${1} (y/N) " TMP_ANS
-	case $TMP_ANS in
-	[Yy])
-		return 0
-		;;
-	*)
-		return 1
-		;;
-	esac
-}
+source "$SCRIPT_DIR/../util/common.sh"
 
 REGISTERED_OPT=""
 
@@ -118,7 +95,7 @@ function os_setup_tplink_tl_wn722n {
 	# echo 'blacklist rtl8192cu' | sudo tee /etc/modprobe.d/blacklist-rtl8192cu.conf 
 	echo "loading usb module: rtl8xxxu"
 	sudo modprobe rtl8xxxu
-	if promt_confirmation "update initramfs so that the changes are applied on boot?"
+	if prompt_confirmation "update initramfs so that the changes are applied on boot?"
 	then
 		# This will update initramfs to always remove the PCI module
 		# and load the USB module, when booting
@@ -269,7 +246,7 @@ function system_virt_manager_install {
 		sudo usermod -aG kvm $USER
 		echo "adding $USER to group: libvirt"
 		sudo usermod -aG libvirt $USER
-		if promt_confirmation "enable systemd service: libvirtd?"
+		if prompt_confirmation "enable systemd service: libvirtd?"
 		then
 			echo "enabling systemd service"
 			sudo systemctl enable --now libvirtd
@@ -288,7 +265,7 @@ function system_virt_manager_install {
 		# sudo usermod -aG kvm $USER
 		# echo "adding $USER to group: libvirt"
 		# sudo usermod -aG libvirt $USER
-		if promt_confirmation "enable systemd service: libvirtd?"
+		if prompt_confirmation "enable systemd service: libvirtd?"
 		then
 			echo "enabling systemd service"
 			sudo systemctl enable --now libvirtd
