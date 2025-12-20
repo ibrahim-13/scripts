@@ -23,8 +23,10 @@ source "$SCRIPT_DIR/../util/common.sh"
 
 INSTALL_DIR="$HOME/apps"
 STATE_DIR="$INSTALL_DIR/state"
-mkdir -p $INSTALL_DIR
-mkdir -p $STATE_DIR
+DESKTOP_DIR="$HOME/.local/share/applications"
+mkdir -p "$INSTALL_DIR"
+mkdir -p "$STATE_DIR"
+mkdir -p "$DESKTOP_DIR"
 
 function app_lf {
     echo "app: lf"
@@ -70,6 +72,52 @@ function app_fzf {
     rm -rf "$DOWNLOAD_DIR"
 }
 
+function app_helium_browser_linux {
+    echo "app: helium browser (linux)"
+    local DOWNLOAD_DIR="/tmp/heliumbrowserlinux"
+    local DOWNLOAD_FILE="$DOWNLOAD_DIR/helium-browser-linux.AppImage"
+    local INSTALL_FILE="$INSTALL_DIR/helium-browser-linux.AppImage"
+    mkdir -p $DOWNLOAD_DIR
+
+    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "imputnet" -r "helium-linux" -p 'select(.name | startswith("helium-") and endswith("-arm64.AppImage") and (contains("zsync") | not))' -s "$STATE_DIR/helium-browser-linux.gh.state"
+    local GH_EXIT_CODE="$?"
+    if ! [ "$GH_EXIT_CODE" == "0" ]; then
+        if [ "$GH_EXIT_CODE" == "255" ]; then return; fi
+        errexit "github binary downloader failed"
+    fi
+
+    chmod 666 "$DOWNLOAD_FILE"
+    echo "copying files:"
+    cp -f "$DOWNLOAD_FILE" -C "$INSTALL_FILE"
+    echo "updating file permissions"
+    chmod 755 "$INSTALL_FILE"
+    echo "removing temp directory"
+    rm -rf "$DOWNLOAD_DIR"
+
+    tee "$DESKTOP_DIR/helium-browser-linux.desktop"> /dev/null <<EOT
+[Desktop Entry]
+Name=Helium Browser
+Comment=Private, fast, and honest web browser
+Exec=$INSTALL_FILE %F
+Terminal=false
+Type=Application
+Categories=Browser;Internet;
+Keywords=helium-browser;
+Actions=NewWindow;NewIncognitoWindow;
+
+[Desktop Action NewWindow]
+Name=New Window
+Exec=$INSTALL_FILE --new-window %F
+
+[Desktop Action NewIncognitoWindow]
+Name=New Incognito Window
+Exec=$INSTALL_FILE --incognito %F
+EOT
+    # Register app to the OS
+	update-desktop-database "$DESKTOP_DIR"
+}
+
 # run installer functions
 app_lf
 app_fzf
+# app_helium_browser_linux

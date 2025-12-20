@@ -201,9 +201,15 @@ function system_neovim_install {
 register_opt system_neovim_install
 
 function system_neovim_reset_conf {
-	rm -rf "$HOME/.config/nvim"
-	rm -rf "$HOME/.local/share/nvim"
-	rm -rf "$HOME/.local/state/nvim"
+	if [ -d "$HOME/.config/nvim" ]; then
+			rm -rf "$HOME/.config/nvim"
+	fi
+	if [ -d "$HOME/.local/share/nvim" ]; then
+			rm -rf "$HOME/.local/share/nvim"
+	fi
+	if [ -d "$HOME/.local/state/nvim" ]; then
+			rm -rf "$HOME/.local/state/nvim"
+	fi
 }
 register_opt system_neovim_reset_conf
 
@@ -279,6 +285,31 @@ function system_virt_manager_install {
 	fi
 }
 register_opt system_virt_manager_install
+
+function system_uninstall_firefox {
+	if command -v apt-get
+	then
+		errexit "not implemented"
+	elif command -v dnf
+	then
+		echo "removing firefox"
+		sudo dnf remove firefox
+	elif command -v rpm-ostree
+	then
+		rpm-ostree override remove firefox firefox-langpacks
+	else
+		echo "package manager not found"
+	fi
+
+	# remove application files
+	if [ -d "$HOME/.mozilla/firefox" ]; then
+			rm -rf "$HOME/.mozilla/firefox"
+	fi
+	if [ -d "$HOME/.cache/mozilla/firefox" ]; then
+			rm -rf "$HOME/.cache/mozilla/firefox"
+	fi
+}
+register_opt system_uninstall_firefox
 
 function system_build_tools {
 	if command -v apt-get
