@@ -17,7 +17,7 @@ function usage() {
     fi
     echo "Mount virtio-9p shared devices inside qemu virtual machine"
     echo ""
-    echo "Usage: $0 [[-t|--target] TARGET_PATH] [[-m|--mount-dir] MOUNT_DIRECTORY]"
+    echo "Usage: $(basename "$0") [-t|--target] TARGET_PATH [-m|--mount-dir MOUNT_DIRECTORY]"
     echo ""
     echo "  -t, --target         virtio-9p target path"
     echo "  -m, --mount-dir      mount directory"

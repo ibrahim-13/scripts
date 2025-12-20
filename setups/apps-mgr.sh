@@ -10,6 +10,22 @@
 
 #--------------------------------------------------------------
 
+# prompt for confirmation of an action
+# $1 : message
+# returns 1 if yes, 0 if no
+function promt_confirmation {
+	local TMP_ANS
+	read -p "${1} (y/N) " TMP_ANS
+	case $TMP_ANS in
+	[Yy])
+		return 0
+		;;
+	*)
+		return 1
+		;;
+	esac
+}
+
 REGISTERED_OPT=""
 
 function register_opt {
@@ -85,10 +101,15 @@ function os_setup_tplink_tl_wn722n {
 	# echo 'blacklist rtl8192cu' | sudo tee /etc/modprobe.d/blacklist-rtl8192cu.conf 
 	echo "loading usb module: rtl8xxxu"
 	sudo modprobe rtl8xxxu
-	# This will update initramfs to always remove the PCI module
-	# and load the USB module, when booting
-	echo "updating initramfs"
-	sudo update-initramfs -uk all
+	if promt_confirmation "update initramfs so that the changes are applied on boot?"
+	then
+		# This will update initramfs to always remove the PCI module
+		# and load the USB module, when booting
+		echo "updating initramfs"
+		sudo update-initramfs -uk all
+	else
+		echo "initfamfs will not be updated"
+	fi
 }
 register_opt os_setup_tplink_tl_wn722n
 
@@ -231,10 +252,15 @@ function system_virt_manager_install {
 		sudo usermod -aG kvm $USER
 		echo "adding $USER to group: libvirt"
 		sudo usermod -aG libvirt $USER
-		# echo "enabling systemd service: libvirtd"
-		# sudo systemctl enable --now libvirtd
-		# echo "systemd service status: libvirtd"
-		# sudo systemctl start libvirtd
+		if promt_confirmation "enable systemd service: libvirtd?"
+		then
+			echo "enabling systemd service"
+			sudo systemctl enable --now libvirtd
+			echo "starting systemd service"
+			sudo systemctl start libvirtd
+			echo "systemd service status: libvirtd"
+			sudo systemctl status libvirtd
+		fi
 	elif command -v dnf
 	then
 		echo "installing virtualization packages"
@@ -245,10 +271,15 @@ function system_virt_manager_install {
 		# sudo usermod -aG kvm $USER
 		# echo "adding $USER to group: libvirt"
 		# sudo usermod -aG libvirt $USER
-		# echo "enabling systemd service: libvirtd"
-		# sudo systemctl enable --now libvirtd
-		# echo "systemd service status: libvirtd"
-		# sudo systemctl start libvirtd
+		if promt_confirmation "enable systemd service: libvirtd?"
+		then
+			echo "enabling systemd service"
+			sudo systemctl enable --now libvirtd
+			echo "starting systemd service"
+			sudo systemctl start libvirtd
+			echo "systemd service status: libvirtd"
+			sudo systemctl status libvirtd
+		fi
 	else
 		echo "package manager not found"
 	fi

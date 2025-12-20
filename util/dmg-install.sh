@@ -17,7 +17,7 @@ function usage() {
     fi
     echo "Utility to install DMG files in OSX"
     echo ""
-    echo "Usage: $0 [[-u|--url] URL]"
+    echo "Usage: $(basename "$0") [-u|--url] URL"
     echo ""
     echo "  -u, --url         url of the dmg file"
     echo ""
