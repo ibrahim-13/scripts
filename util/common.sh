@@ -66,7 +66,7 @@ function errexit {
 # returns 1 if yes, 0 if no
 function prompt_confirmation {
 	local TMP_ANS
-	read -p "${1} (y/N) " TMP_ANS
+	read -p "${TXT_COL_BG_MAGENTA} ${1} (y/N) ${TXT_RESET} " TMP_ANS
 	case $TMP_ANS in
 	[Yy])
 		return 0

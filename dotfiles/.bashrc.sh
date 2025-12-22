@@ -38,12 +38,23 @@ function func_lfcd {
     cd "$(command lf -single -print-last-dir "$@")"
 }
 
-alias fd='cd $(find . -maxdepth 1 -type d | sort | fzf)'
-alias ll='ls -AlhFr'
-alias llz='ls -AlhFr | sort | fzf'
-alias fk='func_fzf_px'
-alias lfcd='func_lfcd'
-alias http_server='func_http_server'
+# fuzzy find and cd into directory with depth 1
+# alias fd='cd $(find . -maxdepth 1 -type d | sort | fzf)'
+
+# customized ls command
+# alias ll='ls -AlhFr'
+
+# customized ls command with fuzzy find
+# alias llz='ls -AlhFr | sort | fzf'
+
+# force kill process with fuzzy find
+# alias fk='func_fzf_px'
+
+# cd into directory with lf
+# alias lfcd='func_lfcd'
+
+# http server with python
+# alias http_server='func_http_server'
 
 ########################
 # Prompt Customization #
@@ -51,8 +62,6 @@ alias http_server='func_http_server'
 # 	https://wiki.archlinux.org/title/Bash/Prompt_customization
 # 	https://opensource.com/article/17/7/bash-prompt-tips-and-tricks
 # nerd prompt cheatsheet: https://www.nerdfonts.com/cheat-sheet
-
-PROMPT_COMMAND=_prompt_command
 
 # codes need to be escaped, otherwise, readline can not properly determine the length
 # of the multiline input (ex. newline)
@@ -75,7 +84,8 @@ TXT_COL_BG_CYAN="\[\033[46m\]"
 TXT_COL_BG_WHITE="\[\033[47m\]"
 TXT_COL_BOLD="\[\e[1m\]"
 TXT_COL_DIM="\[\e[2m\]"
-_HOSTNAME="$(hostname -s)"
+# get host name of the machine
+# _HOSTNAME="$(hostname -s)"
 
 _prompt_command() {
 	local EXIT_CODE="$?";
@@ -93,14 +103,22 @@ _prompt_command() {
 	PS1="\u@\h | \w \D{%I:%M:%S %p} | $EXIT_CODE > "
 }
 
+# customized prompt command
+# PROMPT_COMMAND=_prompt_command
+
 #########
 # Paths #
 #########
 
 # add golang binaries to path
-export PATH="$PATH:$HOME/go/bin"
+# export PATH="$PATH:$HOME/go/bin"
+
+# add github app binaries to path 
+# export PATH="$PATH:$HOME/apps"
 
 ###############
 # Completions #
-###############ngs and fuzzy completion
-eval "$(fzf --bash)"
+###############
+
+# Set up fzf key bindings and fuzzy completion
+# eval "$(fzf --bash)"

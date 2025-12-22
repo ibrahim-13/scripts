@@ -79,7 +79,7 @@ function app_helium_browser_linux {
     local INSTALL_FILE="$INSTALL_DIR/helium-browser-linux.AppImage"
     mkdir -p $DOWNLOAD_DIR
 
-    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "imputnet" -r "helium-linux" -p 'select(.name | startswith("helium-") and endswith("-arm64.AppImage") and (contains("zsync") | not))' -s "$STATE_DIR/helium-browser-linux.gh.state"
+    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "imputnet" -r "helium-linux" -p 'select(.name | startswith("helium-") and endswith("-x86_64.AppImage") and (contains("zsync") | not))' -s "$STATE_DIR/helium-browser-linux.gh.state"
     local GH_EXIT_CODE="$?"
     if ! [ "$GH_EXIT_CODE" == "0" ]; then
         if [ "$GH_EXIT_CODE" == "255" ]; then return; fi
@@ -88,7 +88,7 @@ function app_helium_browser_linux {
 
     chmod 666 "$DOWNLOAD_FILE"
     echo "copying files:"
-    cp -f "$DOWNLOAD_FILE" -C "$INSTALL_FILE"
+    cp -f "$DOWNLOAD_FILE" "$INSTALL_FILE"
     echo "updating file permissions"
     chmod 755 "$INSTALL_FILE"
     echo "removing temp directory"
@@ -101,7 +101,7 @@ Comment=Private, fast, and honest web browser
 Exec=$INSTALL_FILE %F
 Terminal=false
 Type=Application
-Categories=Browser;Internet;
+Categories=Internet;
 Keywords=helium-browser;
 Actions=NewWindow;NewIncognitoWindow;
 
@@ -118,6 +118,6 @@ EOT
 }
 
 # run installer functions
-app_lf
-app_fzf
+# app_lf
+# app_fzf
 # app_helium_browser_linux

@@ -38,23 +38,37 @@ function func_lfcd {
     cd "$(command lf -single -print-last-dir "$@")"
 }
 
-alias fd='cd $(find . -maxdepth 1 -type d | sort | fzf)'
-alias ll='ls -AlhFr'
-alias llz='ls -AlhFr | sort | fzf'
-alias fk='func_fzf_px'
-alias lfcd='func_lfcd'
-alias http_server='func_http_server'
+# fuzzy find and cd into directory with depth 1
+# alias fd='cd $(find . -maxdepth 1 -type d | sort | fzf)'
+
+# customized ls command
+# alias ll='ls -AlhFr'
+
+# customized ls command with fuzzy find
+# alias llz='ls -AlhFr | sort | fzf'
+
+# force kill process with fuzzy find
+# alias fk='func_fzf_px'
+
+# cd into directory with lf
+# alias lfcd='func_lfcd'
+
+# http server with python
+# alias http_server='func_http_server'
 
 #########
 # Paths #
 #########
 
 # add golang binaries to path
-export PATH="$PATH:$HOME/go/bin"
+# export PATH="$PATH:$HOME/go/bin"
+
+# add github app binaries to path 
+# export PATH="$PATH:$HOME/apps"
 
 ###############
 # Completions #
 ###############
 
 # (zsh) Set up fzf key bindings and fuzzy completion
-source <(fzf --zsh)
+# source <(fzf --zsh)

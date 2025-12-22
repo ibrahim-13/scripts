@@ -50,16 +50,18 @@ cleanup
 
 # add noatime option for filesystem, to get better performance
 function os_set_fs_noatime {
-	echo "instructions to add noatime for filesystem in /etc/fstab:"
+	print_info "instructions to add noatime for filesystem in /etc/fstab:"
 	echo ""
-	echo "#In Fedora, also see: /mnt/sysroot/etc/fstab"
-	echo "# Use nano or vi"
-	echo "-subvol=root,compress-zstd:1"
-	echo "+subvol=root,noatime,compress-zstd:1"
+	echo "After setup has finished and reboot button is shown, then go to another tty with alt + ctrl + F3 and then edit fstab file"
 	echo ""
-	echo "# alternatively"
-	echo "-defaults"
-	echo "+defaults,noatime"
+	echo "  #In Fedora, also see: /mnt/sysroot/etc/fstab"
+	echo "  # Use nano or vi"
+	echo "  -subvol=root,compress-zstd:1"
+	echo "  +subvol=root,noatime,compress-zstd:1"
+	echo ""
+	echo "  # alternatively"
+	echo "  -defaults"
+	echo "  +defaults,noatime"
 }
 register_opt os_set_fs_noatime
 
@@ -88,7 +90,7 @@ register_opt os_set_local_rtc_system_time
 
 
 function os_setup_tplink_tl_wn722n {
-	echo "setting up module for TPLINK TL-WN722N"
+	print_info "setting up module for TPLINK TL-WN722N"
 	echo "removing pci module: rtl8192cu"
 	sudo modprobe -r rtl8192cu
 	# If the command above doesn't work, try this
@@ -109,7 +111,7 @@ register_opt os_setup_tplink_tl_wn722n
 
 # Mononoki font from github
 function os_font_mononoki_install {
-	local 
+	print_info "installing Mononoki font"
 	local FILE_ARCHIVE="$DIR_TMP/font-mononoki.tag.xz"
 	local FONT_DOWNLOAD_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.0/Mononoki.tar.xz"
 	local DIR_EXTRACT="$DIR_TMP/font-mononoki"
@@ -124,7 +126,7 @@ function os_font_mononoki_install {
 	else
 		wget -q -O "$FILE_ARCHIVE" "$FONT_DOWNLOAD_URL" || errexit "error downloading font archive"
 	fi
-	tar -xvf "$FILE_ARCHIVE" -C "$DIR_EXTRACT"
+	tar -xvf "$FILE_ARCHIVE" "$DIR_EXTRACT"
 	cp "$DIR_EXTRACT/MononokiNerdFont-Regular.ttf" "$DIR_FONT/MononokiNerdFont-Regular.ttf"
 	echo "installing mononoki font"
 	fc-cache -fv
@@ -148,7 +150,7 @@ function system_upgrade_packages {
 	# https://docs.fedoraproject.org/en-US/quick-docs/dnf-vs-apt/
 	if command -v apt-get
 	then
-		echo "upgrading packages"
+		print_info "upgrading packages"
 		sudo apt-get update
 		sudo apt-get upgrade
 	elif command -v dnf
@@ -157,7 +159,7 @@ function system_upgrade_packages {
 		sudo dnf check-update
 		sudo dnf upgrade
 	else
-		echo "package manager not found"
+		print_error "package manager not found"
 	fi
 }
 register_opt system_upgrade_packages
@@ -165,11 +167,11 @@ register_opt system_upgrade_packages
 function system_git_install {
 	if command -v dnf
 	then
-		echo "installing git"
+		print_info "installing git"
 		sudo dnf check-update
 		sudo dnf install git
 	else
-		echo "package manager not found"
+		print_error "package manager not found"
 	fi
 }
 register_opt system_git_install
@@ -177,13 +179,13 @@ register_opt system_git_install
 function system_github_cli_install {
 	if command -v dnf
 	then
-		echo "installing github cli"
+		print_info "installing github cli"
 		sudo dnf check-update
 		sudo dnf install dnf5-plugins
 		sudo dnf config-manager addrepo --from-repofile=https://cli.github.com/packages/rpm/gh-cli.repo
 		sudo dnf install gh --repo gh-cli
 	else
-		echo "package manager not found"
+		print_error "package manager not found"
 	fi
 }
 register_opt system_github_cli_install
@@ -191,11 +193,11 @@ register_opt system_github_cli_install
 function system_neovim_install {
 	if command -v dnf
 	then
-		echo "installing neovim"
+		print_info "installing neovim"
 		sudo dnf check-update
 		sudo dnf install neovim
 	else
-		echo "package manager not found"
+		print_error "package manager not found"
 	fi
 }
 register_opt system_neovim_install
@@ -216,10 +218,10 @@ register_opt system_neovim_reset_conf
 function system_tmux_install {
 	if command -v dnf
 	then
-		echo "installing tmux"
+		print_info "installing tmux"
 		sudo dnf install tmux
 	else
-		echo "package manager not found"
+		print_error "package manager not found"
 	fi
 }
 register_opt system_tmux_install
@@ -228,16 +230,16 @@ function system_install_distrobox {
 	# https://docs.fedoraproject.org/en-US/quick-docs/dnf-vs-apt/
 	if command -v apt-get
 	then
-		echo "installing distrobox"
+		print_info "installing distrobox"
 		sudo apt-get update
 		sudo apt-get instal distrobox
 	elif command -v dnf
 	then
-		echo "installing distrobox"
+		print_info "installing distrobox"
 		sudo dnf check-update
 		sudo dnf install distrobox
 	else
-		echo "package manager not found"
+		print_error "package manager not found"
 	fi
 }
 register_opt system_install_distrobox
@@ -245,7 +247,7 @@ register_opt system_install_distrobox
 function system_virt_manager_install {
 	if command -v apt-get
 	then
-		echo "installing virt-manager packages"
+		print_info "installing virt-manager packages"
 		sudo apt-get update
 		sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients bridge-utils virt-manager
 		echo "adding $USER to group: kvm"
@@ -263,7 +265,7 @@ function system_virt_manager_install {
 		fi
 	elif command -v dnf
 	then
-		echo "installing virtualization packages"
+		print_info "installing virtualization packages"
 		sudo dnf check-update
 		sudo dnf install @virtualization
 		echo "use the following command to start virtualization service: sudo systemctl start libvirtd"
@@ -281,7 +283,7 @@ function system_virt_manager_install {
 			sudo systemctl status libvirtd
 		fi
 	else
-		echo "package manager not found"
+		print_error "package manager not found"
 	fi
 }
 register_opt system_virt_manager_install
@@ -292,13 +294,13 @@ function system_uninstall_firefox {
 		errexit "not implemented"
 	elif command -v dnf
 	then
-		echo "removing firefox"
+		print_info "removing firefox"
 		sudo dnf remove firefox
 	elif command -v rpm-ostree
 	then
 		rpm-ostree override remove firefox firefox-langpacks
 	else
-		echo "package manager not found"
+		print_error "package manager not found"
 	fi
 
 	# remove application files
@@ -314,16 +316,16 @@ register_opt system_uninstall_firefox
 function system_build_tools {
 	if command -v apt-get
 	then
-		echo "installing build tools"
+		print_info "installing build tools"
 		sudo apt-get update
 		sudo apt-get install build-essential
 	elif command -v dnf
 	then
-		echo "installing build tools"
+		print_info "installing build tools"
 		sudo dnf check-update
 		sudo dnf install @c-development @development-tools
 	else
-		echo "package manager not found"
+		print_error "package manager not found"
 	fi
 }
 register_opt system_build_tools
@@ -339,108 +341,129 @@ register_opt system_build_tools
 function flatpak_enable_flathub {
 	if flatpak remotes | grep -q flathub
 	then
-		echo "flathub exists in the repo list"
+		print_info "flathub exists in the repo list"
 		if flatpak remotes --show-disabled | grep -q flathub
 		then
-			echo "flathub was disabled, enabling with no filter"
+			print_info "flathub was disabled, enabling with no filter"
 			flatpak remote-modify --enable --no-filter flathub
 		fi
 	else
-		echo "adding flathub remote"
+		print_info "adding flathub remote"
 		flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 	fi
 }
 register_opt flatpak_enable_flathub
 
 function flatpak_gnome_extensions_install {
+	print_info "installing Gnome Extensions"
 	flatpak install flathub org.gnome.Extensions
 }
 register_opt flatpak_gnome_extensions_install
 
 function flatpak_podman_install {	
-	echo "installing podman desktop"
+	print_info "installing Podman Desktop"
 	flatpak install flathub io.podman_desktop.PodmanDesktop
 }
 register_opt flatpak_podman_install
 
 function flatpak_vscodium_install {
+	print_info "installing VSCodium"
 	flatpak install flathub com.vscodium.codium
 
-	echo --------------------
-	echo Extension: Git Graph
-	echo --------------------
-	flatpak run com.vscodium.codium --install-extension mhutchie.git-graph
-	echo -----------------
-	echo Extension: Golang
-	echo -----------------
-	flatpak run com.vscodium.codium --install-extension golang.go
-	echo ------------------------
-	echo Extension: Spell Checker
-	echo ------------------------
-	flatpak run com.vscodium.codium --install-extension streetsidesoftware.code-spell-checker
-	echo ------------------------
-	echo Extension: VIM
-	echo ------------------------
-	flatpak run com.vscodium.codium --install-extension vscodevim.vim
+	if prompt_confirmation "install extension: Git Graph?"
+	then
+		echo "installing extension: Git Graph"
+		flatpak run com.vscodium.codium --install-extension mhutchie.git-graph
+	fi
+
+	if prompt_confirmation "install extension: Golang?"
+	then
+		echo "installing extension: Golang"
+		flatpak run com.vscodium.codium --install-extension golang.go
+	fi
+
+	if prompt_confirmation "install extension: Spell Checker?"
+	then
+		echo "installing extension: Spell Checker"
+		flatpak run com.vscodium.codium --install-extension streetsidesoftware.code-spell-checker
+	fi
+
+	if prompt_confirmation "install extension: VIM?"
+	then
+		echo "installing extension: VIM"
+		flatpak run com.vscodium.codium --install-extension vscodevim.vim
+	fi
 }
 register_opt flatpak_vscodium_install
 
 function flatpak_google_chrome_install {
+	print_info "installing Google Chrome"
 	flatpak install flathub com.google.Chrome
 }
 register_opt flatpak_google_chrome_install
 
 function flatpak_brave_browser_install {
+	print_info "installing Brave Browser"
 	flatpak install flathub com.brave.Browser
 }
 register_opt flatpak_brave_browser_install
 
 function flatpak_microsoft_edge_install {
+	print_info "installing Microsoft Edger Browser"
 	flatpak install flathub com.microsoft.Edge
 }
 register_opt flatpak_microsoft_edge_install
 
 function flatpak_kid3_install {
+	print_info "installing Kid3"
 	flatpak install flathub org.kde.kid3
 }
 register_opt flatpak_kid3_install
 
 function flatpak_discord_install {
+	print_info "installing Discord"
 	flatpak install flathub com.discordapp.Discord
 }
 register_opt flatpak_discord_install
 
 function flatpak_bleachbit_install {
+	print_info "installing BleachBit"
 	flatpak install flathub org.bleachbit.BleachBit
 }
 register_opt flatpak_bleachbit_install
 
 function flatpak_gimp_install {
+	print_info "installing GIMP"
 	flatpak install flathub org.gimp.GIMP
 }
 register_opt flatpak_gimp_install
 
 function flatpak_vlc_install {
+	print_info "installing VLC"
 	flatpak install flathub org.videolan.VLC
 }
 register_opt flatpak_vlc_install
 
 function flatpak_thunderbird_install {
+	print_info "installing Mozilla ThunderBird"
 	flatpak install flathub org.mozilla.Thunderbird
 }
 register_opt flatpak_thunderbird_install
 
 function flatpak_bitwarden_install {
+	print_info "installing BitWarden"
 	flatpak install flathub com.bitwarden.desktop
 }
 register_opt flatpak_bitwarden_install
 
 function flatpak_cryptomator_install {
+	print_info "installing Cryptomator"
 	flatpak install flathub org.cryptomator.Cryptomator
 }
 register_opt flatpak_cryptomator_install
 
 function flatpak_flatseal_install {
+	print_info "installing FlatSeal"
 	flatpak install flathub com.github.tchx84.Flatseal
 }
 register_opt flatpak_flatseal_install
