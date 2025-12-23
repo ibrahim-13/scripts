@@ -151,11 +151,13 @@ function system_upgrade_packages {
 	if command -v apt-get
 	then
 		print_info "upgrading packages"
+		sudo sudo apt clean
 		sudo apt-get update
 		sudo apt-get upgrade
 	elif command -v dnf
 	then
 		echo "upgrading packages"
+		sudo dnf clean all
 		sudo dnf check-update
 		sudo dnf upgrade
 	else
@@ -165,7 +167,12 @@ function system_upgrade_packages {
 register_opt system_upgrade_packages
 
 function system_git_install {
-	if command -v dnf
+	if command -v apt-get
+	then
+		print_info "installing git"
+		sudo apt-get update
+		sudo apt-get install git
+	elif command -v dnf
 	then
 		print_info "installing git"
 		sudo dnf check-update
@@ -190,8 +197,30 @@ function system_github_cli_install {
 }
 register_opt system_github_cli_install
 
+function system_btrfs_assistant_install {
+	if command -v apt-get
+	then
+		print_info "installing btrfs-assistant"
+		sudo apt-get update
+		sudo apt-get install btrfs-assistant
+	elif command -v dnf
+	then
+		print_info "installing btrfs-assistant"
+		sudo dnf check-update
+		sudo dnf install btrfs-assistant
+	else
+		print_error "package manager not found"
+	fi
+}
+register_opt system_btrfs_assistant_install
+
 function system_neovim_install {
-	if command -v dnf
+	if command -v apt-get
+	then
+		print_info "installing neovim"
+		sudo apt-get update
+		sudo apt-get install neovim
+	elif command -v dnf
 	then
 		print_info "installing neovim"
 		sudo dnf check-update
@@ -216,7 +245,12 @@ function system_neovim_reset_conf {
 register_opt system_neovim_reset_conf
 
 function system_tmux_install {
-	if command -v dnf
+	if command -v apt-get
+	then
+		print_info "installing tmux"
+		sudo apt-get update
+		sudo apt-get install tmux
+	elif command -v dnf
 	then
 		print_info "installing tmux"
 		sudo dnf install tmux
