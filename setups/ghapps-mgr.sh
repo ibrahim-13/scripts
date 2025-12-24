@@ -29,7 +29,7 @@ mkdir -p "$STATE_DIR"
 mkdir -p "$DESKTOP_DIR"
 
 function app_lf {
-    echo "app: lf"
+    print_info "app: lf"
     local DOWNLOAD_DIR="/tmp/lf"
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/lf.tar.gz"
     mkdir -p $DOWNLOAD_DIR
@@ -51,7 +51,7 @@ function app_lf {
 }
 
 function app_fzf {
-    echo "app: fzf"
+    print_info "app: fzf"
     local DOWNLOAD_DIR="/tmp/fzf"
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/fzf.tar.gz"
     mkdir -p $DOWNLOAD_DIR
@@ -73,7 +73,7 @@ function app_fzf {
 }
 
 function app_helium_browser_linux {
-    echo "app: helium browser (linux)"
+    print_info "app: helium browser (linux)"
     local DOWNLOAD_DIR="/tmp/heliumbrowserlinux"
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/helium-browser-linux.AppImage"
     local INSTALL_FILE="$INSTALL_DIR/helium-browser-linux.AppImage"
@@ -117,7 +117,48 @@ EOT
 	update-desktop-database "$DESKTOP_DIR"
 }
 
+function app_rclone {
+    print_info "app: rclone"
+    local DOWNLOAD_DIR="/tmp/rclone"
+    local DOWNLOAD_FILE="$DOWNLOAD_DIR/rclone.zip"
+    local INSTALL_FILE_NEW="/usr/bin/rclone.new"
+    local INSTALL_FILE="/usr/bin/rclone"
+    mkdir -p $DOWNLOAD_DIR
+
+    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "rclone" -r "rclone" -p 'select(.name | startswith("rclone-") and endswith("-linux-amd64.zip"))' -s "$STATE_DIR/rclone.gh.state"
+    local GH_EXIT_CODE="$?"
+    if ! [ "$GH_EXIT_CODE" == "0" ]; then
+        if [ "$GH_EXIT_CODE" == "255" ]; then return; fi
+        errexit "github binary downloader failed"
+    fi
+
+    chmod 666 "$DOWNLOAD_FILE"
+    echo "extracting files:"
+    unzip -a "$DOWNLOAD_FILE" -d "$DOWNLOAD_DIR"
+    echo "copying binary"
+    local EXTRACT_DIR=$(find "$DOWNLOAD_DIR" -maxdepth 1 -type d | grep --color=never -P '^/tmp/rclone/rclone-.+-linux-amd64$')
+    sudo cp -f "$EXTRACT_DIR/rclone" "$INSTALL_FILE_NEW"
+    echo "updating file ownership"
+    sudo chown root:root "$INSTALL_FILE_NEW"
+    echo "updating file permissions"
+    sudo chmod 755 "$INSTALL_FILE_NEW"
+    echo "replacing with existing binary"
+    sudo mv "$INSTALL_FILE_NEW" "$INSTALL_FILE"
+    if ! [ -x "$(command -v mandb)" ]; then
+        echo "mandb not found, rclone man docs will not be installed"
+    else
+        echo "updating mandb for rclone"
+        sudo mkdir -p /usr/local/share/man/man1
+        sudo cp -f "$EXTRACT_DIR/rclone.1" /usr/local/share/man/man1/rclone.1
+        sudo mandb
+    fi
+    cd ..
+    echo "removing temp directory"
+    rm -rf "$DOWNLOAD_DIR"
+}
+
 # run installer functions
 # app_lf
 # app_fzf
 # app_helium_browser_linux
+# app_rclone

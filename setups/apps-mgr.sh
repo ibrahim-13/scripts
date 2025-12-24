@@ -502,6 +502,12 @@ function flatpak_flatseal_install {
 }
 register_opt flatpak_flatseal_install
 
+function flatpak_rclone_ui {
+	print_info "installing Rclone-UI"
+	flatpak install flathub com.rcloneui.RcloneUI
+}
+register_opt flatpak_rclone_ui
+
 #####################
 # END: Flatpak apps #
 #####################
