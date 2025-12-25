@@ -90,11 +90,16 @@ register_opt os_set_local_rtc_system_time
 
 
 function os_setup_tplink_tl_wn722n {
+	local ERR_CODE
 	print_info "setting up module for TPLINK TL-WN722N"
 	echo "removing pci module: rtl8192cu"
 	sudo modprobe -r rtl8192cu
-	# If the command above doesn't work, try this
-	# echo 'blacklist rtl8192cu' | sudo tee /etc/modprobe.d/blacklist-rtl8192cu.conf 
+	ERR_CODE=$?
+	if [ ! "$ERR_CODE" == "0" ]
+	then
+		echo "failed to remove rtl8192cu with modprobe, adding to blacklist file"
+		echo 'blacklist rtl8192cu' | sudo tee /etc/modprobe.d/blacklist-rtl8192cu.conf
+	fi
 	echo "loading usb module: rtl8xxxu"
 	sudo modprobe rtl8xxxu
 	if prompt_confirmation "update initramfs so that the changes are applied on boot?"
@@ -103,6 +108,18 @@ function os_setup_tplink_tl_wn722n {
 		# and load the USB module, when booting
 		echo "updating initramfs"
 		sudo update-initramfs -uk all
+	else
+		echo "initfamfs will not be updated"
+	fi
+	if prompt_confirmation "reset usb device?"
+	then
+		local USB_DEV_ID=$(lsusb | grep --color=never -i "TL-WN722N" | awk '{ print $6 }')
+		if [ -n "$USB_DEV_ID" ]; then
+			echo "reset usb device id: $USB_DEV_ID"
+			sudo usbreset $USB_DEV_ID
+		else
+			print_error "could not find usb device id"
+		fi
 	else
 		echo "initfamfs will not be updated"
 	fi
@@ -184,7 +201,18 @@ function system_git_install {
 register_opt system_git_install
 
 function system_github_cli_install {
-	if command -v dnf
+	if command -v apt-get
+	then
+		(type -p wget >/dev/null || (sudo apt update && sudo apt install wget -y)) \
+			&& sudo mkdir -p -m 755 /etc/apt/keyrings \
+			&& out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+			&& cat $out | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null \
+			&& sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+			&& sudo mkdir -p -m 755 /etc/apt/sources.list.d \
+			&& echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
+			&& sudo apt update \
+			&& sudo apt install gh -y
+	elif command -v dnf
 	then
 		print_info "installing github cli"
 		sudo dnf check-update
@@ -325,7 +353,7 @@ register_opt system_virt_manager_install
 function system_uninstall_firefox {
 	if command -v apt-get
 	then
-		errexit "not implemented"
+		sudo apt-get purge firefox*
 	elif command -v dnf
 	then
 		print_info "removing firefox"
@@ -338,12 +366,14 @@ function system_uninstall_firefox {
 	fi
 
 	# remove application files
-	if [ -d "$HOME/.mozilla/firefox" ]; then
-			rm -rf "$HOME/.mozilla/firefox"
-	fi
-	if [ -d "$HOME/.cache/mozilla/firefox" ]; then
-			rm -rf "$HOME/.cache/mozilla/firefox"
-	fi
+	sudo rm -Rf "/etc/firefox"
+	sudo rm -Rf /usr/lib/firefox*
+	sudo rm -rf /opt/firefox*
+	sudo rm -rf /usr/local/bin/firefox*
+	sudo rm -rf /usr/lib/firefox/
+	sudo rm -rf /usr/lib/firefox-addons
+	rm -rf "$HOME/.mozilla/firefox"
+	rm -rf "$HOME/.cache/mozilla/firefox"
 }
 register_opt system_uninstall_firefox
 
@@ -364,6 +394,42 @@ function system_build_tools {
 }
 register_opt system_build_tools
 
+function system_debian_add_sources {
+	local DO_APPEND="false"
+	if [ ! -f /etc/apt/sources.list.d/debian.sources ]
+	then
+		DO_APPEND="true"
+	else
+		if prompt_confirmation "source file exists, overwrite: /etc/apt/sources.list.d/debian.sources?"
+		then
+			DO_APPEND="true"
+		fi
+	fi
+
+	if [ "$DO_APPEND" == "true" ]
+	then
+		tee "/etc/apt/sources.list.d/debian.sources"> /dev/null <<EOT
+Types: deb deb-src
+URIs: https://deb.debian.org/debian
+Suites: trixie trixie-updates
+## If you want access to contrib and non-free components,
+## add " contrib non-free" after "non-free-firmware":
+Components: main non-free-firmware
+Enabled: yes
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+Types: deb deb-src
+URIs: https://security.debian.org/debian-security
+Suites: trixie-security
+Components: main non-free-firmware
+Enabled: yes
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
+
+EOT
+	fi
+}
+register_opt system_debian_add_sources
+
 ####################
 # END: System apps #
 ####################
@@ -373,6 +439,33 @@ register_opt system_build_tools
 #######################
 
 function flatpak_enable_flathub {
+	print_info "adding flatpak"
+	if ! command -v flatpak &> /dev/null
+	then
+		echo "flatpak already installed"
+	else
+		if command -v apt-get
+		then
+			echo "installing flatpak"
+			sudo apt-get update
+			sudo apt install flatpak
+		else
+			print_error "package manager not found"
+		fi
+	fi
+
+	print_info "adding flatpak plugin"
+	if [ "$XDG_CURRENT_DESKTOP" == "GNOME" ]
+	then
+		echo "adding gnome plugin"
+		sudo apt install gnome-software-plugin-flatpak
+	elif [ "$XDG_CURRENT_DESKTOP" == "KDE" ]
+	then
+		echo "adding kde plugin"
+		sudo apt install plasma-discover-backend-flatpak
+	fi
+
+	print_info "adding flathub"
 	if flatpak remotes | grep -q flathub
 	then
 		print_info "flathub exists in the repo list"
