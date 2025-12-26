@@ -1,0 +1,9 @@
+version: '3'
+services:
+  debian:
+    image: debian:stable
+    #command: while :; do sleep 2073600; done
+    volumes:
+      - .:/home
+    ports:
+      - "2200:22" 

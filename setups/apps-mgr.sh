@@ -520,6 +520,12 @@ function flatpak_vscodium_install {
 		echo "installing extension: VIM"
 		flatpak run com.vscodium.codium --install-extension vscodevim.vim
 	fi
+
+	if prompt_confirmation "install extension: Open Remote - SSH?"
+	then
+		echo "installing extension: Open Remote - SSH"
+		flatpak run com.vscodium.codium --install-extension jeanp413.open-remote-ssh
+	fi
 }
 register_opt flatpak_vscodium_install
 

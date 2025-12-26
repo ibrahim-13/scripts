@@ -1,5 +1,3 @@
-# **Some Unnecessary Scripts** #
+# Scripts
 
-Some scripts.
-
-Childhood memories :)
+Collections of scripts and configurations.
