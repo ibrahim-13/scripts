@@ -169,7 +169,7 @@ if not isMinimal then
 	require("nvim-treesitter.configs").setup {
 		ensure_installed = { "lua" },
 		sync_install = false,
-		auto_install = true,
+		auto_install = false,
 		-- ignore_install = { "javascript" },
 		highlight = {
 			enable = true,

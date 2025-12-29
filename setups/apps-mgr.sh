@@ -88,7 +88,6 @@ function os_set_local_rtc_system_time {
 }
 register_opt os_set_local_rtc_system_time
 
-
 function os_setup_tplink_tl_wn722n {
 	local ERR_CODE
 	print_info "setting up module for TPLINK TL-WN722N"
@@ -125,6 +124,47 @@ function os_setup_tplink_tl_wn722n {
 	fi
 }
 register_opt os_setup_tplink_tl_wn722n
+
+
+function os_setup_bluetooth {
+	local ERR_CODE
+	print_info "setting up bluetooth"
+	if systemctl is-active --quiet "bluetooth.service"
+	then
+		echo "bluetooth service not running"
+		if prompt_confirmation "start bluetooth service?"
+		then
+			sudo systemctl start bluetooth
+		fi
+	fi
+	
+	if prompt_confirmation "enable bluetooth service?"
+	then
+		sudo systemctl enable bluetooth
+	fi
+
+	if command -v apt-get
+	then
+		echo "installing packages"
+		sudo apt-get update
+		sudo apt install pulseaudio-module-bluetooth
+		sudo apt install pipewire-audio-client-libraries libspa-0.2-bluetooth
+	elif command -v dnf
+	then
+		echo "installing packages"
+		sudo dnf check-update
+		sudo dnf install pulseaudio-module-bluetooth
+		sudo dnf install pipewire-pulseaudio pipewire-alsa pipewire-jack
+	elif command -v pacman
+	then
+		echo "installing packages"
+		sudo pacman -S pulseaudio-bluetooth
+		sudo pacman -S pipewire pipewire-alsa pipewire-jack
+	else
+		print_error "package manager not found"
+	fi
+}
+register_opt os_setup_bluetooth
 
 # Mononoki font from github
 function os_font_mononoki_install {
@@ -173,7 +213,7 @@ function system_upgrade_packages {
 		sudo apt-get upgrade
 	elif command -v dnf
 	then
-		echo "upgrading packages"
+		print_info "upgrading packages"
 		sudo dnf clean all
 		sudo dnf check-update
 		sudo dnf upgrade
@@ -203,6 +243,7 @@ register_opt system_git_install
 function system_github_cli_install {
 	if command -v apt-get
 	then
+		print_info "installing github cli"
 		(type -p wget >/dev/null || (sudo apt update && sudo apt install wget -y)) \
 			&& sudo mkdir -p -m 755 /etc/apt/keyrings \
 			&& out=$(mktemp) && wget -nv -O$out https://cli.github.com/packages/githubcli-archive-keyring.gpg \
