@@ -467,6 +467,23 @@ function system_virt_manager_install {
 }
 register_opt system_virt_manager_install
 
+function system_podman_install {
+	if command -v apt-get
+	then
+		print_info "installing build tools"
+		sudo apt-get update
+		sudo apt-get install podman
+	elif command -v dnf
+	then
+		print_info "installing build tools"
+		sudo dnf check-update
+		sudo dnf install podman
+	else
+		print_error "package manager not found"
+	fi
+}
+register_opt system_podman_install
+
 function system_uninstall_firefox {
 	if command -v apt-get
 	then
@@ -557,36 +574,34 @@ register_opt system_debian_add_sources
 
 function flatpak_enable_flathub {
 	print_info "adding flatpak"
-	if ! command -v flatpak &> /dev/null
+	if command -v flatpak &> /dev/null
 	then
 		echo "flatpak already installed"
 	else
-		if command -v apt-get
+		if command -v apt-get &> /dev/null
 		then
 			echo "installing flatpak"
 			sudo apt-get update
-			sudo apt install flatpak
+			sudo apt-get install flatpak
+			if [ "$XDG_CURRENT_DESKTOP" == "GNOME" ]
+			then
+				echo "adding gnome plugin"
+				sudo apt-get install gnome-software-plugin-flatpak
+			elif [ "$XDG_CURRENT_DESKTOP" == "KDE" ]
+			then
+				echo "adding kde plugin"
+				sudo apt-get install plasma-discover-backend-flatpak
+			fi
 		else
 			print_error "package manager not found"
 		fi
 	fi
 
-	print_info "adding flatpak plugin"
-	if [ "$XDG_CURRENT_DESKTOP" == "GNOME" ]
-	then
-		echo "adding gnome plugin"
-		sudo apt install gnome-software-plugin-flatpak
-	elif [ "$XDG_CURRENT_DESKTOP" == "KDE" ]
-	then
-		echo "adding kde plugin"
-		sudo apt install plasma-discover-backend-flatpak
-	fi
-
 	print_info "adding flathub"
-	if flatpak remotes | grep -q flathub
+	if flatpak remotes | grep -q flathub &> /dev/null
 	then
 		print_info "flathub exists in the repo list"
-		if flatpak remotes --show-disabled | grep -q flathub
+		if flatpak remotes --show-disabled | grep -q flathub &> /dev/null
 		then
 			print_info "flathub was disabled, enabling with no filter"
 			flatpak remote-modify --enable --no-filter flathub
@@ -603,12 +618,6 @@ function flatpak_gnome_extensions_install {
 	flatpak install flathub org.gnome.Extensions
 }
 register_opt flatpak_gnome_extensions_install
-
-function flatpak_podman_install {	
-	print_info "installing Podman Desktop"
-	flatpak install flathub io.podman_desktop.PodmanDesktop
-}
-register_opt flatpak_podman_install
 
 function flatpak_vscodium_install {
 	print_info "installing VSCodium"
@@ -645,6 +654,12 @@ function flatpak_vscodium_install {
 	fi
 }
 register_opt flatpak_vscodium_install
+
+function flatpak_podman_desktop_install {	
+	print_info "installing Podman Desktop"
+	flatpak install flathub io.podman_desktop.PodmanDesktop
+}
+register_opt flatpak_podman_desktop_install
 
 function flatpak_google_chrome_install {
 	print_info "installing Google Chrome"
