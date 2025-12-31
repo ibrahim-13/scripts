@@ -110,17 +110,23 @@ function os_setup_tplink_tl_wn722n {
 	else
 		echo "initfamfs will not be updated"
 	fi
-	if prompt_confirmation "reset usb device?"
+	if prompt_confirmation "trigger usb device probe?"
 	then
-		local USB_DEV_ID=$(lsusb | grep --color=never -i "TL-WN722N" | awk '{ print $6 }')
-		if [ -n "$USB_DEV_ID" ]; then
-			echo "reset usb device id: $USB_DEV_ID"
-			sudo usbreset $USB_DEV_ID
-		else
-			print_error "could not find usb device id"
-		fi
+		sudo udevadm trigger
+		sudo partprobe
+		echo "alternatively follow any of these steps:"
+		echo "1. usbreset"
+		echo "    run lsusb, find id of the target device, then run-"
+		echo "    > sudo usbreset XXXX:XXXX"
+		echo "2. unbind/bind"
+		echo "    run lsusb, find bus number of the target device, then run-"
+		echo "    > echo '2-1' | sudo tee /sys/bus/usb/drivers/usb/unbind"
+		echo "    > echo '2-1' | sudo tee /sys/bus/usb/drivers/usb/bind"
+		echo ""
+		echo "note: sometimes the usb device is initialized already and does not respond to probe."
+		echo "      in this case, shut down the machine completely, shut off power, turn on the power and start again."
 	else
-		echo "initfamfs will not be updated"
+		echo "device probe not triggered"
 	fi
 }
 register_opt os_setup_tplink_tl_wn722n
@@ -222,6 +228,76 @@ function system_upgrade_packages {
 	fi
 }
 register_opt system_upgrade_packages
+
+function system_setup_rpmfusion_repo {
+	if ! command -v dnf &> /dev/null
+	then
+		print_error "not applicable for current system (no dnf)"
+		return
+	fi
+
+	print_info "setting up rpm fusion"
+	sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+	sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1
+}
+register_opt system_setup_rpmfusion_repo
+
+function system_setup_rpm_fusion_packages {
+	if ! command -v dnf &> /dev/null
+	then
+		print_error "not applicable for current system (no dnf)"
+		return
+	fi
+
+	echo "updating system packages"
+	sudo dnf update -y
+
+	if prompt_confirmation "if new kernel was installed, system must be rebooted, reboot now?"
+	then
+		sudo shutdown -r now
+	else
+		echo "skipping reboot"
+	fi
+
+	if prompt_confirmation "install nvidia drivers: akmod-nvidia?"
+	then
+		sudo dnf install akmod-nvidia # rhel/centos users can use kmod-nvidia instead
+		sudo dnf mark user akmod-nvidia
+		sudo modinfo -F version nvidia
+	else
+		echo "skipping nvidia drivers"
+	fi
+
+	if prompt_confirmation "install vulkun libraries?"
+	then
+		sudo dnf install vulkan
+	else
+		echo "skipping vulkun libraries"
+	fi
+	
+	if prompt_confirmation "install full ffmpeg?"
+	then
+		sudo dnf swap ffmpeg-free ffmpeg --allowerasing
+		sudo dnf update @multimedia --setopt="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin
+	else
+		echo "skipping full ffmpeg"
+	fi
+
+	if prompt_confirmation "install nvidia hardware codec?"
+	then
+		sudo dnf install libva-nvidia-driver
+	else
+		echo "skipping nvidia hardware codec"
+	fi
+
+	if prompt_confirmation "install intel hardware codec?"
+	then
+		sudo dnf install intel-media-driver
+	else
+		echo "skipping nvidia hardware codec"
+	fi
+}
+register_opt system_setup_rpm_fusion_packages
 
 function system_git_install {
 	if command -v apt-get
