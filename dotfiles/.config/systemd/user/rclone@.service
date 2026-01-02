@@ -1,0 +1,74 @@
+# User service for Rclone mounting
+# Source: https://gist.github.com/kabili207/2cd2d637e5c7617411a666d8d7e97101
+#
+# Preparation
+# -----------
+# This service will use the same remote name you specified when using rclone config create (https://rclone.org/commands/rclone_config_create/). If you haven't done that yet, do so now.
+#
+# Next, create the mountpoint for your remote. The service uses the location ~/mnt/<remote> by default.
+#
+# mkdir ~/mnt/dropbox
+#
+# The --allow-other option is required in order to work in many desktop environments. This flag must be enabled by adding user_allow_other to /etc/fuse.conf. If you aren't using a desktop environment, such as on a server, this option can be omitted.
+#
+# Adding the service
+# ------------------
+# Save the rclone@.service file in ~/.config/systemd/user/
+# Make sure you include the @. This is required to work.
+#
+# As your normal user, run:
+#
+# systemctl --user daemon-reload
+#
+# Using the service
+# -----------------
+# You can now start/enable each remote by using rclone@<remote>
+#
+# systemctl --user enable --now rclone@dropbox
+#
+# Clarifications
+# --------------
+# %h -> resolves to home directory of the user
+# %i -> resolves to the instance name of the systemd service
+#       In systemd, the @ symbol in a unit name denotes a template unit,
+#       which allows the creation of multiple instances of a service with different
+#       configurations, such as varying ports or sockets.
+#       When a template unit is instantiated, the part following the @ symbol
+#       is treated as an instance identifier and can be referenced within
+#       the unit file using the %i specifier.
+#       For example, a unit named mymemcached@.service can be instantiated
+#       as mymemcached@7777.service, where %i is replaced with 7777,
+#       enabling the service to start on a specific port.
+#
+# Summary
+# -------
+# Place in ~/.config/systemd/user/
+# File must include the '@' (ex rclone@.service)
+# As your normal user, run 
+#   systemctl --user daemon-reload
+# You can now start/enable each remote by using rclone@<remote>
+#   systemctl --user enable --now rclone@dropbox
+
+[Unit]
+Description=rclone: Remote FUSE filesystem for cloud storage config %i
+Documentation=man:rclone(1)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStartPre=-/usr/bin/mkdir -p %h/mnt/%i
+ExecStart= \
+  /usr/bin/rclone mount \
+    --config=%h/.config/rclone/rclone.conf \
+    --vfs-cache-mode writes \
+    --vfs-cache-max-size 100M \
+    --log-level INFO \
+    --log-file /tmp/rclone-%i.log \
+    --umask 022 \
+    --allow-other \
+    %i: %h/mnt/%i
+ExecStop=/bin/fusermount -u %h/mnt/%i
+
+[Install]
+WantedBy=default.target
