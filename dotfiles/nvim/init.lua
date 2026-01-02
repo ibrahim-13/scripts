@@ -24,10 +24,8 @@ local function check_if_minimal_conf()
 end
 
 local function check_if_exec_exists(exec, msg)
-	if vim.fn.executable('rg') == 0 then
-		print("ripgrep is installed and available in the PATH")
-	  else
-		print("ripgrep is not installed or not available in the PATH")
+	if vim.fn.executable(exec) ~= 1 then
+		print(msg)
 	end
 end
 

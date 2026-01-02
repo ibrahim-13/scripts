@@ -157,8 +157,48 @@ function app_rclone {
     rm -rf "$DOWNLOAD_DIR"
 }
 
-# run installer functions
-# app_lf
-# app_fzf
-# app_helium_browser_linux
-# app_rclone
+########
+# MAIN #
+########
+
+function usage() {
+    if [ -n "$1" ]; then
+        echo -e "[ error ] $1\n";
+    fi
+    echo "apps setup for installing from github releases"
+    echo ""
+    echo "Usage: $(basename "$0") [--lf] [--fzf] [--helium] [--rclone]"
+    echo ""
+    echo "  --lf             lf terminal file explorer"
+    echo "  --fzf            fzf fuzzy finder"
+    echo "  --helium         helium browser"
+    echo "  --rclone         rclone cloud storage sync"
+    echo ""
+    exit 1
+}
+
+# parse params
+# https://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash
+while [[ "$#" > 0 ]]; do case $1 in
+    --lf) ARG_LF=1; shift;;
+    --fzf) ARG_FZF=1; shift;;
+    --helium) ARG_HELIUM=1; shift;;
+    --rclone) ARG_RCLONE=1; shift;;
+    *) usage "invalid arguments";;
+esac; done
+
+if [[ "$ARG_LF" == "1" ]]; then
+    app_lf
+fi
+
+if [[ "$ARG_FZF" == "1" ]]; then
+    app_fzf
+fi
+
+if [[ "$ARG_HELIUM" == "1" ]]; then
+    app_helium_browser_linux
+fi
+
+if [[ "$ARG_RCLONE" == "1" ]]; then
+    app_rclone
+fi

@@ -172,34 +172,19 @@ function os_setup_bluetooth {
 }
 register_opt os_setup_bluetooth
 
-# Mononoki font from github
-function os_font_mononoki_install {
-	print_info "installing Mononoki font"
-	local FILE_ARCHIVE="$DIR_TMP/font-mononoki.tag.xz"
-	local FONT_DOWNLOAD_URL="https://github.com/ryanoasis/nerd-fonts/releases/download/v3.2.0/Mononoki.tar.xz"
-	local DIR_EXTRACT="$DIR_TMP/font-mononoki"
-	local DIR_FONT="$HOME/.local/share/fonts"
-
-	mkdir -p "$DIR_EXTRACT"
-	mkdir -p "$DIR_FONT"
-
-	if wget --help | grep -i "show-progress" &> /dev/null
-	then
-		wget -q --show-progress -O "$FILE_ARCHIVE" "$FONT_DOWNLOAD_URL" || errexit "error downloading font archive"
-	else
-		wget -q -O "$FILE_ARCHIVE" "$FONT_DOWNLOAD_URL" || errexit "error downloading font archive"
-	fi
-	tar -xvf "$FILE_ARCHIVE" "$DIR_EXTRACT"
-	cp "$DIR_EXTRACT/MononokiNerdFont-Regular.ttf" "$DIR_FONT/MononokiNerdFont-Regular.ttf"
-	echo "installing mononoki font"
-	fc-cache -fv
-
-	# cleanup
-	echo "cleaning up"
-	rm "$FILE_ARCHIVE"
-	rm -rf "$DIR_EXTRACT"
+function os_font_install_info {
+	print_info "installing nerd font"
+	echo "nerd font is required for showing icons in the terminal"
+	echo "    1. go to https://github.com/ryanoasis/nerd-fonts/releases"
+	echo "    2. download any (or Mononoki) nerd font from the release assets"
+	echo "    3. installing by double clicking or throw system font management app"
+	print_info "installing bangla font"
+	echo "bangla font is required to show complex characters"
+	echo "    1. go to https://www.omicronlab.com/bangla-fonts.html"
+	echo "    2. download Kalpurush font"
+	echo "    3. installing by double clicking or throw system font management app"
 }
-register_opt os_font_mononoki_install
+register_opt os_font_install_info
 
 ###############################
 # END: Configuration for `os` #
@@ -679,6 +664,12 @@ function flatpak_microsoft_edge_install {
 }
 register_opt flatpak_microsoft_edge_install
 
+function flatpak_zen_browser_install {
+	print_info "installing Microsoft Edger Browser"
+	flatpak install flathub app.zen_browser.zen
+}
+register_opt flatpak_zen_browser_install
+
 function flatpak_kid3_install {
 	print_info "installing Kid3"
 	flatpak install flathub org.kde.kid3
@@ -708,6 +699,12 @@ function flatpak_vlc_install {
 	flatpak install flathub org.videolan.VLC
 }
 register_opt flatpak_vlc_install
+
+function flatpak_qbittorrent_install {
+	print_info "installing qbittorrent"
+	flatpak install flathub org.qbittorrent.qBittorrent
+}
+register_opt flatpak_qbittorrent_install
 
 function flatpak_thunderbird_install {
 	print_info "installing Mozilla ThunderBird"
@@ -745,12 +742,12 @@ register_opt flatpak_rclone_ui
 
 # Menu for managing apps installation
 function menu_opts {
-	register_opt "quit"
+	# register_opt "quit"
 	local PS3='select opt: '
 	local APPS_LIST=
 	local IFS=':'
 	read -ra APPS_LIST <<< "$REGISTERED_OPT"
-	select opt in "${APPS_LIST[@]}"
+	select opt in "quit" "${APPS_LIST[@]}"
 	do
 		if [[ $opt == "quit" ]]
 		then
