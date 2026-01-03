@@ -1,3 +1,9 @@
+if [ -n "$ZSH_VERSION" ]; then
+	CURRENT_SHELL="zsh"
+elif [ -n "$BASH_VERSION" ]; then
+	CURRENT_SHELL="bash"
+fi
+
 #########
 # Alias #
 #########
@@ -35,7 +41,17 @@ function func_http_server {
 }
 
 function func_lfcd {
-    cd "$(command lf -single -print-last-dir "$@")"
+  cd "$(command lf -single -print-last-dir "$@")"
+}
+
+function func_alias_help {
+	echo "alias list"
+	echo "fd             fuzzy find and cd into directory with depth 1"
+	echo "ll             customized ls command"
+	echo "llz            customized ls command with fuzzy find"
+	echo "fk             force kill process with fuzzy find"
+	echo "lfcd           cd into directory with lf"
+	echo "http_server    http file server with python"
 }
 
 # fuzzy find and cd into directory with depth 1
@@ -53,8 +69,11 @@ function func_lfcd {
 # cd into directory with lf
 # alias lfcd='func_lfcd'
 
-# http server with python
+# http file server with python
 # alias http_server='func_http_server'
+
+# show list of alias
+# alias hh='func_alias_help'
 
 ########################
 # Prompt Customization #
@@ -122,4 +141,8 @@ _prompt_command() {
 ###############
 
 # Set up fzf key bindings and fuzzy completion
-# eval "$(fzf --bash)"
+function func_fzf_completion {
+	if [ "$CURRENT_SHELL" == "bash" ]; then eval "$(fzf --bash)"; fi
+	if [ "$CURRENT_SHELL" == "zsh" ]; then source <(fzf --zsh); fi
+}
+# func_fzf_completion
