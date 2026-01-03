@@ -167,12 +167,13 @@ function usage() {
     fi
     echo "apps setup for installing from github releases"
     echo ""
-    echo "Usage: $(basename "$0") [--lf] [--fzf] [--helium] [--rclone]"
+    echo "Usage: $(basename "$0") [--lf] [--fzf] [--helium] [--rclone] [-u|--update]"
     echo ""
     echo "  --lf             lf terminal file explorer"
     echo "  --fzf            fzf fuzzy finder"
     echo "  --helium         helium browser"
     echo "  --rclone         rclone cloud storage sync"
+    echo "  -u|--update      update all from existing state file"
     echo ""
     exit 1
 }
@@ -184,21 +185,18 @@ while [[ "$#" > 0 ]]; do case $1 in
     --fzf) ARG_FZF=1; shift;;
     --helium) ARG_HELIUM=1; shift;;
     --rclone) ARG_RCLONE=1; shift;;
+    -u|--update) ARG_UPDATE=1; shift;;
     *) usage "invalid arguments";;
 esac; done
 
-if [[ "$ARG_LF" == "1" ]]; then
-    app_lf
+if [[ "$ARG_UPDATE" == "1" ]]; then
+    if [[ -f "$STATE_DIR/lf.gh.state" ]]; then ARG_LF=1; fi
+    if [[ -f "$STATE_DIR/fzf.gh.state" ]]; then ARG_FZF=1; fi
+    if [[ -f "$STATE_DIR/helium-browser-linux.gh.state" ]]; then ARG_HELIUM=1; fi
+    if [[ -f "$STATE_DIR/rclone.gh.state" ]]; then ARG_RCLONE=1; fi
 fi
 
-if [[ "$ARG_FZF" == "1" ]]; then
-    app_fzf
-fi
-
-if [[ "$ARG_HELIUM" == "1" ]]; then
-    app_helium_browser_linux
-fi
-
-if [[ "$ARG_RCLONE" == "1" ]]; then
-    app_rclone
-fi
+if [[ "$ARG_LF" == "1" ]]; then app_lf; fi
+if [[ "$ARG_FZF" == "1" ]]; then app_fzf; fi
+if [[ "$ARG_HELIUM" == "1" ]]; then app_helium_browser_linux; fi
+if [[ "$ARG_RCLONE" == "1" ]]; then app_rclone; fi
