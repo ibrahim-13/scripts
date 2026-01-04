@@ -1,5 +1,16 @@
 #!/usr/bin/env bash
 
+# Debugging
+# ---------
+# set -x : print out every line as it executes, with variables expanded
+#		putting it at top of the script will enable this for the whole
+#		script, or before a block of commands and end it with:
+#		{ set +x; } 2>/dev/null
+#
+# bash -x script.sh : same as putting set -x at the top of script
+# trap read DEBUG : stop before every line, can be put at the top
+# trap '(read -p "[$BASE_SOURCE:$lineno] $bash_command")' DEBUG
+
 # If not running as ROOT, then exit
 # This script required root priviledges to function.
 # if [ $(id -u) -ne 0 ]
@@ -19,16 +30,22 @@ done
 SCRIPT_DIR=$( cd -P "$( dirname "$SCRIPT_SOURCE" )" >/dev/null 2>&1 && pwd )
 
 source "$SCRIPT_DIR/../util/common.sh"
+source "$SCRIPT_DIR/../util/required.sh"
 
-REGISTERED_OPT=""
 
+# set environment variables from .env file
+# set -o allexport
+# if [[ -f "$SCRIPT_DIR/.env" ]]; then source "$SCRIPT_DIR/.env"; fi
+# set +o allexport
+
+REGISTERED_OPT=()
+
+# register menu option for display
+# $1    function
+# $2    name of the option
 function register_opt {
-	if [[ "$REGISTERED_OPT" == "" ]]
-	then
-		REGISTERED_OPT="$1"
-	else
-		REGISTERED_OPT="$REGISTERED_OPT:$1"
-	fi
+	if [ -z "$1" ] || [ -z "$1" ]; then return; fi;
+	REGISTERED_OPT+=("$1" "$2")
 }
 
 DIR_TMP="$HOME/.tmp"
@@ -63,7 +80,7 @@ function os_set_fs_noatime {
 	echo "  -defaults"
 	echo "  +defaults,noatime"
 }
-register_opt os_set_fs_noatime
+register_opt os_set_fs_noatime "Set noatime for filesystem"
 
 # configure hostname, default is `fedora`
 function os_set_hostname {
@@ -76,7 +93,7 @@ function os_set_hostname {
 		echo "empty input, hostname will not be changed"
 	fi
 }
-register_opt os_set_hostname
+register_opt os_set_hostname "Set hotname"
 
 # adjust how system time is stored
 # ################################
@@ -86,7 +103,7 @@ function os_set_local_rtc_system_time {
 	echo "setting local rtc as system time"
 	sudo timedatectl set-local-rtc 1 --adjust-system-clock
 }
-register_opt os_set_local_rtc_system_time
+register_opt os_set_local_rtc_system_time "Set Local RTC as System time"
 
 function os_setup_tplink_tl_wn722n {
 	local ERR_CODE
@@ -129,7 +146,7 @@ function os_setup_tplink_tl_wn722n {
 		echo "device probe not triggered"
 	fi
 }
-register_opt os_setup_tplink_tl_wn722n
+register_opt os_setup_tplink_tl_wn722n "Setup kernel module for TPLINK TL-WN722N"
 
 
 function os_setup_bluetooth {
@@ -170,7 +187,7 @@ function os_setup_bluetooth {
 		print_error "package manager not found"
 	fi
 }
-register_opt os_setup_bluetooth
+register_opt os_setup_bluetooth "Setup packages for Bluetooth audio streaming"
 
 function os_font_install_info {
 	print_info "installing nerd font"
@@ -184,7 +201,7 @@ function os_font_install_info {
 	echo "    2. download Kalpurush font"
 	echo "    3. installing by double clicking or throw system font management app"
 }
-register_opt os_font_install_info
+register_opt os_font_install_info "Print required font information"
 
 ###############################
 # END: Configuration for `os` #
@@ -212,7 +229,7 @@ function system_upgrade_packages {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_upgrade_packages
+register_opt system_upgrade_packages "Upgrade system packages"
 
 function system_setup_rpmfusion_repo {
 	if ! command -v dnf &> /dev/null
@@ -225,7 +242,7 @@ function system_setup_rpmfusion_repo {
 	sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 	sudo dnf config-manager setopt fedora-cisco-openh264.enabled=1
 }
-register_opt system_setup_rpmfusion_repo
+register_opt system_setup_rpmfusion_repo "Setup RPM Fusion repository"
 
 function system_setup_rpm_fusion_packages {
 	if ! command -v dnf &> /dev/null
@@ -282,7 +299,7 @@ function system_setup_rpm_fusion_packages {
 		echo "skipping nvidia hardware codec"
 	fi
 }
-register_opt system_setup_rpm_fusion_packages
+register_opt system_setup_rpm_fusion_packages "Install RPM Fusion packages"
 
 function system_git_install {
 	if command -v apt-get
@@ -299,7 +316,7 @@ function system_git_install {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_git_install
+register_opt system_git_install "Install Git"
 
 function system_github_cli_install {
 	if command -v apt-get
@@ -325,7 +342,7 @@ function system_github_cli_install {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_github_cli_install
+register_opt system_github_cli_install "Install Github CLI"
 
 function system_btrfs_assistant_install {
 	if command -v apt-get
@@ -342,7 +359,7 @@ function system_btrfs_assistant_install {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_btrfs_assistant_install
+register_opt system_btrfs_assistant_install "Install Btrfs Assistant"
 
 function system_neovim_install {
 	if command -v apt-get
@@ -359,7 +376,7 @@ function system_neovim_install {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_neovim_install
+register_opt system_neovim_install "Install NeoVim"
 
 function system_neovim_reset_conf {
 	if [ -d "$HOME/.config/nvim" ]; then
@@ -372,7 +389,7 @@ function system_neovim_reset_conf {
 			rm -rf "$HOME/.local/state/nvim"
 	fi
 }
-register_opt system_neovim_reset_conf
+register_opt system_neovim_reset_conf "Reset NeoVim configuration"
 
 function system_tmux_install {
 	if command -v apt-get
@@ -388,7 +405,7 @@ function system_tmux_install {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_tmux_install
+register_opt system_tmux_install "Install Tmux"
 
 function system_install_distrobox {
 	# https://docs.fedoraproject.org/en-US/quick-docs/dnf-vs-apt/
@@ -406,7 +423,7 @@ function system_install_distrobox {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_install_distrobox
+register_opt system_install_distrobox "Install DistroBox"
 
 function system_virt_manager_install {
 	if command -v apt-get
@@ -450,7 +467,7 @@ function system_virt_manager_install {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_virt_manager_install
+register_opt system_virt_manager_install "Install QEMU and Virt Manager"
 
 function system_podman_install {
 	if command -v apt-get
@@ -467,7 +484,7 @@ function system_podman_install {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_podman_install
+register_opt system_podman_install "Install Podman"
 
 function system_uninstall_firefox {
 	if command -v apt-get
@@ -494,7 +511,7 @@ function system_uninstall_firefox {
 	rm -rf "$HOME/.mozilla/firefox"
 	rm -rf "$HOME/.cache/mozilla/firefox"
 }
-register_opt system_uninstall_firefox
+register_opt system_uninstall_firefox "Uninstall Firefox"
 
 function system_build_tools {
 	if command -v apt-get
@@ -511,7 +528,7 @@ function system_build_tools {
 		print_error "package manager not found"
 	fi
 }
-register_opt system_build_tools
+register_opt system_build_tools "Install build tools"
 
 function system_debian_add_sources {
 	local DO_APPEND="false"
@@ -547,7 +564,7 @@ Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOT
 	fi
 }
-register_opt system_debian_add_sources
+register_opt system_debian_add_sources "Add package sources for Debian Trixie"
 
 ####################
 # END: System apps #
@@ -596,13 +613,13 @@ function flatpak_enable_flathub {
 		flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 	fi
 }
-register_opt flatpak_enable_flathub
+register_opt flatpak_enable_flathub "Enable FlatHub"
 
 function flatpak_gnome_extensions_install {
 	print_info "installing Gnome Extensions"
 	flatpak install flathub org.gnome.Extensions
 }
-register_opt flatpak_gnome_extensions_install
+register_opt flatpak_gnome_extensions_install "Install GNOME Extensions"
 
 function flatpak_vscodium_install {
 	print_info "installing VSCodium"
@@ -638,133 +655,122 @@ function flatpak_vscodium_install {
 		flatpak run com.vscodium.codium --install-extension jeanp413.open-remote-ssh
 	fi
 }
-register_opt flatpak_vscodium_install
+register_opt flatpak_vscodium_install "Install VSCodium"
 
 function flatpak_podman_desktop_install {	
 	print_info "installing Podman Desktop"
 	flatpak install flathub io.podman_desktop.PodmanDesktop
 }
-register_opt flatpak_podman_desktop_install
+register_opt flatpak_podman_desktop_install "Install Podman Desktop"
 
 function flatpak_google_chrome_install {
 	print_info "installing Google Chrome"
 	flatpak install flathub com.google.Chrome
 }
-register_opt flatpak_google_chrome_install
+register_opt flatpak_google_chrome_install "Install Google Chrome"
 
 function flatpak_brave_browser_install {
 	print_info "installing Brave Browser"
 	flatpak install flathub com.brave.Browser
 }
-register_opt flatpak_brave_browser_install
+register_opt flatpak_brave_browser_install "Install Brave Browser"
 
 function flatpak_microsoft_edge_install {
 	print_info "installing Microsoft Edger Browser"
 	flatpak install flathub com.microsoft.Edge
 }
-register_opt flatpak_microsoft_edge_install
+register_opt flatpak_microsoft_edge_install "Install Microsoft Edge"
 
 function flatpak_zen_browser_install {
 	print_info "installing Microsoft Edger Browser"
 	flatpak install flathub app.zen_browser.zen
 }
-register_opt flatpak_zen_browser_install
+register_opt flatpak_zen_browser_install "Install Zen Browser"
 
 function flatpak_kid3_install {
 	print_info "installing Kid3"
 	flatpak install flathub org.kde.kid3
 }
-register_opt flatpak_kid3_install
+register_opt flatpak_kid3_install "Install Kid3 Audio Tagger"
 
 function flatpak_discord_install {
 	print_info "installing Discord"
 	flatpak install flathub com.discordapp.Discord
 }
-register_opt flatpak_discord_install
+register_opt flatpak_discord_install "Install Discord"
 
 function flatpak_bleachbit_install {
 	print_info "installing BleachBit"
 	flatpak install flathub org.bleachbit.BleachBit
 }
-register_opt flatpak_bleachbit_install
+register_opt flatpak_bleachbit_install "Install BleachBit"
 
 function flatpak_gimp_install {
 	print_info "installing GIMP"
 	flatpak install flathub org.gimp.GIMP
 }
-register_opt flatpak_gimp_install
+register_opt flatpak_gimp_install "Install GIMP"
 
 function flatpak_vlc_install {
 	print_info "installing VLC"
 	flatpak install flathub org.videolan.VLC
 }
-register_opt flatpak_vlc_install
+register_opt flatpak_vlc_install "Install VLC Player"
 
 function flatpak_qbittorrent_install {
 	print_info "installing qbittorrent"
 	flatpak install flathub org.qbittorrent.qBittorrent
 }
-register_opt flatpak_qbittorrent_install
+register_opt flatpak_qbittorrent_install "Install qBittorrent"
 
 function flatpak_thunderbird_install {
 	print_info "installing Mozilla ThunderBird"
 	flatpak install flathub org.mozilla.Thunderbird
 }
-register_opt flatpak_thunderbird_install
+register_opt flatpak_thunderbird_install "Install ThunderBird"
 
 function flatpak_bitwarden_install {
 	print_info "installing BitWarden"
 	flatpak install flathub com.bitwarden.desktop
 }
-register_opt flatpak_bitwarden_install
+register_opt flatpak_bitwarden_install "Install BitWarden"
 
 function flatpak_cryptomator_install {
 	print_info "installing Cryptomator"
 	flatpak install flathub org.cryptomator.Cryptomator
 }
-register_opt flatpak_cryptomator_install
+register_opt flatpak_cryptomator_install "Install Cryptomator"
 
 function flatpak_flatseal_install {
 	print_info "installing FlatSeal"
 	flatpak install flathub com.github.tchx84.Flatseal
 }
-register_opt flatpak_flatseal_install
+register_opt flatpak_flatseal_install "Install FlatSeal"
 
 function flatpak_rclone_ui {
 	print_info "installing Rclone-UI"
 	flatpak install flathub com.rcloneui.RcloneUI
 }
-register_opt flatpak_rclone_ui
+register_opt flatpak_rclone_ui "Install Rclone UI"
 
 #####################
 # END: Flatpak apps #
 #####################
 
 # Menu for managing apps installation
-function menu_opts {
-	# register_opt "quit"
-	local PS3='select opt: '
-	local APPS_LIST=
-	local IFS=':'
-	read -ra APPS_LIST <<< "$REGISTERED_OPT"
-	select opt in "quit" "${APPS_LIST[@]}"
-	do
-		if [[ $opt == "quit" ]]
-		then
-			break
-		fi
-		if [[ $opt == "" ]] || [[ ! $APPS_LIST == *"$APPS_LIST"* ]]
-		then
-			echo "invalid opt: $REPLY"
-		else
-			$opt
+register_opt quit "Quit/Exit"
+MENU_UI=()
+for ((i=0; i<${#REGISTERED_OPT[@]}; i+=2)); do
+  MENU_UI+=("${REGISTERED_OPT[i+1]}")
+done
+
+while true; do
+	SELECTED_OPT=$(gum filter "${MENU_UI[@]}" --limit 1 --height 10 --header "Select Operation")
+  for ((i=0; i<${#REGISTERED_OPT[@]}; i+=2)); do
+		if [[ "${REGISTERED_OPT[i+1]}" == "$SELECTED_OPT" ]]; then
+			SELECTED_CMD="${REGISTERED_OPT[i]}"
+			if [[ "$SELECTED_CMD" == "quit" ]]; then exit 0; fi
+			$SELECTED_CMD
 		fi
 	done
-}
-
-print_header "=============="
-print_header "= operations ="
-print_header "=============="
-
-# run main menu function
-menu_opts
+done

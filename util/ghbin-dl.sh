@@ -20,31 +20,11 @@ function errexit {
 
 # gitHub functions
 
-function func_check_jq_installed {
-	if ! command -v jq &> /dev/null
-	then
-		if command -v dnf &> /dev/null
-        then
-            echo "[ dnf ] installing jq"
-            sudo dnf check-update
-            sudo dnf install jq
-        elif command -v apt-get &> /dev/null
-        then
-            echo "[ apt-get ] installing jq"
-            sudo apt-get update
-            sudo apt-get install -y jq
-        else
-            errexit "could not detect package manager"
-        fi
-	fi
-}
-
 # get lastest release asset url from github with http api
 # $1 : github username
 # $2 : github repo
 # $3 : jq selector for asset name
 function func_gh_http {
-	func_check_jq_installed
 	local GH_URL
 	local HEADER_ACCEPT
 	local HEADER_VERSION
@@ -66,7 +46,6 @@ function func_gh_http {
 # $2 : github repo
 # $3 : jq selector for asset name
 function func_gh_cli {
-	func_check_jq_installed
 	local GH_URL
 	local HEADER_ACCEPT
 	local HEADER_VERSION
@@ -107,7 +86,6 @@ function func_github_asset {
 
 # $1 : github response
 function func_ghutil_get_downloadurl {
-	func_check_jq_installed
 	local GH_DL_URL
 	GH_DL_URL=$(echo "$1" | jq -r '.download_url')
 	echo "$GH_DL_URL"
@@ -115,7 +93,6 @@ function func_ghutil_get_downloadurl {
 
 # $1 : github response
 function func_ghutil_get_created_at {
-	func_check_jq_installed
 	local GH_CREATED_AT
 	GH_CREATED_AT=$(echo "$1" | jq -r '.created_at')
 	echo "$GH_CREATED_AT"
@@ -123,7 +100,6 @@ function func_ghutil_get_created_at {
 
 # $1 : github response
 function func_ghutil_get_source {
-	func_check_jq_installed
 	local GH_SOURCE
 	GH_SOURCE=$(echo "$1" | jq -r '.source')
 	echo "$GH_SOURCE"
@@ -131,7 +107,6 @@ function func_ghutil_get_source {
 
 # $1 : github response
 function func_ghutil_get_msg {
-	func_check_jq_installed
 	local GH_MSG
 	GH_MSG=$(echo "$1" | jq -r '.msg')
 	echo "$GH_MSG"
@@ -140,7 +115,6 @@ function func_ghutil_get_msg {
 # check if json is valid
 # $1 : json string
 function func_ghutil_check_valid_json {
-	func_check_jq_installed
 	if [ "$(echo "$1" | jq empty > /dev/null 2>&1; echo $?)" -eq 0 ]
 	then
 		return 0
