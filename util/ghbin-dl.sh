@@ -148,6 +148,10 @@ function usage() {
     exit 1
 }
 
+if [ $# -eq 0 ]; then
+    usage  "no arguments provided."
+fi
+
 # parse params
 # https://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash
 while [[ "$#" > 0 ]]; do case $1 in

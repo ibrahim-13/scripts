@@ -66,9 +66,12 @@ ExecStart= \
     --log-level INFO \
     --log-file /tmp/rclone-%i.log \
     --umask 022 \
-    --allow-other \
     %i: %h/mnt/%i
+# --allow-other can also be used, if the process is started by a different user
 ExecStop=/bin/fusermount -u %h/mnt/%i
+# Restart=on-failure
+# User=johndoe
+# Group=johndoe
 
 [Install]
 WantedBy=default.target
