@@ -619,7 +619,7 @@ function flatpak_gnome_extensions_install {
 	print_info "installing Gnome Extensions"
 	flatpak install flathub org.gnome.Extensions
 }
-register_opt flatpak_gnome_extensions_install "Install GNOME Extensions"
+register_opt flatpak_gnome_extensions_install "[Flathub] Install GNOME Extensions"
 
 function flatpak_vscodium_install {
 	print_info "installing VSCodium"
@@ -655,103 +655,109 @@ function flatpak_vscodium_install {
 		flatpak run com.vscodium.codium --install-extension jeanp413.open-remote-ssh
 	fi
 }
-register_opt flatpak_vscodium_install "Install VSCodium"
+register_opt flatpak_vscodium_install "[Flathub] Install VSCodium"
 
 function flatpak_podman_desktop_install {	
 	print_info "installing Podman Desktop"
 	flatpak install flathub io.podman_desktop.PodmanDesktop
 }
-register_opt flatpak_podman_desktop_install "Install Podman Desktop"
+register_opt flatpak_podman_desktop_install "[Flathub] Install Podman Desktop"
 
 function flatpak_google_chrome_install {
 	print_info "installing Google Chrome"
 	flatpak install flathub com.google.Chrome
 }
-register_opt flatpak_google_chrome_install "Install Google Chrome"
+register_opt flatpak_google_chrome_install "[Flathub] Install Google Chrome"
 
 function flatpak_brave_browser_install {
 	print_info "installing Brave Browser"
 	flatpak install flathub com.brave.Browser
 }
-register_opt flatpak_brave_browser_install "Install Brave Browser"
+register_opt flatpak_brave_browser_install "[Flathub] Install Brave Browser"
 
 function flatpak_microsoft_edge_install {
 	print_info "installing Microsoft Edger Browser"
 	flatpak install flathub com.microsoft.Edge
 }
-register_opt flatpak_microsoft_edge_install "Install Microsoft Edge"
+register_opt flatpak_microsoft_edge_install "[Flathub] Install Microsoft Edge"
 
 function flatpak_zen_browser_install {
 	print_info "installing Microsoft Edger Browser"
 	flatpak install flathub app.zen_browser.zen
 }
-register_opt flatpak_zen_browser_install "Install Zen Browser"
+register_opt flatpak_zen_browser_install "[Flathub] Install Zen Browser"
 
 function flatpak_kid3_install {
 	print_info "installing Kid3"
 	flatpak install flathub org.kde.kid3
 }
-register_opt flatpak_kid3_install "Install Kid3 Audio Tagger"
+register_opt flatpak_kid3_install "[Flathub] Install Kid3 Audio Tagger"
 
 function flatpak_discord_install {
 	print_info "installing Discord"
 	flatpak install flathub com.discordapp.Discord
 }
-register_opt flatpak_discord_install "Install Discord"
+register_opt flatpak_discord_install "[Flathub] Install Discord"
 
 function flatpak_bleachbit_install {
 	print_info "installing BleachBit"
 	flatpak install flathub org.bleachbit.BleachBit
 }
-register_opt flatpak_bleachbit_install "Install BleachBit"
+register_opt flatpak_bleachbit_install "[Flathub] Install BleachBit"
 
 function flatpak_gimp_install {
 	print_info "installing GIMP"
 	flatpak install flathub org.gimp.GIMP
 }
-register_opt flatpak_gimp_install "Install GIMP"
+register_opt flatpak_gimp_install "[Flathub] Install GIMP"
 
 function flatpak_vlc_install {
 	print_info "installing VLC"
 	flatpak install flathub org.videolan.VLC
 }
-register_opt flatpak_vlc_install "Install VLC Player"
+register_opt flatpak_vlc_install "[Flathub] Install VLC Player"
 
 function flatpak_qbittorrent_install {
 	print_info "installing qbittorrent"
 	flatpak install flathub org.qbittorrent.qBittorrent
 }
-register_opt flatpak_qbittorrent_install "Install qBittorrent"
+register_opt flatpak_qbittorrent_install "[Flathub] Install qBittorrent"
 
 function flatpak_thunderbird_install {
 	print_info "installing Mozilla ThunderBird"
 	flatpak install flathub org.mozilla.Thunderbird
 }
-register_opt flatpak_thunderbird_install "Install ThunderBird"
+register_opt flatpak_thunderbird_install "[Flathub] Install ThunderBird"
 
 function flatpak_bitwarden_install {
 	print_info "installing BitWarden"
 	flatpak install flathub com.bitwarden.desktop
 }
-register_opt flatpak_bitwarden_install "Install BitWarden"
+register_opt flatpak_bitwarden_install "[Flathub] Install BitWarden"
 
 function flatpak_cryptomator_install {
 	print_info "installing Cryptomator"
 	flatpak install flathub org.cryptomator.Cryptomator
 }
-register_opt flatpak_cryptomator_install "Install Cryptomator"
+register_opt flatpak_cryptomator_install "[Flathub] Install Cryptomator"
 
 function flatpak_flatseal_install {
 	print_info "installing FlatSeal"
 	flatpak install flathub com.github.tchx84.Flatseal
 }
-register_opt flatpak_flatseal_install "Install FlatSeal"
+register_opt flatpak_flatseal_install "[Flathub] Install FlatSeal"
 
 function flatpak_rclone_ui {
 	print_info "installing Rclone-UI"
 	flatpak install flathub com.rcloneui.RcloneUI
 }
-register_opt flatpak_rclone_ui "Install Rclone UI"
+register_opt flatpak_rclone_ui "[Flathub] Install Rclone UI"
+
+function flatpak_localsend {
+	print_info "installing LocalSend"
+	flatpak install flathub org.localsend.localsend_app
+}
+register_opt flatpak_localsend "[Flathub] Install LocalSend"
 
 #####################
 # END: Flatpak apps #
