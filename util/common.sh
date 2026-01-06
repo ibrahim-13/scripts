@@ -11,47 +11,49 @@
 # trap read DEBUG : stop before every line, can be put at the top
 # trap '(read -p "[$BASE_SOURCE:$lineno] $bash_command")' DEBUG
 
-# color variables
-TXT_RESET="\033[0m"
-TXT_COL_BLACK="\033[30m"
-TXT_COL_RED="\033[31m"
-TXT_COL_GREEN="\033[32m"
-TXT_COL_YELLOW="\033[33m"
-TXT_COL_BLUE="\033[34m"
-TXT_COL_MAGENTA="\033[35m"
-TXT_COL_CYAN="\033[36m"
-TXT_COL_WHITE="\033[37m"
-TXT_COL_BG_BLACK="\033[40m"
-TXT_COL_BG_RED="\033[41m"
-TXT_COL_BG_GREEN="\033[42m"
-TXT_COL_BG_YELLOW="\033[43m"
-TXT_COL_BG_BLUE="\033[44m"
-TXT_COL_BG_MAGENTA="\033[45m"
-TXT_COL_BG_CYAN="\033[46m"
-TXT_COL_BG_WHITE="\033[47m"
-TXT_COL_BOLD="\e[1m"
-TXT_COL_DIM="\e[2m"
+# Text colors
+_CRST="\033[0m" # Reset
+_CBLA="\033[30m" # Black
+_CRED="\033[31m" # Red
+_CGRE="\033[32m" # Green
+_CYEL="\033[33m" # Yellow
+_CBLU="\033[34m" # Blue
+_CMAG="\033[35m" # Magenta
+_CCYA="\033[36m" # Cyan
+_CWHI="\033[37m" # White
+# Background Colors
+_CBBLA="\033[40m" # Black
+_CBRED="\033[41m" # Red
+_CBGRE="\033[42m" # Green
+_CBYEL="\033[43m" # Yellow
+_CBBLU="\033[44m" # Blue
+_CBMAG="\033[45m" # Magenta
+_CBCYA="\033[46m" # Cyan
+_CBWHI="\033[47m" # White
+# Text
+_TBOLD="\e[1m" # Bold
+_TDIM="\e[2m" # Dim
 
 # print message with color
 # $1 : msg
 function print_header {
-	printf "${TXT_COL_YELLOW} ${1} ${TXT_RESET}\n"
+	printf "${_CYEL} ${1} ${_CRST}\n"
 }
 
 function print_info {
-	printf "${TXT_COL_CYAN} ${1} ${TXT_RESET}\n"
+	printf "${_CCYA} ${1} ${_CRST}\n"
 }
 
 function print_success {
-	printf "${TXT_COL_GREEN} ${1} ${TXT_RESET}\n"
+	printf "${_CGRE} ${1} ${_CRST}\n"
 }
 
 function print_error {
-	printf "${TXT_COL_BG_RED} ${1} ${TXT_RESET}\n"
+	printf "${_CBRED} ${1} ${_CRST}\n"
 }
 
 function print_debug {
-	printf "${TXT_COL_BG_WHITE} ${1} ${TXT_RESET}\n"
+	printf "${_CBWHI} ${1} ${_CRST}\n"
 }
 
 # print error msg and exit
@@ -66,7 +68,7 @@ function errexit {
 # returns 1 if yes, 0 if no
 function prompt_confirmation {
 	local TMP_ANS
-	read -p "$(echo -e -n $TXT_COL_BG_MAGENTA" ${1} (y/N) "$TXT_RESET)" TMP_ANS
+	read -p "$(echo -e -n $_CBMAG" ${1} (y/N) "$_CRST)" TMP_ANS
 	case $TMP_ANS in
 	[Yy])
 		return 0

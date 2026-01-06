@@ -84,42 +84,45 @@ function func_alias_help {
 
 # codes need to be escaped, otherwise, readline can not properly determine the length
 # of the multiline input (ex. newline)
-TXT_RESET="\[\033[0m\]"
-TXT_COL_BLACK="\[\033[30m\]"
-TXT_COL_RED="\[\033[31m\]"
-TXT_COL_GREEN="\[\033[32m\]"
-TXT_COL_YELLOW="\[\033[33m\]"
-TXT_COL_BLUE="\[\033[34m\]"
-TXT_COL_MAGENTA="\[\033[35m\]"
-TXT_COL_CYAN="\[\033[36m\]"
-TXT_COL_WHITE="\[\033[37m\]"
-TXT_COL_BG_BLACK="\[\033[40m\]"
-TXT_COL_BG_RED="\[\033[41m\]"
-TXT_COL_BG_GREEN="\[\033[42m\]"
-TXT_COL_BG_YELLOW="\[\033[43m\]"
-TXT_COL_BG_BLUE="\[\033[44m\]"
-TXT_COL_BG_MAGENTA="\[\033[45m\]"
-TXT_COL_BG_CYAN="\[\033[46m\]"
-TXT_COL_BG_WHITE="\[\033[47m\]"
-TXT_COL_BOLD="\[\e[1m\]"
-TXT_COL_DIM="\[\e[2m\]"
+# Text colors
+_CRST="\[\033[0m\]" # Reset
+_CBLA="\[\033[30m\]" # Black
+_CRED="\[\033[31m\]" # Red
+_CGRE="\[\033[32m\]" # Green
+_CYEL="\[\033[33m\]" # Yellow
+_CBLU="\[\033[34m\]" # Blue
+_CMAG="\[\033[35m\]" # Magenta
+_CCYA="\[\033[36m\]" # Cyan
+_CWHI="\[\033[37m\]" # White
+# Background Colors
+_CBBLA="\[\033[40m\]" # Black
+_CBRED="\[\033[41m\]" # Red
+_CBGRE="\[\033[42m\]" # Green
+_CBYEL="\[\033[43m\]" # Yellow
+_CBBLU="\[\033[44m\]" # Blue
+_CBMAG="\[\033[45m\]" # Magenta
+_CBCYA="\[\033[46m\]" # Cyan
+_CBWHI="\[\033[47m\]" # White
+# Text
+_TBOLD="\[\e[1m\]" # Bold
+_TDIM="\[\e[2m\]" # Dim
 # get host name of the machine
 # _HOSTNAME="$(hostname -s)"
 
 _prompt_command() {
 	local EXIT_CODE="$?";
 
-	local EXIT_CODE_COLOR=""
-	local EXIT_CODE_COLOR_BG=""
+	local ECOL=""
+	local ECBG=""
 	if [[ "$EXIT_CODE" == "0" ]]
 	then
-			EXIT_CODE_COLOR_BG="$TXT_COL_BG_GREEN"
-			EXIT_CODE_COLOR="$TXT_COL_BLACK"
+			ECBG="$_CGRE"
+			ECOL=""
 	else
-			EXIT_CODE_COLOR_BG="$TXT_COL_BG_RED"
-			EXIT_CODE_COLOR="$TXT_COL_BLACK"
+			ECBG="$_CRED"
+			ECOL=""
 	fi
-	PS1=" $TXT_COL_BLACK$TXT_COL_BG_BLUE \u@\h $TXT_COL_BLACK$TXT_COL_BG_CYAN \w $TXT_COL_BLACK$TXT_COL_BG_YELLOW \D{%I:%M:%S %p} $EXIT_CODE_COLOR$EXIT_CODE_COLOR_BG $EXIT_CODE $TXT_RESET > "
+	PS1="$_CBLU \u@\h $_CCYA \w $_CYEL \D{%I:%M:%S %p} $ECOL$ECBG $EXIT_CODE $_CRST > "
 }
 
 
