@@ -2,7 +2,7 @@
 // @name         YT Helper
 // @namespace    __gh_ibrahim13_yt_helper
 // @match        https://*.youtube.com/*
-// @version      2.5.6
+// @version      2.5.7
 // @author       github/ibrahim-13
 // @description  Control playback speed and CC of YouTube videos
 // @noframes
@@ -784,7 +784,7 @@ function yt_enable_cc() {
     if (elem_vid.paused) return;
     // check if CC is unavailable
     // if so, then do nothing
-    var airaLabel = elem_ccbtn.getAttribute("aria-label") || "";
+    var airaLabel = elem_ccbtn.getAttribute("data-tooltip-title") || elem_ccbtn.getAttribute("data-title-no-tooltip") || "";
     if(airaLabel.indexOf("caption") != -1 && airaLabel.indexOf("unavailable") != -1) {
       //GM_log("returning because there are no cc");
       return;
