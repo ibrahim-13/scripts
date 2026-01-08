@@ -2,7 +2,7 @@
 // @name         YT Helper
 // @namespace    __gh_ibrahim13_yt_helper
 // @match        https://*.youtube.com/*
-// @version      2.5.8
+// @version      2.5.9
 // @author       github/ibrahim-13
 // @description  Control playback speed and CC of YouTube videos
 // @noframes
@@ -786,6 +786,10 @@ function yt_enable_cc() {
     // if so, then do nothing
     var airaLabel = elem_ccbtn.getAttribute("data-tooltip-title") || elem_ccbtn.getAttribute("data-title-no-tooltip") || "";
     if(airaLabel.indexOf("caption") != -1 && airaLabel.indexOf("unavailable") != -1) {
+      if (_ytcc_conf.last_set_cc !== "!err") {
+        _ytcc_conf.last_set_cc = "!err";
+        __upd_menu();
+      }
       //GM_log("returning because there are no cc");
       return;
     }
@@ -794,6 +798,10 @@ function yt_enable_cc() {
         cc_status = 'false';
     }
     if(elem_ccbtn.getAttribute("aria-pressed") === cc_status) {
+      if (_ytcc_conf.last_set_cc !== cc_status) {
+        _ytcc_conf.last_set_cc = cc_status;
+        __upd_menu();
+      }
       //GM_log("returning because cc button is alread pressed");
       return;
     }
@@ -812,8 +820,8 @@ function yt_enable_cc() {
       }
       if(elem_ccbtn.getAttribute("aria-pressed") !== current_cc_status) {
         elem_ccbtn.click();
-        __upd_menu();
       }
+      __upd_menu();
     }, 1000);
   } else {
     _ytcc_conf.last_set_cc = "cc err: selector";
