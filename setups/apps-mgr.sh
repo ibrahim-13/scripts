@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+if [ "$EUID" -eq 0 ]; then echo "do not run under root"; exit 1; fi
+
 # Debugging
 # ---------
 # set -x : print out every line as it executes, with variables expanded
@@ -20,6 +22,19 @@
 # fi
 
 #--------------------------------------------------------------
+
+DIR_TMP="$HOME/.tmp"
+
+function cleanup {
+	if [ -d "$DIR_TMP" ]; then
+		rm -rf "$DIR_TMP"
+	fi
+	mkdir -p $DIR_TMP
+}
+# cleanup when exiting
+trap cleanup EXIT
+# cleanup at startup
+cleanup
 
 SCRIPT_SOURCE=${BASH_SOURCE[0]}
 while [ -L "$SCRIPT_SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
@@ -47,19 +62,6 @@ function register_opt {
 	if [ -z "$1" ] || [ -z "$1" ]; then return; fi;
 	REGISTERED_OPT+=("$1" "$2")
 }
-
-DIR_TMP="$HOME/.tmp"
-
-function cleanup {
-	if [ -d "$DIR_TMP" ]; then
-			rm -rf "$DIR_TMP"
-	fi
-	mkdir -p $DIR_TMP
-}
-# cleanup when exiting
-trap cleanup EXIT
-# cleanup at startup
-cleanup
 
 #################################
 # START: Configuration for `os` #

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+if [ "$EUID" -eq 0 ]; then echo "do not run under root"; exit 1; fi
+
 # Debugging
 # ---------
 # set -x : print out every line as it executes, with variables expanded
@@ -9,7 +11,20 @@
 #
 # bash -x script.sh : same as putting set -x at the top of script
 # trap read DEBUG : stop before every line, can be put at the top
-# trap '(read -p "[$BASE_SOURCE:$lineno] $bash_command")' DEBUG
+# trap '(read -p "[$BASE_SOURCE:$lineno] $bash_command")' DEBUGDIR_TMP="$HOME/.tmp"
+
+DIR_TMP="$HOME/.tmp"
+
+function cleanup {
+	if [ -d "$DIR_TMP" ]; then
+		rm -rf "$DIR_TMP"
+	fi
+	mkdir -p $DIR_TMP
+}
+# cleanup when exiting
+trap cleanup EXIT
+# cleanup at startup
+cleanup
 
 SCRIPT_SOURCE=${BASH_SOURCE[0]}
 while [ -L "$SCRIPT_SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
@@ -30,7 +45,7 @@ mkdir -p "$DESKTOP_DIR"
 
 function app_lf {
     print_info "app: lf"
-    local DOWNLOAD_DIR="/tmp/lf"
+    local DOWNLOAD_DIR="$DIR_TMP/lf"
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/lf.tar.gz"
     mkdir -p $DOWNLOAD_DIR
 
@@ -52,7 +67,7 @@ function app_lf {
 
 function app_fzf {
     print_info "app: fzf"
-    local DOWNLOAD_DIR="/tmp/fzf"
+    local DOWNLOAD_DIR="$DIR_TMP/fzf"
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/fzf.tar.gz"
     mkdir -p $DOWNLOAD_DIR
 
@@ -74,7 +89,7 @@ function app_fzf {
 
 function app_helium_browser_linux {
     print_info "app: helium browser (linux)"
-    local DOWNLOAD_DIR="/tmp/heliumbrowserlinux"
+    local DOWNLOAD_DIR="$DIR_TMP/heliumbrowserlinux"
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/helium-browser-linux.AppImage"
     local INSTALL_FILE="$INSTALL_DIR/helium-browser-linux.AppImage"
     mkdir -p $DOWNLOAD_DIR
@@ -119,7 +134,7 @@ EOT
 
 function app_rclone {
     print_info "app: rclone"
-    local DOWNLOAD_DIR="/tmp/rclone"
+    local DOWNLOAD_DIR="$DIR_TMP/rclone"
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/rclone.zip"
     local INSTALL_FILE_NEW="/usr/bin/rclone.new"
     local INSTALL_FILE="/usr/bin/rclone"
@@ -136,7 +151,7 @@ function app_rclone {
     echo "extracting files:"
     unzip -a "$DOWNLOAD_FILE" -d "$DOWNLOAD_DIR"
     echo "copying binary"
-    local EXTRACT_DIR=$(find "$DOWNLOAD_DIR" -maxdepth 1 -type d | grep --color=never -P '^/tmp/rclone/rclone-.+-linux-amd64$')
+    local EXTRACT_DIR=$(find "$DOWNLOAD_DIR" -maxdepth 1 -type d | grep --color=never -P '.+/rclone/rclone-.+-linux-amd64$')
     sudo cp -f "$EXTRACT_DIR/rclone" "$INSTALL_FILE_NEW"
     echo "updating file ownership"
     sudo chown root:root "$INSTALL_FILE_NEW"
