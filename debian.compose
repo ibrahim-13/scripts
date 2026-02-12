@@ -1,9 +1,27 @@
 version: '3'
 services:
   debian:
-    image: debian:stable
+    image: devcontainer/debian
+    build:
+      #context: .
+      dockerfile: ./debian.Dockerfile
+    # this command will let container keep running
     #command: while :; do sleep 2073600; done
     volumes:
       - .:/home
     ports:
-      - "2200:22" 
+      - "2200:22"
+
+  # proxy relay is needed to access ports bind with localhost/127.0.0.1
+  # host.docker.internal:host-gateway means, `host.docker.internal` inside container will resolve to `host-gateway` (ex. 127.28.0.1)
+  #proxy-relay:
+    #image: alpine/socat:latest
+    #network_mode: host
+    #command: TCP-LISTEN:8080,fork,bind=host.docker.internal TCP-CONNECT:127.0.0.1:8080
+    #extra_hosts:
+      #- host.docker.internal:host-gateway
+  #example-service:
+    #image: some-image
+    #command: my-command --connect-to host.docker.internal:8080
+    #extra_hosts:
+      #- host.docker.internal:host-gateway
