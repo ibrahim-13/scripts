@@ -34,10 +34,15 @@ function func_gh_http {
 	HEADER_ACCEPT="Accept: application/vnd.github+json"
 	HEADER_VERSION="X-GitHub-Api-Version: 2022-11-28"
 	JSON_QUERY="{\"created_at\":.created_at,\"download_url\":.assets[] | $3 | .browser_download_url,\"source\":\"http\",\"msg\":\"$4\"}"
-	GH_RESPONSE="$(wget --header="$HEADER_ACCEPT" \
-		--header="$HEADER_VERSION" \
-		-qO- "$GH_URL" | \
-		jq "$JSON_QUERY")"
+	if command -v wget &> /dev/null
+	then
+		GH_RESPONSE="$(wget --header="$HEADER_ACCEPT" --header="$HEADER_VERSION" -qO- "$GH_URL" | jq "$JSON_QUERY")"
+	elif command -v curl &> /dev/null
+	then
+		GH_RESPONSE="$(curl -H "$HEADER_ACCEPT" -H "$HEADER_VERSION" -s -O "$GH_URL" | jq "$JSON_QUERY")"
+	else
+		errexit "could not find wget or curl, at least one is needed for api request"
+	fi
 	echo "$GH_RESPONSE"
 	}
 
@@ -123,6 +128,16 @@ function func_ghutil_check_valid_json {
 	fi
 }
 
+# print timestamp from iso8601 format
+# $1 : date time string
+function func_get_timestamp {
+	if [[ $OSTYPE == 'darwin'* ]]; then
+  	date -j -f "%Y-%m-%dT%H:%M:%SZ" "$1" "+%s"
+	else
+		date +%s -d "$1"
+	fi
+}
+
 ########
 # MAIN #
 ########
@@ -199,8 +214,8 @@ if [ "$ARG_UPDATE" == "1" ]; then
 	# If installed and created_at date is before the current release create_at date, then update
 	if [[ -e "$FILE_CREATED_AT" ]]
 	then
-		TMP_CURRENT_CREATED_AT=$(date +%s -d "$GH_CREATED_AT")
-		TMP_EXIST_CREATED_AT=$(date +%s -d "$(cat "$FILE_CREATED_AT")")
+		TMP_CURRENT_CREATED_AT=$(func_get_timestamp "$GH_CREATED_AT")
+		TMP_EXIST_CREATED_AT=$(func_get_timestamp "$(cat "$FILE_CREATED_AT")")
 		if [[ ! "$TMP_CURRENT_CREATED_AT" -gt "$TMP_EXIST_CREATED_AT" ]]
 		then
 			echo "up to date"
@@ -212,7 +227,17 @@ fi
 echo "latest release: $GH_CREATED_AT"
 
 if [[ "$ARG_DOWNLOAD" == "1" ]]; then
-    wget -q --show-progress -O "$ARG_DOWNLOAD_PATH" "$GH_DL_URL" || errexit "error downloading archive"
+	echo downloading
+	echo "$GH_DL_URL"
+	if command -v wget &> /dev/null
+	then
+		wget -q --show-progress -O "$ARG_DOWNLOAD_PATH" "$GH_DL_URL" || errexit "error downloading archive with wget"
+	elif command -v curl &> /dev/null
+	then
+		curl -L --progress-bar -s -o "$ARG_DOWNLOAD_PATH" "$GH_DL_URL" || errexit "error downloading archive with curl"
+	else
+		errexit "could not find wget or curl, at least one is needed for downloading archive file"
+	fi
 	echo "download done"
 fi
 

@@ -209,10 +209,10 @@ while [[ "$#" > 0 ]]; do case $1 in
 esac; done
 
 if [[ "$ARG_UPDATE" == "1" ]]; then
-    if [[ -f "$STATE_DIR/lf.gh.state" ]]; then ARG_LF=1; fi
-    if [[ -f "$STATE_DIR/fzf.gh.state" ]]; then ARG_FZF=1; fi
-    if [[ -f "$STATE_DIR/helium-browser-linux.gh.state" ]]; then ARG_HELIUM=1; fi
-    if [[ -f "$STATE_DIR/rclone.gh.state" ]]; then ARG_RCLONE=1; fi
+    if [[ -f "$STATE_DIR/lf.gh.state" ]]; then ARG_LF=1; else print_debug "lf not installed, skipping"; fi
+    if [[ -f "$STATE_DIR/fzf.gh.state" ]]; then ARG_FZF=1; else print_debug "fzf not installed, skipping"; fi
+    if [[ -f "$STATE_DIR/helium-browser-linux.gh.state" ]]; then ARG_HELIUM=1; else print_debug "helium browser not installed, skipping"; fi
+    if [[ -f "$STATE_DIR/rclone.gh.state" ]]; then ARG_RCLONE=1; else print_debug "rclone not installed, skipping"; fi
 fi
 
 if [[ "$ARG_LF" == "1" ]]; then app_lf; fi
