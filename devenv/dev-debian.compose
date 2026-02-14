@@ -1,6 +1,8 @@
 version: '3'
+name: devcontainer
 services:
   debian:
+    container_name: devcontainer-debian
     image: devcontainer/debian
     build:
       #context: .

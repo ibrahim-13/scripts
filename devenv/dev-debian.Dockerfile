@@ -1,6 +1,6 @@
 FROM debian:stable
 
-ARG GOLANG_VERSION=1.25
+ARG GOLANG_VERSION=1.26.0
 ARG DEV_USER=dev
 ARG NVM_VERSION=v0.40.4
 ARG NODE_VERSION=24
@@ -18,11 +18,13 @@ RUN set -eux; \
     sudo \
     which \
     hugo \
-	; \
+    ca-certificates \
+    wget \
+    ;
 
 # Install golang
 RUN set -eux; \
-	wget https://go.dev/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz; \
+	wget -q https://go.dev/dl/go${GOLANG_VERSION}.linux-amd64.tar.gz; \
   rm -rf /usr/local/go; \
   tar -C /usr/local -xzf go${GOLANG_VERSION}.linux-amd64.tar.gz; \
   rm go${GOLANG_VERSION}.linux-amd64.tar.gz; \
@@ -33,12 +35,11 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 # Install nvm and nodejs
 RUN set -eux; \
   wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/${NVM_VERSION}/install.sh | PROFILE=/etc/profile bash; \
-  source /etc/profile && nvm install ${NODE_VERSION}; \
-  node -v; \
-  npm -v;
+  bash -c "source /etc/profile && nvm install ${NODE_VERSION} > /dev/null 2>&1"; \
+  bash -c "source /etc/profile && echo node_version && node -v && echo npm_version && npm -v";
 
 # Create a user with password
-RUN useradd -m -s /bin/bash user && echo "${DEV_USER}:${DEV_USER}" | chpasswd
+RUN useradd -m -s /bin/bash "${DEV_USER}" && echo "${DEV_USER}:${DEV_USER}" | chpasswd
 
 # Ensure the SSH directory exists
 RUN mkdir -p /var/run/sshd
