@@ -1,0 +1,9 @@
+Host debian-dev-d
+    Hostname localhost
+    Port 2200
+    User dev
+
+Host debian-dev-r
+    Hostname localhost
+    Port 2200
+    User root

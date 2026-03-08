@@ -53,7 +53,7 @@ function print_error {
 }
 
 function print_debug {
-	printf "${_CBWHI} ${1} ${_CRST}\n"
+	printf "${_CBLA}${_CBWHI} ${1} ${_CRST}\n"
 }
 
 # print error msg and exit
