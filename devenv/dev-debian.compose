@@ -1,0 +1,56 @@
+name: devcontainer
+services:
+  debian:
+    container_name: devcontainer-debian
+    image: devcontainer/debian
+    working_dir: /workspace
+    # this command will let container keep running
+    #command: while :; do sleep 2073600; done
+    volumes:
+      - ${MOUNT_DIR}:/workspace:rw,z
+      - devenv-debian-go:/go
+      # User .vscode-server for vscode, .vscodium-server for vscodium
+      - devenv-debian-vscode-server:/home/${DEV_USER}/.vscodium-server
+      - devenv-debian-vscode-server-r:/root/.vscodium-server
+    ports:
+      - "2200:22"
+    profiles:
+      - default
+  debianclaude:
+    container_name: devcontainer-debian-claude
+    image: devcontainer/debian/claude
+    working_dir: /workspace
+    # this command will let container keep running
+    #command: while :; do sleep 2073600; done
+    volumes:
+      - ${MOUNT_DIR}:/workspace:rw,z
+      - devenv-debianclaude-go:/go
+      # User .vscode-server for vscode, .vscodium-server for vscodium
+      - devenv-debianclaude-vscode-server:/home/${DEV_USER}/.vscodium-server
+      - devenv-debianclaude-vscode-server-r:/root/.vscodium-server
+    ports:
+      - "2200:22"
+    profiles:
+      - claude
+
+  # proxy relay is needed to access ports bind with localhost/127.0.0.1
+  # host.docker.internal:host-gateway means, `host.docker.internal` inside container will resolve to `host-gateway` (ex. 127.28.0.1)
+  #proxy-relay:
+    #image: alpine/socat:latest
+    #network_mode: host
+    #command: TCP-LISTEN:8080,fork,bind=host.docker.internal TCP-CONNECT:127.0.0.1:8080
+    #extra_hosts:
+      #- host.docker.internal:host-gateway
+  #example-service:
+    #image: some-image
+    #command: my-command --connect-to host.docker.internal:8080
+    #extra_hosts:
+      #- host.docker.internal:host-gateway
+
+volumes:
+  devenv-debian-vscode-server:
+  devenv-debian-vscode-server-r:
+  devenv-debian-go:
+  devenv-debianclaude-vscode-server:
+  devenv-debianclaude-vscode-server-r:
+  devenv-debianclaude-go:

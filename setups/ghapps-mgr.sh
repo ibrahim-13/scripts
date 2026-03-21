@@ -79,11 +79,11 @@ function app_fzf {
     fi
 
     chmod 666 "$DOWNLOAD_FILE"
-    echo "extracting files:"
+    print_info "extracting files:"
     tar -xvzf "$DOWNLOAD_FILE" -C "$INSTALL_DIR"
-    echo "updating file permissions"
+    print_info "updating file permissions"
     chmod 755 "$INSTALL_DIR/fzf"
-    echo "removing temp directory"
+    print_info "removing temp directory"
     rm -rf "$DOWNLOAD_DIR"
 }
 
@@ -102,11 +102,11 @@ function app_helium_browser_linux {
     fi
 
     chmod 666 "$DOWNLOAD_FILE"
-    echo "copying files:"
+    print_info "copying files:"
     cp -f "$DOWNLOAD_FILE" "$INSTALL_FILE"
-    echo "updating file permissions"
+    print_info "updating file permissions"
     chmod 755 "$INSTALL_FILE"
-    echo "removing temp directory"
+    print_info "removing temp directory"
     rm -rf "$DOWNLOAD_DIR"
 
     tee "$DESKTOP_DIR/helium-browser-linux.desktop"> /dev/null <<EOT
@@ -148,27 +148,27 @@ function app_rclone {
     fi
 
     chmod 666 "$DOWNLOAD_FILE"
-    echo "extracting files:"
+    print_info "extracting files:"
     unzip -a "$DOWNLOAD_FILE" -d "$DOWNLOAD_DIR"
-    echo "copying binary"
+    print_info "copying binary"
     local EXTRACT_DIR=$(find "$DOWNLOAD_DIR" -maxdepth 1 -type d | grep --color=never -P '.+/rclone/rclone-.+-linux-amd64$')
     sudo cp -f "$EXTRACT_DIR/rclone" "$INSTALL_FILE_NEW"
-    echo "updating file ownership"
+    print_info "updating file ownership"
     sudo chown root:root "$INSTALL_FILE_NEW"
-    echo "updating file permissions"
+    print_info "updating file permissions"
     sudo chmod 755 "$INSTALL_FILE_NEW"
-    echo "replacing with existing binary"
+    print_info "replacing with existing binary"
     sudo mv "$INSTALL_FILE_NEW" "$INSTALL_FILE"
     if ! [ -x "$(command -v mandb)" ]; then
-        echo "mandb not found, rclone man docs will not be installed"
+        print_debug "mandb not found, rclone man docs will not be installed"
     else
-        echo "updating mandb for rclone"
+        print_info "updating mandb for rclone"
         sudo mkdir -p /usr/local/share/man/man1
         sudo cp -f "$EXTRACT_DIR/rclone.1" /usr/local/share/man/man1/rclone.1
         sudo mandb
     fi
     cd ..
-    echo "removing temp directory"
+    print_info "removing temp directory"
     rm -rf "$DOWNLOAD_DIR"
 }
 
