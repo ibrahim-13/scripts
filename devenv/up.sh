@@ -6,12 +6,14 @@ function usage() {
     fi
     echo "start debian container for development"
     echo ""
-    echo "Usage: $(basename "$0") [-m|--mount directory]"
+    echo "Usage: $(basename "$0") [-m|--mount directory] [-y]"
     echo ""
     echo "  -m|--mount      project directory to mount"
     echo ""
     echo "  --claude        use container for claude"
     echo "  --claude-dir    directory for claude settings"
+    echo ""
+    echo "  -y              always yes for confirmation"
     echo ""
     exit 1
 }
@@ -33,7 +35,8 @@ function print_env() {
 while [[ "$#" > 0 ]]; do case $1 in
     -m|--mount) DIR_TO_MOUNT=$2; shift; shift;;
     --claude) CLAUDE_CONTAINER="true"; shift;;
-    ---claude-dir) CLAUDE_SETTINGS_DIR=$2; shift; shift;;
+    --claude-dir) CLAUDE_SETTINGS_DIR=$2; shift; shift;;
+    -y) CONFIRM_YES="true"; shift;;
     *) echo "invalid arguments: $1"; shift;;
 esac; done
 
@@ -43,13 +46,15 @@ fi
 
 if [ "$CLAUDE_CONTAINER" == "true" ] && [ ! -d "$CLAUDE_SETTINGS_DIR" ]; then usage "claude setting location is not a directory"; fi;
 
-if ! [ -f ./dev-debian.compose ]; then echo "dev-debian.compose file not found"; exit 1; fi
+if ! [ -f ./dev-debian.compose ]; then echo "[ error ] dev-debian.compose file not found"; exit 1; fi
 
 COMPOSE_PROFILE=default
 
 if [ "$CLAUDE_CONTAINER" == "true" ] ; then COMPOSE_PROFILE=claude; fi;
 
 print_env
+
+if ! [ "$CONFIRM_YES" == "true" ]; then read -p "press enter to continue"; fi;
 
 if command -v podman &> /dev/null
 then

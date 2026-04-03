@@ -7,6 +7,7 @@ ARG NODE_VERSION=24
 ARG CLAUDE_SETUP
 ARG USER_ID
 ARG GROUP_ID
+ARG ROOT_FS=./rootfs
 
 RUN if [ -z "$DEV_USER" ]; \
   then echo "DEV_USER arg is required"; exit 1; \
@@ -16,6 +17,8 @@ RUN if [ -z "$DEV_USER" ]; \
   then echo "GROUP_ID arg is required"; exit 1; \
   fi \
   ;
+
+COPY "${ROOT_FS}/" /
 
 # Install OpenSSH server and essential tools
 RUN set -eux; \
@@ -68,7 +71,7 @@ RUN set -eux; \
 
 # Install Claude CLI
 # Claude devcontainer: https://github.com/anthropics/claude-code/blob/main/.devcontainer/
-RUN if [[ "${CLAUDE_SETUP}" == "true" ]]; then bash -c "source /etc/profile && npm install -g @anthropic-ai/claude-code"; fi
+RUN if [[ "${CLAUDE_SETUP}" == "true" ]]; then wget -qO- https://claude.ai/install.sh | bash; fi
 
 RUN set -eux; \
   mkdir -p /usr/local/ytdlp; \
