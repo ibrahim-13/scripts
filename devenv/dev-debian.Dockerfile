@@ -37,6 +37,7 @@ RUN set -eux; \
     ca-certificates \
     wget \
     ffmpeg \
+    neovim \
     python3; \
   apt-get autoclean; \
   apt-get autoremove --yes; \
@@ -86,6 +87,7 @@ RUN set -eux; \
   useradd -u "${USER_ID}" -m -g "${GROUP_ID}" -s /bin/bash "${DEV_USER}"; \
   mkdir -p "/home/${DEV_USER}/workspace"; \
   usermod -aG sudo "${DEV_USER}"; \
+  chown -R "${USER_ID}:${GROUP_ID}" "/home/${DEV_USER}"; \
   echo "${DEV_USER}:${DEV_USER}" | chpasswd \
   ;
 

@@ -1,0 +1,404 @@
+*custom-config*   Custom Config
+
+==============================================================================
+Custom Config Documentation
+
+Documentation for current setup, including key mappings.
+
+NeoVim Configution File
+- LINUX: ~/.config/nvim/init.lua
+- WINDOWS: ~/AppData/Local/nvim/init.lua
+
+Clear Data and Cache
+>
+rm -rf "$HOME/.config/nvim"
+rm -rf "$HOME/.local/share/nvim"
+rm -rf "$HOME/.local/state/nvim"
+<
+>
+rmdir /s /q "%LOCALAPPDATA%/nvim"
+rmdir /s /q "%USERPROFILE%\AppData\Local\nvim-data"
+<
+
+------------------------------------------------------------------------------
+Index                                                    *custom-config:index*
+
+- |custom-config:key-bindings|            Key Bindings
+- |custom-config:telescope.nvim|          telescope.nvim
+- |custom-config:nvim-tree|               nvim-tree
+- |custom-config:Comment.nvim|            Comment.nvim
+- |custom-config:codediff.nvim|           codediff.nvim
+- |custom-config:handling-binary-files|   Handling Binary Files
+- |custom-config:file-formats|            File Formats
+- |custom-config:debugging|               Debugging
+- |custom-config:configuration|           Configuration
+- |custom-config:writing-help-file|       Writing Help Files
+- |custom-config:resources|               Resources
+
+------------------------------------------------------------------------------
+Key Bindings                                      *custom-config:key-bindings*
+
+Modes
+- `n`   Normal mode
+- `i`   Insert mode
+- `x`   Visual mode
+- `s`   Selection mode
+- `v`   Visual + Selection
+- `t`   Terminal mode
+- `o`   Operator-pending
+- `''`  Equivalent of n + v + o
+
+- `<LEADER>`    leader key (currently mapped to space char, ' ')
+- `C`           control key
+- `M`           mod key
+- `CR`          carriage return (enter)
+
+- `<LEADER>w`     n     Write current file
+- `<LEADER>a`     n     Select all
+- `gy`            nx    Copy to clipboard
+- `gp`            nx    Paste from clipboard
+- `x`             nx    Delete single character
+- `X`             nx    Delete
+- `<C-k>`         nx    Scroll up 7 lines
+- `<C-j>`         nx    Scroll down 7 lines
+- `<LEADER>"`     x     Wrap selection with double quote ""
+- `<LEADER>'`     x     Wrap selection with single quote ''
+- `<C-k>`         i     Cursor up
+- `<C-j>`         i     Cursor down
+- `<C-h>`         i     Cursor left
+- `<C-l>`         i     Cursor right
+
+- `:split`              nx  Horizontal split
+- `:vsplit`             nx  Vertical split
+- `<C-w>w`              nx  Focus splits in circular pattern
+- `<C-arrow>`           nx  Focus splits
+- `<C-h/j/k/l>`         nx  Focus splits
+- `<C-c>`               nx  Close split
+- `:resize <N>`             Line height
+- `:vertical resize <N>`    Width (character)
+
+telescope.nvim
+- `<LEADER>ff`    n     Fuzzy find files
+- `<LEADER>fg`    n     Fuzzy live grep files
+- `<LEADER>fb`    n     Fuzzy find buffers
+- `<LEADER>fh`    n     Show help
+- `<LEADER>pp`    n     List build-in pickers and run them on `CR`
+
+hop.nvim
+- `f`             ''    Find wtih 1 char in the visible buffer
+- `F`             ''    Find wtih 2 chars in the visible buffer
+- `t`             ''    Find the input pattern in the visible buffer
+- `T`             ''    Find the word in the visible buffer
+
+Tabs
+- `gt`            n     Go to next tab, can use `3gt` to repeat
+- `gT`            n     Go to previous tab, can use `3gT` to repeat
+- `gn`            n     Creat the current buffer in new tab
+- `gc`            n     Close the current tab
+- `<C-Left>`      ni    Go to the previous tab
+- `<C-Right>`     ni    Go to the next tab
+- `<C-Up>`        ni    Move current tab to the previous tab
+- `<C-Down>`      ni    Move current tab to the next tab
+
+Search
+- `/{pattern}`        Search forward
+- `?{pattern}`        Search backword
+- `/{pattern}\c`      Search case insensitive, `\C` for case sensitive
+- `n`                 Go to next match, `N` for previous match
+- `*`                 Search current word under the cursor forward
+                      `#` for backword
+
+Record
+- `q<register>`       Record key strokes, press `q` again to stop
+- `@<register>`       Replay record
+- `5@<register>`      Replay record 5 times
+- `@@`                Repeat last playback
+- `5@@`               Repeat last palyback 5 time
+
+Marks
+`'a - 'z`   lowercase marks, valid within one file
+`'A - 'Z`   uppercase marks, also called file marks, valid between files
+
+- `m{a-zA-Z}`           Set mark at the cursor position
+- `'{a-z}{a-z}`         Jump to the mark {a-z} in the current buffer
+- `:delm[arks] {marks}` Delete specified mark
+- `:delm[arks]!`        Delete al marks
+
+Misc
+- `<`                 Shift left
+- `>`                 Shift right
+- `g?`                Rot13 encoding
+- `!`                 Filter through external program
+- `u`                 Lowercase
+- `U`                 Uppercase
+- `c`                 Change
+- `d`                 Delete
+- `dd`                Delete line
+- `y`                 Copy
+- `yy`                Copy line
+- `v`                 Visual mode
+- `hjkl`              Navigation
+- `^`                 To the first non-blank char of the line
+- `$`                 To the end of the line
+- `0`                 To the first char of the line
+- `G`                 Go to first line
+- `gg`                Go to last line
+- `:{line_no}`        Go to the line number
+- `w`                 Word forward
+- `e`                 Forward to the end of the word
+- `b`                 Word backword
+- `ge`                Backward to the end of the word
+- `o`                 New line after the current line
+- `O`                 New line before the current line
+- `<C-O>`             Execute normal mode command while in insert mode
+
+Find
+- `f{char}`           Find next occurance of the character under cursor,
+                      F{char} to find previous occurance
+- `;`                 Repeat last find operation in the same direction,
+                      `,`repeat in opposite direction
+
+------------------------------------------------------------------------------
+telescope.nvim                                  *custom-config:telescope.nvim*
+
+https://github.com/nvim-telescope/telescope.nvim
+
+NOTE: If file searches does not respects .gitignore, then check if `ripgrep`
+      is installed or run health check command
+
+Commands:
+- `:checkhealth telescope`
+
+- `<C-n>/<Down>`    Next item
+- `<C-p>/<Up>`	    Previous item
+- `j/k`	            Next/previous (in normal mode)
+- `H/M/L`	          Select High/Middle/Low (in normal mode)
+- `gg/G`	          Select the first/last item (in normal mode)
+- `<CR>`	          Confirm selection
+- `<C-x>`	          Go to file selection as a split
+- `<C-v>`	          Go to file selection as a vsplit
+- `<C-t>`	          Go to a file in a new tab
+- `<C-u>`	          Scroll up in preview window
+- `<C-d>`	          Scroll down in preview window
+- `<C-f>`	          Scroll left in preview window
+- `<C-k>`	          Scroll right in preview window
+- `<M-f>`	          Scroll left in results window
+- `<M-k>`	          Scroll right in results window
+- `<C-/>`	          Show mappings for picker actions (insert mode)
+- `?`	              Show mappings for picker actions (normal mode)
+- `<C-c>`	          Close telescope (insert mode)
+- `<Esc>`	          Close telescope (in normal mode)
+- `<Tab>`	          Toggle selection and move to next selection
+- `<S-Tab>`	        Toggle selection and move to prev selection
+- `<C-q>`	          Send all items not filtered to quickfixlist (qflist)
+- `<M-q>`	          Send all selected items to qflist
+- `<C-r><C-w>`	    Insert cword in original window into prompt (insert mode)
+
+------------------------------------------------------------------------------
+nvim-tree                                            *custom-config:nvim-tree*
+
+https://github.com/nvim-tree/nvim-tree.lua
+
+Keymaps
+- `g?`                      Show mappings when focused
+- `<LEADER>dx       n       Open/Close (toggle)
+- `<LEADER>dd       n       Open (if not open) and focus
+- `<LEADER>df       n       Find files
+- `<LEADER>dc       n       Collapse recursively
+
+- `:help nvim-tree`         Show help
+- `:NvimTreeToggle`         Open or close the tree. Takes an optional path argument
+- `:NvimTreeFocus`          Open the tree if it is closed, and then focus on the tree
+- `:NvimTreeFindFile`       Move the cursor in the tree for the current buffer, opening folders if needed
+- `:NvimTreeCollapse`       Collapses the nvim-tree recursively
+
+------------------------------------------------------------------------------
+Comment.nvim                                      *custom-config:Comment.nvim*
+
+https://github.com/numToStr/Comment.nvim
+
+- `gc`    Line comment leader
+- `gcc`   Toggle line comment
+
+- `gb`    Block comment leader
+- `gbc`   Toggle block comment
+
+------------------------------------------------------------------------------
+*codediff.nvim*                                   *custom-config:codediff.nvim*
+
+Keymap:
+- `q`                   Close diff tab
+- `g?`                  Show floating window with available keymaps
+- `<leader>b`           Toggle explorer visibility (explorer mode only)
+- `<leader>e`           Focus explorer panel (explorer mode only)
+
+File Explorer Mode:
+- `:CodeDiff install`               Install/update library
+- `:CodeDiff install!`              Force reinstall library
+- `:CodeDiff`                       Show git status in explorer (default)
+- `:CodeDiff HEAD~5`                Show changes for specific revision in explorer
+- `:CodeDiff main`                  Compare against a branch
+- `:CodeDiff abc123`                Compare against a specific commit
+- `:CodeDiff main HEAD`             Compare two revisions (e.g. HEAD vs main)
+
+- `:CodeDiff --inline`              Override layout for this invocation (works with all subcommands)
+- `:CodeDiff main --side-by-side`
+
+PR-Like Diff
+- `:CodeDiff main...`                   Shows only YOUR changes since you branched from main
+- `:CodeDiff main...HEAD`               Compare merge-base(main, HEAD) vs HEAD (committed changes only)
+- `:CodeDiff develop...feature/new-ui`  Compare merge-base between two branches
+
+Git Diff Mode:
+- `:CodeDiff file HEAD`             Compare with last commit
+- `:CodeDiff file HEAD~1`           Compare with previous commit
+- `:CodeDiff file abc123`           Compare with specific commit
+- `:CodeDiff file main`             Compare with branch
+- `:CodeDiff file v1.0.0`           Compare with tag
+- `:CodeDiff file main HEAD`        Compare two revisions for current file
+- `:CodeDiff file main...`          PR-like diff: compare merge-base(main, HEAD) vs working tree
+
+Requirements:
+Current buffer must be saved to a file
+File must be in a git repository
+Git revision must exist
+
+Behavior:
+Left buffer- Git version (at specified revision) - readonly
+Right buffer- Current buffer content - readonly
+Opens in a new tab automatically
+Async operation- won't block Neovim
+
+File History Mode:
+- `:CodeDiff history                            Show last 50 commits
+- `:CodeDiff history HEAD~10`                   Show last N commits
+- `:CodeDiff history origin/main..HEAD`         Show commits in a range (great for PR review)
+- `:CodeDiff history HEAD~20 %`                 Show commits for current file only
+- `:CodeDiff history HEAD~10 path/to/file.lua`  Show commits for a specific file
+
+- `:CodeDiff history --reverse`                 Show commits in chronological order (oldest first)
+- `:CodeDiff history HEAD~10 --reverse`
+- `:CodeDiff history origin/main..HEAD -r`
+- `:CodeDiff history HEAD~20 % --reverse`
+- `:CodeDiff history --base WORKING`            Compare each commit against the current working tree
+- `:CodeDiff history --base HEAD`               Compare each commit against HEAD
+
+- `:'<,'>CodeDiff history`                      Line-range history: show only commits that changed the selected lines
+- `:'<,'>CodeDiff history HEAD~10`
+- `:'<,'>CodeDiff history --reverse`
+
+------------------------------------------------------------------------------
+Handling Binary Files                    *custom-config:handling-binary-files*
+
+Open file in binary mode so that NVIM does not apply any special modification
+`nvim -b file.bin`
+
+Show hex `:%!xxd`
+
+Update the hex part of the output and write
+Modification other then hex parts are ignored, only replace with 'r' or 'R'.
+`:%!xxd -r`
+
+Highlight `:set ft=xxd`
+
+See unprintable characters in hex `:set display=uhex`
+
+View hex code of character under cursor: `ga`
+
+------------------------------------------------------------------------------
+File Formats                                      *custom-config:file-formats*
+
+Formats
+- unix `<NL>`
+- dos `<CR><NL>`
+- mac `<CR>`
+
+Convert file format
+>
+:set fileformat=unix
+:write
+<
+
+------------------------------------------------------------------------------
+Debugging                                            *custom-config:debugging*
+
+Get LSP logs location: `lua = require('vim.lsp.log').get_filename()`
+Set log level in `init.lua`: `vim.lsp.set_log_level('debug')`
+
+- `:CmdShowLspLog`              Open lsp.log file
+
+View log messages: https://neovim.io/doc/user/message.html
+
+- `:mes[sages]`                 Show all messages.
+- `:{count}mes[sages]`          Show the {count} most recent messages.
+- `:mes[sages] clear`           Clear all messages.
+- `:{count}mes[sages] clear`    Clear messages, keeping only the {count} most
+				                        recent ones.
+
+------------------------------------------------------------------------------
+Configuration                                    *custom-config:configuration*
+
+CONFIG DIRECTORY (DEFAULT)
+                  $XDG_CONFIG_HOME            Nvim: stdpath("config")
+    Unix:         ~/.config                   ~/.config/nvim
+    Windows:      ~/AppData/Local             ~/AppData/Local/nvim
+
+DATA DIRECTORY (DEFAULT)
+                  $XDG_DATA_HOME              Nvim: stdpath("data")
+    Unix:         ~/.local/share              ~/.local/share/nvim
+    Windows:      ~/AppData/Local             ~/AppData/Local/nvim-data
+
+RUN DIRECTORY (DEFAULT)
+                  $XDG_RUNTIME_DIR            Nvim: stdpath("run")
+    Unix:         /tmp/nvim.user/xxx          /tmp/nvim.user/xxx
+    Windows:      $TMP/nvim.user/xxx          $TMP/nvim.user/xxx
+
+STATE DIRECTORY (DEFAULT)
+                  $XDG_STATE_HOME             Nvim: stdpath("state")
+    Unix:         ~/.local/state              ~/.local/state/nvim
+    Windows:      ~/AppData/Local             ~/AppData/Local/nvim-data
+
+CACHE DIRECTORY (DEFAULT)
+                  $XDG_CACHE_HOME             Nvim: stdpath("cache")
+    Unix:         ~/.cache                    ~/.cache/nvim
+    Windows:      ~/AppData/Local/Temp        ~/AppData/Local/Temp/nvim-data
+
+LOG FILE (DEFAULT)
+                  $NVIM_LOG_FILE              Nvim: stdpath("log")/log
+    Unix:         ~/.local/state/nvim         ~/.local/state/nvim/log
+    Windows:      ~/AppData/Local/nvim-data   ~/AppData/Local/nvim-data/log
+Note that stdpath("log") is currently an alias for stdpath("state").
+
+ADDITIONAL CONFIGS DIRECTORY (DEFAULT)
+                  $XDG_CONFIG_DIRS            Nvim: stdpath("config_dirs")
+    Unix:         /etc/xdg/                   /etc/xdg/nvim
+    Windows:      Not applicable              Not applicable
+
+ADDITIONAL DATA DIRECTORY (DEFAULT)
+                  $XDG_DATA_DIRS              Nvim: stdpath("data_dirs")
+    Unix:         /usr/local/share            /usr/local/share/nvim
+                  /usr/share                  /usr/share/nvim
+    Windows:      Not applicable              Not applicable
+
+------------------------------------------------------------------------------
+Writing Help File                            *custom-config:writing-help-file*
+
+Execute `:helptags ~/.config/nvim/doc` in Neovim to enable navigation to
+`:h custom-config` or `:h custom-config:key-bindings`.
+
+You can automate this by adding
+`vim.cmd 'helptags stdpath("config") . "/doc"'` to your `init.lua`.
+
+Currently this is automated.
+
+------------------------------------------------------------------------------
+Resources                                            *custom-config:resources*
+
+- NeoVim Lua Guide: https://neovim.io/doc/user/lua-guide.html
+- VIM motions: https://neovim.io/doc/user/motion.html
+
+For more:
+- https://github.com/neovim/neovim/blob/master/runtime/doc/help.txt
+- https://neovim.io/doc/user/helphelp/#help-writing
+
+vim:tw=78:ts=8:noet:ft=help:norl:   

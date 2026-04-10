@@ -23,6 +23,14 @@ local function check_if_minimal_conf()
 	end
 end
 
+local function check_if_dir(dir)
+	if vim.fn.isdirectory(dir) then
+		return true
+	else
+		return false
+	end
+end
+
 local function check_if_exec_exists(exec, msg)
 	if vim.fn.executable(exec) ~= 1 then
 		print(msg)
@@ -50,15 +58,28 @@ vim.opt.hlsearch = false
 vim.opt.wrap = true
 -- Preserve indentation of a virtual line - ex. wrap lines
 vim.opt.breakindent = true
+vim.opt.breakindentopt = "shift:2,min:40,sbr"
 
 -- Amount of space on screen a TAB character occupy
 vim.opt.tabstop = 4
 -- Amount of space for indentation with >> and <<
 vim.opt.shiftwidth = 4
 -- Convert TAB to SPACE
-vim.opt.expandtab = false
+vim.opt.expandtab = true  -- Convert tabs to spaces when pressing Tab
+vim.opt.tabstop = 4       -- Number of spaces a tab represents
+vim.opt.shiftwidth = 4    -- Number of spaces for each indentation level
+vim.opt.softtabstop = 4   -- Number of spaces a tab counts for in insert mode
+vim.opt.textwidth = 0			-- Hard wrap text width limit (0 = no hard wrap)
 -- Enable spell check: https://neovim.io/doc/user/spell.html
 vim.opt.spell = true
+
+-- update docs
+local dir_doc = vim.fn.stdpath("config") .. "/doc"
+if check_if_dir(dir_doc) then
+	vim.cmd(([[helptags %s]]):format(dir_doc))
+else
+	print("could not find documentation directory")
+end
 
 --[[
 lazy.nvim
@@ -82,17 +103,21 @@ vim.opt.rtp:prepend(lazypath)
 local isMinimal = check_if_minimal_conf()
 local plugins_default = {
 	-- Telescope
-	{ 'nvim-telescope/telescope.nvim',       branch = '0.1.x',                                dependencies = { 'nvim-lua/plenary.nvim' } },
+	{ 'nvim-telescope/telescope.nvim',				version = '*',                                   dependencies = { 'nvim-lua/plenary.nvim' } },
 	-- Tokyonight Theme
-	{ "folke/tokyonight.nvim",               lazy = false,                                    priority = 1000,                           opts = {} },
+	{ "folke/tokyonight.nvim",								lazy = false,                                    priority = 1000,                           opts = {} },
 	-- Lualine
-	{ 'nvim-lualine/lualine.nvim',           dependencies = { 'nvim-tree/nvim-web-devicons' } },
+	{ 'nvim-lualine/lualine.nvim',						dependencies = { 'nvim-tree/nvim-web-devicons' } },
 	-- Indent-Blankline
-	{ "lukas-reineke/indent-blankline.nvim", main = "ibl",                                    opts = {} },
+	{ "lukas-reineke/indent-blankline.nvim",	main = "ibl",                                    opts = {} },
 	-- Hop
-	{ 'smoka7/hop.nvim' },
+	{ 'smoka7/hop.nvim',											version = "*" },
 	-- Comment
-	{ 'numToStr/Comment.nvim',               opts = {},                                       lazy = false, },
+	{ 'numToStr/Comment.nvim',								opts = {},                                       lazy = false, },
+	-- NvimTree
+	{ "nvim-tree/nvim-tree.lua",          		version = "*",      lazy = false, dependencies = { "nvim-tree/nvim-web-devicons" } },
+	-- codediff.nvim
+	{ "esmuellert/codediff.nvim", cmd = "CodeDiff" }
 }
 
 local plugins_extended = {
@@ -105,9 +130,7 @@ local plugins_extended = {
 	{ 'hrsh7th/nvim-cmp' },
 	{ 'L3MON4D3/LuaSnip' },
 	-- Treesitter
-	{ "nvim-treesitter/nvim-treesitter",  build = ":TSUpdate" },
-	-- NvimTree
-	{ "nvim-tree/nvim-tree.lua",          version = "*",      lazy = false, dependencies = { "nvim-tree/nvim-web-devicons" } }
+	{ "nvim-treesitter/nvim-treesitter",  build = ":TSUpdate" }
 }
 
 local plugins = {}
@@ -184,85 +207,28 @@ if not isMinimal then
 			additional_vim_regex_highlighting = false,
 		}
 	}
-
-	--[[
-	NvimTree
-	--------
-	https://github.com/nvim-tree/nvim-tree.lua
-	Commands:
-		help nvim-tree		: Show help
-		NvimTreeToggle		: Open or close the tree. Takes an optional path argument
-		NvimTreeFocus		: Open the tree if it is closed, and then focus on the tree
-		NvimTreeFindFile	: Move the cursor in the tree for the current buffer, opening folders if needed
-		NvimTreeCollapse	: Collapses the nvim-tree recursively
-	Help keymap:
-		g?	: Show mappings
-	--]]
-	-- disable netrw at the very start of your init.lua
-	vim.g.loaded_netrw = 1
-	vim.g.loaded_netrwPlugin = 1
-
-	-- optionally enable 24-bit colour
-	vim.opt.termguicolors = true
-
-	-- empty setup using defaults
-	require("nvim-tree").setup()
-
-	-- OR setup with some options
-	require("nvim-tree").setup({
-		sort = {
-			sorter = "case_sensitive",
-		},
-		view = {
-			width = 30,
-		},
-		renderer = {
-			group_empty = true,
-		},
-		filters = {
-			dotfiles = true,
-		},
-	})
 end
 
 --[[
 telescope.nvim
 --------------
 https://github.com/nvim-telescope/telescope.nvim
-
-NOTE: If file searches does not respects .gitignore, then check if `ripgrep` is installed
-	or run health check command
-Commands:
-	:checkhealth telescope
-Default Mappings:
-	<C-n>/<Down>	Next item
-	<C-p>/<Up>	Previous item
-	j/k	Next/previous (in normal mode)
-	H/M/L	Select High/Middle/Low (in normal mode)
-	gg/G	Select the first/last item (in normal mode)
-	<CR>	Confirm selection
-	<C-x>	Go to file selection as a split
-	<C-v>	Go to file selection as a vsplit
-	<C-t>	Go to a file in a new tab
-	<C-u>	Scroll up in preview window
-	<C-d>	Scroll down in preview window
-	<C-f>	Scroll left in preview window
-	<C-k>	Scroll right in preview window
-	<M-f>	Scroll left in results window
-	<M-k>	Scroll right in results window
-	<C-/>	Show mappings for picker actions (insert mode)
-	?	Show mappings for picker actions (normal mode)
-	<C-c>	Close telescope (insert mode)
-	<Esc>	Close telescope (in normal mode)
-	<Tab>	Toggle selection and move to next selection
-	<S-Tab>	Toggle selection and move to prev selection
-	<C-q>	Send all items not filtered to quickfixlist (qflist)
-	<M-q>	Send all selected items to qflist
-	<C-r><C-w>	Insert cword in original window into prompt (insert mode)
 --]]
+local telescopeConfig = require("telescope.config")
+
+-- Clone the default Telescope configuration
+local vimgrep_arguments = { unpack(telescopeConfig.values.vimgrep_arguments) }
+
+-- I want to search in hidden/dot files.
+table.insert(vimgrep_arguments, "--hidden")
+-- I don't want to search in the `.git` directory.
+table.insert(vimgrep_arguments, "--glob")
+table.insert(vimgrep_arguments, "!**/.git/*")
+
 check_if_exec_exists("rg", "rg command (ripgrep) not found, required for telescope: https://github.com/BurntSushi/ripgrep")
 require("telescope").setup({
 	defaults = {
+		vimgrep_arguments = vimgrep_arguments,
 		layout_config = {
 			horizontal = {
 				width = function(_, max_columns, _)
@@ -274,11 +240,17 @@ require("telescope").setup({
 			},
 		},
 	},
+	pickers = {
+		find_files = {
+			-- `hidden = true` will still show the inside of `.git/` as it's not `.gitignore`d.
+			find_command = { "rg", "--files", "--hidden", "--glob", "!**/.git/*" },
+		},
+	},
 })
 
 --[[
-lualine
--------
+lualine.nvim
+------------
 https://github.com/nvim-lualine/lualine.nvim
 --]]
 
@@ -337,6 +309,7 @@ require("tokyonight").setup({
 	end
 })
 
+-- set color scheme
 vim.cmd [[colorscheme tokyonight]]
 
 --[[
@@ -467,6 +440,37 @@ end
 vim.o.tabline = '%!v:lua.nvim_tabline()'
 vim.opt.showtabline = 2
 
+--[[
+NvimTree
+--------
+https://github.com/nvim-tree/nvim-tree.lua
+--]]
+-- disable netrw at the very start of your init.lua
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
+
+-- optionally enable 24-bit colour
+vim.opt.termguicolors = true
+
+-- empty setup using defaults
+require("nvim-tree").setup()
+
+-- OR setup with some options
+require("nvim-tree").setup({
+	sort = {
+		sorter = "case_sensitive",
+	},
+	view = {
+		width = 30,
+	},
+	renderer = {
+		group_empty = true,
+	},
+	filters = {
+		dotfiles = false,
+	},
+})
+
 ------------------
 -- Other checks --
 ------------------
@@ -476,9 +480,7 @@ check_if_exec_exists("xsel", "xsel command not found, required for clipboard ope
 ===========
 Keybindings
 ===========
---]]
 
---[[
 vim.keymap.set({mode}, {lhs}, {rhs}, {opts})
 
 Modes:
@@ -489,7 +491,7 @@ s	: Selection mode
 v	: Visual + Selection
 t	: Terminal mode
 o	: Operator-pending
-''	: Equivalent of h + v + o
+''	: Equivalent of n + v + o
 
 {lhs}	: Key to bind
 {rhs}	: Action to execute, string command or Lua function
@@ -501,7 +503,7 @@ vim.g.mapleader = ' '
 vim.keymap.set('n', '<LEADER>w', '<CMD>write<CR>', { desc = 'Save' })
 -- Copy to clipboard with 'gy' in normal+visual mode
 vim.keymap.set({ 'n', 'x' }, 'gy', '"+y')
--- Paste to clipboard with 'gp' in normal+visual mode
+-- Paste from clipboard with 'gp' in normal+visual mode
 vim.keymap.set({ 'n', 'x' }, 'gp', '"+p')
 -- While deleting in normal+visual mode, deleting with 'x' and 'X' with not change registers
 vim.keymap.set({ 'n', 'x' }, 'x', '"_x')
@@ -556,17 +558,15 @@ vim.keymap.set({ 'n', 'i' }, '<C-Up>', '<ESC>:tabm -1<CR>', { remap = false })
 -- Move current tab to the next tab with 'ctrl-down' in normal and input mode
 vim.keymap.set({ 'n', 'i' }, '<C-Down>', '<ESC>:tabm +1<CR>', { remap = false })
 
-if not isMinimal then
-	-- nvim-tree
-	-- Open/Close (toggle) NvimTree with '<leader>dd' when in normal and input mode
-	vim.keymap.set({ 'n', 'i' }, '<LEADER>dx', '<ESC>:NvimTreeToggle<CR>')
-	-- Open (if not open) and focus on NvimTree with '<leader>dw' when in normal and input mode
-	vim.keymap.set({ 'n', 'i' }, '<LEADER>dd', '<ESC>:NvimTreeFocus<CR>')
-	-- Find files in NvimTree with '<leader>df' when in normal and input mode
-	vim.keymap.set({ 'n', 'i' }, '<LEADER>df', '<ESC>:NvimTreeFindFile<CR>')
-	-- Collapse recursively in NvimTree with '<leader>dc' when in normal and input mode
-	vim.keymap.set({ 'n', 'i' }, '<LEADER>dc', '<ESC>:NvimTreeCollapse<CR>')
-end
+-- nvim-tree
+-- Open/Close (toggle) NvimTree with '<leader>dd' when in normal mode
+vim.keymap.set('n', '<LEADER>dx', '<ESC>:NvimTreeToggle<CR>')
+-- Open (if not open) and focus on NvimTree with '<leader>dd' when in normal mode
+vim.keymap.set('n', '<LEADER>dd', '<ESC>:NvimTreeFocus<CR>')
+-- Find files in NvimTree with '<leader>df' when in normal mode
+vim.keymap.set('n', '<LEADER>df', '<ESC>:NvimTreeFindFile<CR>')
+-- Collapse recursively in NvimTree with '<leader>dc' when in normal mode
+vim.keymap.set('n', '<LEADER>dc', '<ESC>:NvimTreeCollapse<CR>')
 
 --[[
 Custom Commands
@@ -600,64 +600,9 @@ vim.keymap.set('',
 		hop.hint_patterns({ direction = nil, current_line_only = false })
 	end,
 	{ remap = true })
-
+-- Find the word with 'T' in the visible buffer
 vim.keymap.set('',
 	'T', function()
 		hop.hint_words({ direction = nil, current_line_only = false })
 	end,
 	{ remap = true })
-
---[[
-NeoVim Lua Guide
-----------------
-https://neovim.io/doc/user/lua-guide.html
-
-Handing binary files:
----------------------
--- Open file in binary mode so that NVIM does not apply any special modification
--- nvim -b file.bin
---
--- Show hex
--- :%!xxd
---
--- Update the hex part of the output and write (modification other then hex parts are ignored, only replace with 'r' or 'R'
--- :%!xxd -r
---
--- Highlight
--- :set ft=xxd
---
--- See unprintable characters in hex
--- :set display=uhex
---
--- View hex code of character under cursor
--- ga
---
--- File Formats
----------------
--- Formats: unix (<NL>), dos (<CR><NL>), mac (<CR>)
---
--- Convert file format
--- :set fileformat=unix
--- :write
-
-VIM motions
---------------
-https://neovim.io/doc/user/motion.html
-
-Get LSP logs location
----------------------
-lua =require('vim.lsp.log').get_filename()
-Set log level in init.lua
-vim.lsp.set_log_level('debug')
-
- View log messages
---------------------
-https://neovim.io/doc/user/message.html
-
-	:mes[sages]		Show all messages.
-	:{count}mes[sages]	Show the {count} most recent messages.
-	:mes[sages] clear	Clear all messages.
-	:{count}mes[sages] clear
-				Clear messages, keeping only the {count} most
-				recent ones.
---]]
