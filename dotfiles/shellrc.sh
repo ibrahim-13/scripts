@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 if [ -n "$ZSH_VERSION" ]; then
 	CURRENT_SHELL="zsh"
 elif [ -n "$BASH_VERSION" ]; then
