@@ -44,7 +44,7 @@ function func_gh_http {
 		errexit "could not find wget or curl, at least one is needed for api request"
 	fi
 	echo "$GH_RESPONSE"
-	}
+}
 
 # get lastest release asset url from github with gh cli
 # $1 : github username

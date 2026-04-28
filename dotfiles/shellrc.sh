@@ -105,8 +105,9 @@ alias ungz='tar -xvzf'
 # Show all logs in /var/log
 alias logs="sudo find /var/log -type f -exec file {} \; | grep 'text' | cut -d' ' -f1 | sed -e's/:$//g' | grep -v '[0-9]$' | xargs tail -f"
 
-# SHA1
+# SHA
 alias sha1='openssl sha1'
+alias sha256='openssl sha256'
 
 # alias to cleanup unused docker containers, images, networks, and volumes
 

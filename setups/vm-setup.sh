@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
-# Exit script on error
-set -e
+# -e exit on error
+# -u error on using unset variable
+# -x print full command before running
+# set -eux
+set -eu
 
 # Debugging
 # ---------
@@ -15,11 +18,11 @@ set -e
 # trap '(read -p "[$BASE_SOURCE:$lineno] $bash_command")' DEBUGDIR_TMP="$HOME/.tmp"
 
 function prompt_confirmation {
-  if [ "$2" == "true"]; then
+  if [ "$2" == "true" ]; then
     return 0
   fi
 	local TMP_ANS
-	read -p "$(echo -e -n " ${1} (y/N) ")" TMP_ANS
+	read -p "[ prompt ] $(echo -e -n " ${1} (y/N) ")" TMP_ANS
 	case $TMP_ANS in
 	[Yy])
 		return 0
@@ -30,8 +33,11 @@ function prompt_confirmation {
 	esac
 }
 
+# find if line exists in the file
+# $1: text to find
+# $2: file to search
 function line_exists {
-  if grep -qFx "STRING_TO_FIND" $1; then
+  if grep -qFx "$1" "$2"; then
     return 0
   else
     return 1
@@ -48,23 +54,15 @@ function command_exists {
 }
 
 function print_info {
-  echo "[ info  ] $1"
+  echo "[ info   ] $1"
 }
 
 function print_warn {
-  echo "[ warn  ] $1"
+  echo "[ warn   ] $1"
 }
 
 function print_err {
-  echo "[ error ] $1"
-}
-
-function func_dnf_weak_deps {
-  echo "install_weak_deps=false" >> /etc/dnf/dnf.conf 2>&1
-}
-
-function func_xinitrc {
-  echo "exec awesome" >> $HOME/.xinitrc 2>&1
+  echo "[ error  ] $1"
 }
 
 ########
@@ -85,9 +83,7 @@ function usage() {
     exit 1
 }
 
-if [ $# -eq 0 ]; then
-    usage  "no arguments provided."
-fi
+ARG_CONFIRM="false"
 
 # parse params
 # https://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash
@@ -97,62 +93,80 @@ while [[ "$#" > 0 ]]; do case $1 in
     *) usage "invalid arguments";;
 esac; done
 
-if [ -f /etc/dnf/dnf.conf ]; then
-  print_info "disabling weak dependencies for dnf"
-  if ! line_exists "install_weak_deps=false"; then
-    if prompt_confirmation "disable weak dependencies for dnf?" $ARG_CONFIRM; then
-      func_dnf_weak_deps
-    else
-      print_warn "weak dependencies for dnf NOT disabled"
-    fi
-  else
-    print_info "weak dependencies are disabled for dnf"
-  fi
-fi
-
-print_info "setting xinitrc to start awesome wm"
-if ! [ -f $HOME/.xinitrc ]; then
-  if ! line_exists "exec awesome"; then
-    if prompt_confirmation "set awesome wm for xinit?" $ARG_CONFIRM; then
-      func_xinitrc
-    else
-      print_warn "weak dependencies for dnf NOT disabled"
-    fi
-  else
-    print_info "awesome is set as wm in xinit"
-  fi
+if ! [ -f /etc/dnf/dnf.conf ]; then
+  print_warn "dnf config file not found, configuration will be skipped"
+elif line_exists "install_weak_deps=false" "/etc/dnf/dnf.conf"; then
+  print_info "dnf already configured to disable weak deps"
+elif prompt_confirmation "disable weak dependencies for dnf?" $ARG_CONFIRM; then
+  sudo tee -a /etc/dnf/dnf.conf > /dev/null <<EOT
+install_weak_deps=false
+EOT
+  print_info "dnf weak dependencies disabled"
 else
-  func_xinitrc
+  print_warn "weak dependencies for dnf NOT disabled"
 fi
 
-print_info "updating packages"
+AWESOME_EXEC="exec awesome &> $HOME/awesomewm.log"
+if line_exists "$AWESOME_EXEC" "$HOME/.xinitrc"; then
+  print_info "xinit already configured for awesome wm"
+elif prompt_confirmation "set awesome wm for xinit?" $ARG_CONFIRM; then
+  echo "$AWESOME_EXEC" >> $HOME/.xinitrc 2>&1
+  print_info "xinit configured to start awesome wm"
+fi
+
 if prompt_confirmation "update all system packages?" $ARG_CONFIRM; then
-  sudo dnf check-update
-  sudo dnf update
-else
-  print_warn "system packages not updated"
+  sudo dnf update -y
+  print_info "packages updated"
 fi
 
-print_info "installing xorg"
 if prompt_confirmation "install xorg and the required packages?" $ARG_CONFIRM; then
-  sudo dnf group install base-x awesome desktop-file-utils
-else
-  print_warn "xorg display server not installed"
+  sudo dnf group install base-x
+  print_info "xorg display server installed"
 fi
 
-print_info "installing necessary user packages"
 if prompt_confirmation "install the necessary packages?" $ARG_CONFIRM; then
-  sudo dnf install thunar thunar-archive-plugin xdg-user-dirs nvim
-else
-  print_warn "user packages not installed"
+  sudo dnf install thunar thunar-archive-plugin xdg-user-dirs awesome desktop-file-utils git wget
+  print_info "user packages installed"
 fi
 
-echo ""
-print_info "to start xorg session, run: startx"
-echo ""
+if prompt_confirmation "install neovim?" $ARG_CONFIRM; then
+  sudo dnf install nvim
+  print_info "neovim installed"
+fi
 
-echo ""
+if prompt_confirmation "install hugo?" $ARG_CONFIRM; then
+  sudo dnf install hugo
+  print_info "hugo installed"
+fi
+
+if prompt_confirmation "install xvkbd virtual keyboard?" $ARG_CONFIRM; then
+  sudo dnf install xvkbd
+  print_info "xvkbd virtual keyboard installed"
+fi
+
+if prompt_confirmation "install c/c++ dev packages?" $ARG_CONFIRM; then
+  sudo dnf group install c-development development-tools
+  print_info "c/c++ dev packages installed"
+fi
+
+if prompt_confirmation "install rpmfution repository and ffmpeg?" $ARG_CONFIRM; then
+  if dnf repolist | grep -qi rpmfusion; then
+    sudo dnf install https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
+    print_info "rpm fusion repo added"
+  else
+    print_info "rpm fusion repo already exists"
+  fi
+  sudo dnf swap ffmpeg-free ffmpeg --allowerasing
+  sudo dnf -y install ffmpeg
+  print_info "ffmpeg installed"
+fi
+
+echo "============="
+print_info "to start xorg session, run: startx"
+echo "============="
+
+echo "============="
 print_info "in case of failure related to xauth,"
 print_info "    change enable_xauth=1 to enable_xauth=0 "
 print_info "    in /usr/local/bin/startx to disable XAuth"
-echo ""
+echo "============="
