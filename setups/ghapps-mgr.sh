@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# -e exit on error
+# -u error on using unset variable
+# -x print full command before running
+# set -eux
+set -eu
+
 if [ "$EUID" -eq 0 ]; then echo "do not run under root"; exit 1; fi
 
 # Debugging
@@ -15,16 +21,11 @@ if [ "$EUID" -eq 0 ]; then echo "do not run under root"; exit 1; fi
 
 DIR_TMP="$HOME/.tmp"
 
-function cleanup {
-	if [ -d "$DIR_TMP" ]; then
-		rm -rf "$DIR_TMP"
-	fi
-	mkdir -p $DIR_TMP
-}
-# cleanup when exiting
-trap cleanup EXIT
-# cleanup at startup
-cleanup
+# cleanup temp directory
+if [ -d "$DIR_TMP" ]; then
+    rm -rf "$DIR_TMP"
+fi
+mkdir -p $DIR_TMP
 
 SCRIPT_SOURCE=${BASH_SOURCE[0]}
 while [ -L "$SCRIPT_SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
@@ -34,8 +35,6 @@ while [ -L "$SCRIPT_SOURCE" ]; do # resolve $SOURCE until the file is no longer 
 done
 SCRIPT_DIR=$( cd -P "$( dirname "$SCRIPT_SOURCE" )" >/dev/null 2>&1 && pwd )
 
-source "$SCRIPT_DIR/../util/common.sh"
-
 INSTALL_DIR="$HOME/apps"
 STATE_DIR="$INSTALL_DIR/state"
 DESKTOP_DIR="$HOME/.local/share/applications"
@@ -43,72 +42,169 @@ mkdir -p "$INSTALL_DIR"
 mkdir -p "$STATE_DIR"
 mkdir -p "$DESKTOP_DIR"
 
+ARCH="$(uname -m)"
+MACHINE="$(uname -s)"
+
+function print_info {
+  echo "[ info   ] $1"
+}
+
+function print_warn {
+  echo "[ warn   ] $1"
+}
+
+function print_error {
+  echo "[ error  ] $1"
+}
+
+function get_machine1 {
+	case "${MACHINE}" in
+		Linux*) echo linux ;;
+		Darwin*) echo darwin ;;
+		CYGWIN*) echo cygwin ;;
+		MINGW*) echo mingw ;;
+		*) $MACHINE ;;
+	esac
+}
+
+function get_machine2 {
+	case "${MACHINE}" in
+		Linux*) echo linux ;;
+		Darwin*) echo osx ;;
+		CYGWIN*) echo cygwin ;;
+		MINGW*) echo mingw ;;
+		*) $MACHINE ;;
+	esac
+}
+
+function get_arch1 {
+	case $ARCH in
+    x86_64|amd64) echo amd64 ;;
+    aarch64|arm64) echo arm64 ;;
+    *) echo $ARCH ;;
+	esac
+}
+
+function get_arch2 {
+	case $ARCH in
+    x86_64|amd64) echo x86_64 ;;
+    aarch64|arm64) echo aarch64 ;;
+    *) echo $ARCH ;;
+	esac
+}
+
+function get_arch3 {
+	case $ARCH in
+    x86_64|amd64) echo x86_64 ;;
+    aarch64|arm64) echo arm64 ;;
+    *) echo $ARCH ;;
+	esac
+}
+
+# find if line exists in the file
+# $1: text to find
+# $2: file to search
+function line_exists {
+  if grep -qFx "$1" "$2"; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# get lastest release asset url from github with http api
+# $1 : github username
+# $2 : github repo
+function func_gh_version {
+	local GH_URL
+	local HEADER_ACCEPT
+	local HEADER_VERSION
+	local GH_RESPONSE
+	GH_URL="https://api.github.com/repos/$1/$2/releases/latest"
+	HEADER_ACCEPT="Accept: application/vnd.github+json"
+	HEADER_VERSION="X-GitHub-Api-Version: 2022-11-28"
+	if command -v wget &> /dev/null
+	then
+		GH_RESPONSE="$(wget --header="$HEADER_ACCEPT" --header="$HEADER_VERSION" -qO- "$GH_URL" | awk '/tag_name/{print $4;exit}' FS='[""]')"
+	elif command -v curl &> /dev/null
+	then
+		GH_RESPONSE="$(curl -H "$HEADER_ACCEPT" -H "$HEADER_VERSION" -s -O "$GH_URL" | awk '/tag_name/{print $4;exit}' FS='[""]')"
+	else
+		exit 1
+	fi
+	echo "$GH_RESPONSE"
+}
+
 function app_lf {
     print_info "app: lf"
-    local DOWNLOAD_DIR="$DIR_TMP/lf"
-    local DOWNLOAD_FILE="$DOWNLOAD_DIR/lf.tar.gz"
-    mkdir -p $DOWNLOAD_DIR
+    local DOWNLOAD_FILE="$DIR_TMP/lf.tar.gz"
+    local LF_STATE_FILE="$STATE_DIR/lf.gh.state"
+    local LF_TAG=$(func_gh_version "gokcehan" "lf")
 
-    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "gokcehan" -r "lf" -p 'select(.name | contains("lf-linux-amd64.tar.gz"))' -s "$STATE_DIR/lf.gh.state"
-    local GH_EXIT_CODE="$?"
-    if ! [ "$GH_EXIT_CODE" == "0" ]; then
-        if [ "$GH_EXIT_CODE" == "255" ]; then return; fi
-        errexit "github binary downloader failed"
+    if [ -f "$LF_STATE_FILE" ] && [ "$LF_TAG" == "$(cat "$LF_STATE_FILE")" ]; then
+        print_info "lf already up to date"
+        return
     fi
 
+    print_info "downloading lf archive"
+    wget -q --show-progress --progress=bar:force:noscroll -O "$DOWNLOAD_FILE" "https://github.com/gokcehan/lf/releases/download/$LF_TAG/lf-$(get_machine1)-$(get_arch1).tar.gz" 2>&1
+
     chmod 666 "$DOWNLOAD_FILE"
-    echo "extracting files:"
+    print_info "extracting files:"
     tar -xvzf "$DOWNLOAD_FILE" -C "$INSTALL_DIR"
-    echo "updating file permissions"
+    print_info "updating file permissions"
     chmod 755 "$INSTALL_DIR/lf"
-    echo "removing temp directory"
-    rm -rf "$DOWNLOAD_DIR"
+    print_info "removing downloaded archive"
+    rm -f "$DOWNLOAD_FILE"
+
+    echo "$LF_TAG" > "$LF_STATE_FILE"
 }
 
 function app_fzf {
     print_info "app: fzf"
-    local DOWNLOAD_DIR="$DIR_TMP/fzf"
-    local DOWNLOAD_FILE="$DOWNLOAD_DIR/fzf.tar.gz"
-    mkdir -p $DOWNLOAD_DIR
+    local DOWNLOAD_FILE="$DIR_TMP/fzf.tar.gz"
+    local FZF_STATE_FILE="$STATE_DIR/fzf.gh.state"
+    local FZF_TAG=$(func_gh_version "junegunn" "fzf")
 
-    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "junegunn" -r "fzf" -p 'select(.name | contains("linux_amd64.tar.gz"))' -s "$STATE_DIR/fzf.gh.state"
-    local GH_EXIT_CODE="$?"
-    if ! [ "$GH_EXIT_CODE" == "0" ]; then
-        if [ "$GH_EXIT_CODE" == "255" ]; then return; fi
-        errexit "github binary downloader failed"
+    if [ -f "$FZF_STATE_FILE" ] && [ "$FZF_TAG" == "$(cat "$FZF_STATE_FILE")" ]; then
+        print_info "fzf already up to date"
+        return
     fi
+
+    print_info "downloading fzf archive"
+    wget -q --show-progress --progress=bar:force:noscroll -O "$DOWNLOAD_FILE" "https://github.com/junegunn/fzf/releases/download/$FZF_TAG/fzf-${FZF_TAG#?}-$(get_machine1)_$(get_arch1).tar.gz" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "extracting files:"
     tar -xvzf "$DOWNLOAD_FILE" -C "$INSTALL_DIR"
     print_info "updating file permissions"
     chmod 755 "$INSTALL_DIR/fzf"
-    print_info "removing temp directory"
-    rm -rf "$DOWNLOAD_DIR"
+    print_info "removing downloaded archive"
+    rm -f "$DOWNLOAD_FILE"
+
+    echo "$FZF_TAG" > "$FZF_STATE_FILE"
 }
 
 function app_helium_browser_linux {
     print_info "app: helium browser (linux)"
-    local DOWNLOAD_DIR="$DIR_TMP/heliumbrowserlinux"
-    local DOWNLOAD_FILE="$DOWNLOAD_DIR/helium-browser-linux.AppImage"
+    local DOWNLOAD_FILE="$DIR_TMP/helium-browser.AppImage"
     local INSTALL_FILE="$INSTALL_DIR/helium-browser-linux.AppImage"
-    mkdir -p $DOWNLOAD_DIR
+    local HELIUMBROWSER_STATE_FILE="$STATE_DIR/helium-browser.gh.state"
+    local HELIUMBROWSER_TAG=$(func_gh_version "imputnet" "helium-linux")
 
-    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "imputnet" -r "helium-linux" -p 'select(.name | startswith("helium-") and endswith("-x86_64.AppImage") and (contains("zsync") | not))' -s "$STATE_DIR/helium-browser-linux.gh.state"
-    local GH_EXIT_CODE="$?"
-    if ! [ "$GH_EXIT_CODE" == "0" ]; then
-        if [ "$GH_EXIT_CODE" == "255" ]; then return; fi
-        errexit "github binary downloader failed"
+    if [ -f "$HELIUMBROWSER_STATE_FILE" ] && [ "$HELIUMBROWSER_TAG" == "$(cat "$HELIUMBROWSER_STATE_FILE")" ]; then
+        print_info "helium browser already up to date"
+        return
     fi
+
+    print_info "downloading helium browser appimage"
+    wget -q --show-progress --progress=bar:force:noscroll -O "$DOWNLOAD_FILE" "https://github.com/imputnet/helium-linux/releases/download/$HELIUMBROWSER_TAG/helium-$HELIUMBROWSER_TAG-$(get_arch3).AppImage" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "copying files:"
     cp -f "$DOWNLOAD_FILE" "$INSTALL_FILE"
     print_info "updating file permissions"
     chmod 755 "$INSTALL_FILE"
-    print_info "removing temp directory"
-    rm -rf "$DOWNLOAD_DIR"
-
     tee "$DESKTOP_DIR/helium-browser-linux.desktop"> /dev/null <<EOT
 [Desktop Entry]
 Name=Helium Browser
@@ -129,7 +225,11 @@ Name=New Incognito Window
 Exec=$INSTALL_FILE --incognito %F
 EOT
     # Register app to the OS
-	update-desktop-database "$DESKTOP_DIR"
+    update-desktop-database "$DESKTOP_DIR"
+    print_info "removing downloaded appimage"
+    rm -f "$DOWNLOAD_FILE"
+
+    echo "$HELIUMBROWSER_TAG" > "$HELIUMBROWSER_STATE_FILE"
 }
 
 function app_rclone {
@@ -138,14 +238,17 @@ function app_rclone {
     local DOWNLOAD_FILE="$DOWNLOAD_DIR/rclone.zip"
     local INSTALL_FILE_NEW="/usr/bin/rclone.new"
     local INSTALL_FILE="/usr/bin/rclone"
+    local RCLONE_STATE_FILE="$STATE_DIR/rclone.gh.state"
+    local RCLONE_TAG=$(func_gh_version "rclone" "rclone")
     mkdir -p $DOWNLOAD_DIR
 
-    bash "$SCRIPT_DIR/../util/ghbin-dl.sh" -upd -d "$DOWNLOAD_FILE" -u "rclone" -r "rclone" -p 'select(.name | startswith("rclone-") and endswith("-linux-amd64.zip"))' -s "$STATE_DIR/rclone.gh.state"
-    local GH_EXIT_CODE="$?"
-    if ! [ "$GH_EXIT_CODE" == "0" ]; then
-        if [ "$GH_EXIT_CODE" == "255" ]; then return; fi
-        errexit "github binary downloader failed"
+    if [ -f "$RCLONE_STATE_FILE" ] && [ "$RCLONE_TAG" == "$(cat "$RCLONE_STATE_FILE")" ]; then
+        print_info "rclone already up to date"
+        return
     fi
+
+    print_info "downloading rclone archive"
+    wget -q --show-progress --progress=bar:force:noscroll -O "$DOWNLOAD_FILE" "https://github.com/rclone/rclone/releases/download/$RCLONE_TAG/rclone-$RCLONE_TAG-$(get_machine2)-$(get_arch1).zip" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "extracting files:"
@@ -160,7 +263,7 @@ function app_rclone {
     print_info "replacing with existing binary"
     sudo mv "$INSTALL_FILE_NEW" "$INSTALL_FILE"
     if ! [ -x "$(command -v mandb)" ]; then
-        print_debug "mandb not found, rclone man docs will not be installed"
+        print_warn "mandb not found, rclone man docs will not be installed"
     else
         print_info "updating mandb for rclone"
         sudo mkdir -p /usr/local/share/man/man1
@@ -170,6 +273,8 @@ function app_rclone {
     cd ..
     print_info "removing temp directory"
     rm -rf "$DOWNLOAD_DIR"
+
+    echo "$RCLONE_TAG" > "$RCLONE_STATE_FILE"
 }
 
 ########
@@ -178,9 +283,10 @@ function app_rclone {
 
 function usage() {
     if [ -n "$1" ]; then
-        echo -e "[ error ] $1\n";
+        print_error "$1";
+        echo ""
     fi
-    echo "apps setup for installing from github releases"
+    echo "usage: apps setup for installing from github releases"
     echo ""
     echo "Usage: $(basename "$0") [--lf] [--fzf] [--helium] [--rclone] [-u|--update]"
     echo ""
@@ -197,6 +303,12 @@ if [ $# -eq 0 ]; then
     usage  "no arguments provided."
 fi
 
+ARG_LF=0
+ARG_FZF=0
+ARG_HELIUM=0
+ARG_RCLONE=0
+ARG_UPDATE=0
+
 # parse params
 # https://stackoverflow.com/questions/192249/how-do-i-parse-command-line-arguments-in-bash
 while [[ "$#" > 0 ]]; do case $1 in
@@ -209,10 +321,10 @@ while [[ "$#" > 0 ]]; do case $1 in
 esac; done
 
 if [[ "$ARG_UPDATE" == "1" ]]; then
-    if [[ -f "$STATE_DIR/lf.gh.state" ]]; then ARG_LF=1; else print_debug "lf not installed, skipping"; fi
-    if [[ -f "$STATE_DIR/fzf.gh.state" ]]; then ARG_FZF=1; else print_debug "fzf not installed, skipping"; fi
-    if [[ -f "$STATE_DIR/helium-browser-linux.gh.state" ]]; then ARG_HELIUM=1; else print_debug "helium browser not installed, skipping"; fi
-    if [[ -f "$STATE_DIR/rclone.gh.state" ]]; then ARG_RCLONE=1; else print_debug "rclone not installed, skipping"; fi
+    if [[ -f "$STATE_DIR/lf.gh.state" ]]; then ARG_LF=1; else print_warn "lf not installed, skipping"; fi
+    if [[ -f "$STATE_DIR/fzf.gh.state" ]]; then ARG_FZF=1; else print_warn "fzf not installed, skipping"; fi
+    if [[ -f "$STATE_DIR/helium-browser.gh.state" ]]; then ARG_HELIUM=1; else print_warn "helium browser not installed, skipping"; fi
+    if [[ -f "$STATE_DIR/rclone.gh.state" ]]; then ARG_RCLONE=1; else print_warn "rclone not installed, skipping"; fi
 fi
 
 if [[ "$ARG_LF" == "1" ]]; then app_lf; fi
