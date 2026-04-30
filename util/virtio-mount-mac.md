@@ -33,6 +33,8 @@ You may notice that accessing the mount point fails with “access denied” unl
 
 To fix this we are going to use [bindfs](https://bindfs.org/) to create a mount in the user’s home directory that we can access normally. You have to first install `bindfs` with your system’s package manager.
 
+For Fedora, run `sudo dnf install fuse bindfs` to install the necessary packages.
+
 The first step is to get the UID and GID used by the host:
 
 ```sh

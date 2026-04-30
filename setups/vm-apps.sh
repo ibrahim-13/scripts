@@ -195,6 +195,12 @@ if prompt_confirmation "install node version manager?" $ARG_CONFIRM; then
     set -eu
 fi
 
+if prompt_confirmation "install ghostty?" $ARG_CONFIRM; then
+    print_info "installing ghostty"
+    sudo dnf copr enable scottames/ghostty
+    sudo dnf install ghostty -y
+fi
+
 if prompt_confirmation "install claude cli?" $ARG_CONFIRM; then
     print_info "installing claude cli"
     wget -qO- https://claude.ai/install.sh | bash
