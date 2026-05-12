@@ -182,11 +182,12 @@ if prompt_confirmation "install golang?" $ARG_CONFIRM; then
         tee "$HOME/.bashrc.d/golang.sh" > /dev/null <<EOT
 export PATH="\$PATH:/usr/local/go/bin"
 EOT
+        echo "$GOLANG_FILENAME" > "$APPS_DIR/golang.tag"
     fi
 fi
 
 if prompt_confirmation "install node version manager?" $ARG_CONFIRM; then
-    print_info "installing node versiom manager"
+    print_info "installing node version manager"
     wget -qO- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
     set +eu
     source $HOME/.bashrc
@@ -197,7 +198,11 @@ fi
 
 if prompt_confirmation "install ghostty?" $ARG_CONFIRM; then
     print_info "installing ghostty"
-    sudo dnf copr enable scottames/ghostty
+    if dnf copr list | grep -qF "scottames/ghostty"; then
+        print_info "ghostty copr repo already enabled"
+    else
+        sudo dnf copr enable scottames/ghostty
+    fi
     sudo dnf install ghostty -y
 fi
 

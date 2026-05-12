@@ -125,7 +125,7 @@ if prompt_confirmation "install xorg and the required packages?" $ARG_CONFIRM; t
 fi
 
 if prompt_confirmation "install the necessary packages?" $ARG_CONFIRM; then
-  sudo dnf install thunar thunar-archive-plugin xdg-user-dirs awesome desktop-file-utils git wget
+  sudo dnf install thunar thunar-archive-plugin engrampa xdg-user-dirs awesome desktop-file-utils git wget
   print_info "user packages installed"
 fi
 

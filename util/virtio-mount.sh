@@ -72,8 +72,8 @@ if [ $? -ne 0 ]; then
     print_info "trying to mount as virtio-9p"
     sudo mount -t 9p -o trans=virtio "$ARG_TARGET_PATH" "$ARG_MOUNT_DIR" -oversion=9p2000.L || errexit "failed to mount as virio-9p"
     if [ "$ARG_FSTAB" == "true" ]; then
-        local FSTAB_ENTRY="$ARG_TARGET_PATH $ARG_MOUNT_DIR 9p trans=virtio,version=9p2000.L 0 0"
-        if ! line_exists "$FSTAB_ENTRY" /etc/fstab; then
+        FSTAB_ENTRY="$ARG_TARGET_PATH $ARG_MOUNT_DIR 9p trans=virtio,version=9p2000.L,rw,_netdev,nofail,auto 0 0"
+        if line_exists "$FSTAB_ENTRY" /etc/fstab; then
             print_info "fstab entry already exists for virtio-9p"
         else
             sudo tee -a /etc/fstab > /dev/null <<EOT
@@ -83,8 +83,8 @@ EOT
     fi
 else
     if [ "$ARG_FSTAB" == "true" ]; then
-        local FSTAB_ENTRY="$ARG_TARGET_PATH $ARG_MOUNT_DIR virtiofs defaults 0 0"
-        if ! line_exists "$FSTAB_ENTRY" /etc/fstab; then
+        FSTAB_ENTRY="$ARG_TARGET_PATH $ARG_MOUNT_DIR virtiofs defaults,rw,nofail,noatime,nodiratime 0 0"
+        if line_exists "$FSTAB_ENTRY" /etc/fstab; then
             print_info "fstab entry already exists for virtiofs"
         else
             sudo tee -a /etc/fstab > /dev/null <<EOT
