@@ -49,7 +49,7 @@ function print_success {
 }
 
 function print_error {
-	printf "${_CBRED} ${1} ${_CRST}\n"
+	printf "${_CBRED} ${1} ${_CRST}\n" >&2
 }
 
 function print_debug {

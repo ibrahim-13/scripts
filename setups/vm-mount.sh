@@ -49,7 +49,7 @@ function print_warn {
 }
 
 function print_err {
-  echo "[ error  ] $1"
+  echo "[ error  ] $1" >&2
 }
 
 ########

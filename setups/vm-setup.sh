@@ -18,18 +18,12 @@ set -eu
 # trap '(read -p "[$BASE_SOURCE:$lineno] $bash_command")' DEBUGDIR_TMP="$HOME/.tmp"
 
 function prompt_confirmation {
-  if [ "$2" == "true" ]; then
-    return 0
-  fi
+  if [ "$2" == "true" ]; then return 0; fi
 	local TMP_ANS
 	read -p "[ prompt ] $(echo -e -n " ${1} (y/N) ")" TMP_ANS
 	case $TMP_ANS in
-	[Yy])
-		return 0
-		;;
-	*)
-		return 1
-		;;
+    [Yy]) return 0 ;;
+    *) return 1 ;;
 	esac
 }
 
@@ -37,20 +31,11 @@ function prompt_confirmation {
 # $1: text to find
 # $2: file to search
 function line_exists {
-  if grep -qFx "$1" "$2"; then
-    return 0
-  else
-    return 1
-  fi
+  if grep -qFx "$1" "$2"; then return 0; else return 1; fi
 }
 
 function command_exists {
-	if command -v $1 &> /dev/null
-	then
-    return 0
-  else
-    return 1
-	fi
+	if command -v $1 &> /dev/null; then return 0; else return 1; fi
 }
 
 function print_info {
@@ -62,7 +47,7 @@ function print_warn {
 }
 
 function print_err {
-  echo "[ error  ] $1"
+  echo "[ error  ] $1" >&2
 }
 
 ########
@@ -125,7 +110,7 @@ if prompt_confirmation "install xorg and the required packages?" $ARG_CONFIRM; t
 fi
 
 if prompt_confirmation "install the necessary packages?" $ARG_CONFIRM; then
-  sudo dnf install thunar thunar-archive-plugin engrampa xdg-user-dirs awesome desktop-file-utils git wget
+  sudo dnf install thunar thunar-archive-plugin engrampa xdg-user-dirs awesome desktop-file-utils git wget curl
   print_info "user packages installed"
 fi
 

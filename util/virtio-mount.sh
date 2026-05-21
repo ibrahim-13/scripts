@@ -19,11 +19,7 @@ function errexit {
 # $1: text to find
 # $2: file to search
 function line_exists {
-  if grep -qFx "$1" "$2"; then
-    return 0
-  else
-    return 1
-  fi
+  if grep -qFx "$1" "$2"; then return 0; else return 1; fi
 }
 
 ########

@@ -54,7 +54,7 @@ function print_warn {
 }
 
 function print_error {
-  echo "[ error  ] $1"
+  echo "[ error  ] $1" >&2
 }
 
 function get_machine1 {
@@ -105,11 +105,7 @@ function get_arch3 {
 # $1: text to find
 # $2: file to search
 function line_exists {
-  if grep -qFx "$1" "$2"; then
-    return 0
-  else
-    return 1
-  fi
+  if grep -qFx "$1" "$2"; then return 0; else return 1; fi
 }
 
 # get lastest release asset url from github with http api
@@ -135,6 +131,20 @@ function func_gh_version {
 	echo "$GH_RESPONSE"
 }
 
+# dowload file
+# $1 : path/location where the file will be downloaded
+# $2 : download url
+function dl {
+	if command -v curl &> /dev/null; then
+		curl -L --progress-bar -s -o "$1" "$2"
+	elif command -v wget &> /dev/null; then
+		wget -q --show-progress --progress=bar:force:noscroll -O "$1" "$2"
+	else
+		print_error "could not find wget or curl, at least one is needed for downloading archive file"
+        exit 1
+	fi
+}
+
 function app_lf {
     print_info "app: lf"
     local DOWNLOAD_FILE="$DIR_TMP/lf.tar.gz"
@@ -147,7 +157,7 @@ function app_lf {
     fi
 
     print_info "downloading lf archive"
-    wget -q --show-progress --progress=bar:force:noscroll -O "$DOWNLOAD_FILE" "https://github.com/gokcehan/lf/releases/download/$LF_TAG/lf-$(get_machine1)-$(get_arch1).tar.gz" 2>&1
+    dl "$DOWNLOAD_FILE" "https://github.com/gokcehan/lf/releases/download/$LF_TAG/lf-$(get_machine1)-$(get_arch1).tar.gz" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "extracting files:"
@@ -172,7 +182,7 @@ function app_fzf {
     fi
 
     print_info "downloading fzf archive"
-    wget -q --show-progress --progress=bar:force:noscroll -O "$DOWNLOAD_FILE" "https://github.com/junegunn/fzf/releases/download/$FZF_TAG/fzf-${FZF_TAG#?}-$(get_machine1)_$(get_arch1).tar.gz" 2>&1
+    dl "$DOWNLOAD_FILE" "https://github.com/junegunn/fzf/releases/download/$FZF_TAG/fzf-${FZF_TAG#?}-$(get_machine1)_$(get_arch1).tar.gz" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "extracting files:"
@@ -198,7 +208,7 @@ function app_helium_browser_linux {
     fi
 
     print_info "downloading helium browser appimage"
-    wget -q --show-progress --progress=bar:force:noscroll -O "$DOWNLOAD_FILE" "https://github.com/imputnet/helium-linux/releases/download/$HELIUMBROWSER_TAG/helium-$HELIUMBROWSER_TAG-$(get_arch3).AppImage" 2>&1
+    dl "$DOWNLOAD_FILE" "https://github.com/imputnet/helium-linux/releases/download/$HELIUMBROWSER_TAG/helium-$HELIUMBROWSER_TAG-$(get_arch3).AppImage" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "copying files:"
@@ -248,7 +258,7 @@ function app_rclone {
     fi
 
     print_info "downloading rclone archive"
-    wget -q --show-progress --progress=bar:force:noscroll -O "$DOWNLOAD_FILE" "https://github.com/rclone/rclone/releases/download/$RCLONE_TAG/rclone-$RCLONE_TAG-$(get_machine2)-$(get_arch1).zip" 2>&1
+    dl "$DOWNLOAD_FILE" "https://github.com/rclone/rclone/releases/download/$RCLONE_TAG/rclone-$RCLONE_TAG-$(get_machine2)-$(get_arch1).zip" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "extracting files:"
