@@ -6,6 +6,23 @@
 # set -eux
 set -eu
 
+ARCH="$(uname -m)"
+MACHINE="$(uname -s)"
+
+# Command used for downloading file
+# download and save to disk : CMD_DL "LOCAL_FILE_LOCATION" "URL"
+# download and print        : CMD_DLP "URL"
+if command -v curl &> /dev/null; then
+    CMD_DL="curl -L --progress-bar -o"
+    CMD_DLP="curl -so-"
+elif command -v wget &> /dev/null; then
+    CMD_DL="wget -q --show-progress --progress=bar:force:noscroll -O"
+    CMD_DLP="wget -qO-"
+else
+    print_error "could not find wget or curl, at least one is needed"
+    exit 1
+fi
+
 function prompt_confirmation {
   if [ "$2" == "true" ]; then return 0; fi
 	local TMP_ANS
@@ -16,16 +33,8 @@ function prompt_confirmation {
 	esac
 }
 
-ARCH="$(uname -m)"
-MACHINE="$(uname -s)"
-
-function print_info {
-  echo "[ info   ] $1"
-}
-
-function print_error {
-  echo "[ error  ] $1" >&2
-}
+function print_info { echo "[ info   ] $1"; }
+function print_error { echo "[ error  ] $1" >&2; }
 
 function get_machine1 {
 	case "${MACHINE}" in
@@ -121,30 +130,6 @@ function func_gh_version {
 	echo "$GH_RESPONSE"
 }
 
-# dowload file to path/location
-# $1 : path/location where the file will be downloaded
-# $2 : download url
-function dl {
-	if command -v curl &> /dev/null; then
-		curl -L --progress-bar -s -o "$1" "$2"
-	elif command -v wget &> /dev/null; then
-		wget -q --show-progress --progress=bar:force:noscroll -O "$1" "$2"
-	else
-		print_error "could not find wget or curl, at least one is needed to download the file"
-        exit 1
-	fi
-}
-
-function dp {
-    if command -v curl &> /dev/null; then
-        curl -o- "$1"
-    elif command -v wget &> /dev/null; then
-        wget -qO- "$1"
-    else
-		print_error "could not find wget or curl, at least one is needed to download the file"
-    fi
-}
-
 ########
 # MAIN #
 ########
@@ -187,15 +172,15 @@ if prompt_confirmation "update packages?" $ARG_CONFIRM; then
     sudo dnf update -y
 fi
 
-if prompt_confirmation "install yt-dlp?" $ARG_CONFIRM; then
-    YTLDP_TAG=$(func_gh_version "yt-dlp" "yt-dlp")
+# for stable release  : yt-dlp/yt-dlp
+# for nightly release : yt-dlp/yt-dlp-nightly-builds
+# for master releases : yt-dlp/yt-dlp-master-builds
+if prompt_confirmation "install yt-dlp-nightly?" $ARG_CONFIRM; then
+    YTLDP_TAG=$(func_gh_version "yt-dlp" "yt-dlp-nightly-builds")
     if ! [ -f "$APPS_DIR/ytdlp.tag" ] || ! [ "$YTLDP_TAG" == "$(cat "$APPS_DIR/ytdlp.tag")" ]; then
-        print_info "installing golang"
+        print_info "installing yt-dlp-nightly"
         YTDLP_FILENAME="yt-dlp_$(get_machine2)$(get_arch3)"
-        # for stable release  : yt-dlp/yt-dlp
-        # for nightly release : yt-dlp/yt-dlp-nightly-builds
-        # for master releases : yt-dlp/yt-dlp-master-builds
-        dl "$APPS_DIR/yt-dlp" "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/$YTDLP_FILENAME"
+        $CMD_DL "$APPS_DIR/yt-dlp" "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/$YTDLP_FILENAME"
         chmod 755 "$APPS_DIR/yt-dlp"
         echo "$YTLDP_TAG" > "$APPS_DIR/ytdlp.tag"
     fi
@@ -203,11 +188,10 @@ fi
 
 if prompt_confirmation "install golang?" $ARG_CONFIRM; then
     GOLANG_FILE_PATTERN="go.*.$(get_machine1)-$(get_arch1).tar.gz"
-    GOLANG_FILENAME=$(dp "https://go.dev/dl/?mode=json" | grep -o "$GOLANG_FILE_PATTERN" | head -n 1 | tr -d '\r\n' )
-    print_info "golang file name: $GOLANG_FILENAME"
+    GOLANG_FILENAME=$($CMD_DLP "https://go.dev/dl/?mode=json" | grep -o "$GOLANG_FILE_PATTERN" | head -n 1 | tr -d '\r\n' )
     GOLANG_URL="https://go.dev/dl/$GOLANG_FILENAME"
     if ! [ -f "$APPS_DIR/golang.tag" ] || ! [ "$GOLANG_FILENAME" == "$(cat "$APPS_DIR/golang.tag")" ]; then
-        dl "$APPS_DIR/$GOLANG_FILENAME" "$GOLANG_URL"
+        $CMD_DL "$APPS_DIR/$GOLANG_FILENAME" "$GOLANG_URL"
         if [ -d /usr/local/go ]; then
             sudo rm -rf /usr/local/go
         fi
@@ -223,7 +207,7 @@ fi
 
 if prompt_confirmation "install node version manager?" $ARG_CONFIRM; then
     print_info "installing node version manager"
-    dp https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
+    $CMD_DLP https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
     set +eu
     source $HOME/.bashrc
     nvm install --lts
@@ -243,5 +227,5 @@ fi
 
 if prompt_confirmation "install claude cli?" $ARG_CONFIRM; then
     print_info "installing claude cli"
-    dp https://claude.ai/install.sh | bash
+    $CMD_DLP https://claude.ai/install.sh | bash
 fi

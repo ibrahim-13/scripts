@@ -229,12 +229,10 @@ echo "latest release: $GH_CREATED_AT"
 if [[ "$ARG_DOWNLOAD" == "1" ]]; then
 	echo downloading
 	echo "$GH_DL_URL"
-	if command -v wget &> /dev/null
-	then
+	if command -v curl &> /dev/null; 
+		curl -L --progress-bar -o "$ARG_DOWNLOAD_PATH" "$GH_DL_URL" || errexit "error downloading archive with curl"
+	elif command -v wget &> /dev/null; then
 		wget -q --show-progress -O "$ARG_DOWNLOAD_PATH" "$GH_DL_URL" || errexit "error downloading archive with wget"
-	elif command -v curl &> /dev/null
-	then
-		curl -L --progress-bar -s -o "$ARG_DOWNLOAD_PATH" "$GH_DL_URL" || errexit "error downloading archive with curl"
 	else
 		errexit "could not find wget or curl, at least one is needed for downloading archive file"
 	fi

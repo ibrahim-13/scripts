@@ -21,6 +21,20 @@ if [ "$EUID" -eq 0 ]; then echo "do not run under root"; exit 1; fi
 
 DIR_TMP="$HOME/.tmp"
 
+# Command used for downloading file
+# download and save to disk : CMD_DL "LOCAL_FILE_LOCATION" "URL"
+# download and print        : CMD_DLP "URL"
+if command -v curl &> /dev/null; then
+    CMD_DL="curl -L --progress-bar -o"
+    CMD_DLP="curl -so-"
+elif command -v wget &> /dev/null; then
+    CMD_DL="wget -q --show-progress --progress=bar:force:noscroll -O"
+    CMD_DLP="wget -qO-"
+else
+    print_error "could not find wget or curl, at least one is needed"
+    exit 1
+fi
+
 # cleanup temp directory
 if [ -d "$DIR_TMP" ]; then
     rm -rf "$DIR_TMP"
@@ -45,17 +59,9 @@ mkdir -p "$DESKTOP_DIR"
 ARCH="$(uname -m)"
 MACHINE="$(uname -s)"
 
-function print_info {
-  echo "[ info   ] $1"
-}
-
-function print_warn {
-  echo "[ warn   ] $1"
-}
-
-function print_error {
-  echo "[ error  ] $1" >&2
-}
+function print_info { echo "[ info   ] $1"; }
+function print_warn { echo "[ warn   ] $1"; }
+function print_error { echo "[ error  ] $1"; >&2 }
 
 function get_machine1 {
 	case "${MACHINE}" in
@@ -131,20 +137,6 @@ function func_gh_version {
 	echo "$GH_RESPONSE"
 }
 
-# dowload file
-# $1 : path/location where the file will be downloaded
-# $2 : download url
-function dl {
-	if command -v curl &> /dev/null; then
-		curl -L --progress-bar -s -o "$1" "$2"
-	elif command -v wget &> /dev/null; then
-		wget -q --show-progress --progress=bar:force:noscroll -O "$1" "$2"
-	else
-		print_error "could not find wget or curl, at least one is needed for downloading archive file"
-        exit 1
-	fi
-}
-
 function app_lf {
     print_info "app: lf"
     local DOWNLOAD_FILE="$DIR_TMP/lf.tar.gz"
@@ -157,7 +149,7 @@ function app_lf {
     fi
 
     print_info "downloading lf archive"
-    dl "$DOWNLOAD_FILE" "https://github.com/gokcehan/lf/releases/download/$LF_TAG/lf-$(get_machine1)-$(get_arch1).tar.gz" 2>&1
+    $CMD_DL"$DOWNLOAD_FILE" "https://github.com/gokcehan/lf/releases/download/$LF_TAG/lf-$(get_machine1)-$(get_arch1).tar.gz" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "extracting files:"
@@ -182,7 +174,7 @@ function app_fzf {
     fi
 
     print_info "downloading fzf archive"
-    dl "$DOWNLOAD_FILE" "https://github.com/junegunn/fzf/releases/download/$FZF_TAG/fzf-${FZF_TAG#?}-$(get_machine1)_$(get_arch1).tar.gz" 2>&1
+    $CMD_DL"$DOWNLOAD_FILE" "https://github.com/junegunn/fzf/releases/download/$FZF_TAG/fzf-${FZF_TAG#?}-$(get_machine1)_$(get_arch1).tar.gz" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "extracting files:"
@@ -208,7 +200,7 @@ function app_helium_browser_linux {
     fi
 
     print_info "downloading helium browser appimage"
-    dl "$DOWNLOAD_FILE" "https://github.com/imputnet/helium-linux/releases/download/$HELIUMBROWSER_TAG/helium-$HELIUMBROWSER_TAG-$(get_arch3).AppImage" 2>&1
+    $CMD_DL"$DOWNLOAD_FILE" "https://github.com/imputnet/helium-linux/releases/download/$HELIUMBROWSER_TAG/helium-$HELIUMBROWSER_TAG-$(get_arch3).AppImage" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "copying files:"
@@ -258,7 +250,7 @@ function app_rclone {
     fi
 
     print_info "downloading rclone archive"
-    dl "$DOWNLOAD_FILE" "https://github.com/rclone/rclone/releases/download/$RCLONE_TAG/rclone-$RCLONE_TAG-$(get_machine2)-$(get_arch1).zip" 2>&1
+    $CMD_DL"$DOWNLOAD_FILE" "https://github.com/rclone/rclone/releases/download/$RCLONE_TAG/rclone-$RCLONE_TAG-$(get_machine2)-$(get_arch1).zip" 2>&1
 
     chmod 666 "$DOWNLOAD_FILE"
     print_info "extracting files:"
