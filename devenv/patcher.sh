@@ -20,6 +20,7 @@ GITIGNORE="$BASE_DIR/.gitignore"
 
 # --- Global flags ---
 ARG_CONFIRM="false"
+ARG_COMPLETION="false"
 
 # --- Utility functions ---
 
@@ -398,6 +399,62 @@ function cmd_rebase_to_commit {
     print_info "rebase to $new_commit complete"
 }
 
+function fn_generate_completion {
+    local comp_file
+    comp_file="$HOME/.local/share/bash-completion/completions/patcher"
+    mkdir -p "$(dirname "$comp_file")"
+
+    cat > "$comp_file" <<'COMP'
+_patcher_completion() {
+    local cur prev words cword
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    words=("${COMP_WORDS[@]}")
+    cword=$COMP_CWORD
+
+    # Collect non-flag positional words before cursor
+    local positionals=()
+    local i
+    for (( i=1; i<cword; i++ )); do
+        case "${words[$i]}" in
+            -y|-h|--help|--completion) ;;
+            *) positionals+=("${words[$i]}") ;;
+        esac
+    done
+
+    local num_pos=${#positionals[@]}
+    local pos0="${positionals[0]:-}"
+    local pos1="${positionals[1]:-}"
+
+    case "$num_pos" in
+        0)
+            COMPREPLY=($(compgen -W "init create apply reset rebase --completion -y -h --help" -- "$cur"))
+            ;;
+        1)
+            case "$pos0" in
+                create)  COMPREPLY=($(compgen -W "all patch" -- "$cur")) ;;
+                apply)   COMPREPLY=($(compgen -W "patches" -- "$cur")) ;;
+                reset)   COMPREPLY=($(compgen -W "patches" -- "$cur")) ;;
+                rebase)  COMPREPLY=($(compgen -W "to" -- "$cur")) ;;
+            esac
+            ;;
+        2)
+            case "$pos0" in
+                create) [[ "$pos1" == "all" ]] && COMPREPLY=($(compgen -W "patches" -- "$cur")) ;;
+                rebase) [[ "$pos1" == "to"  ]] && COMPREPLY=($(compgen -W "commit"  -- "$cur")) ;;
+            esac
+            ;;
+    esac
+}
+complete -F _patcher_completion patcher.sh
+complete -F _patcher_completion patcher
+COMP
+
+    # shellcheck source=/dev/null
+    source "$comp_file"
+    print_info "bash completion loaded from: $comp_file"
+}
+
 function usage {
     if [ -n "${1:-}" ]; then
         print_error "$1"
@@ -407,10 +464,12 @@ function usage {
 patcher - manage patches for a git repository
 
 Usage: $(basename "$0") [-y] [-h|--help] <command>
+       $(basename "$0") --completion
 
 Options:
   -y                   skip all confirmation prompts (treat as yes)
   -h, --help           print this help and exit
+  --completion         generate and source bash completion (exclusive)
 
 Commands:
   init                 initialize patcher: clone repo, set base commit
@@ -427,11 +486,12 @@ EOF
 
 check_deps
 
-# Pre-scan for -y and help flags before processing the command
+# Pre-scan for flags before processing the command
 for arg in "$@"; do
     case "$arg" in
         -y) ARG_CONFIRM="true" ;;
         -h|--help) usage ;;
+        --completion) ARG_COMPLETION="true" ;;
     esac
 done
 
@@ -439,10 +499,19 @@ done
 ARGS=()
 for arg in "$@"; do
     case "$arg" in
-        -y|-h|--help) ;;
+        -y|-h|--help|--completion) ;;
         *) ARGS+=("$arg") ;;
     esac
 done
+
+# --completion is exclusive: no other args allowed
+if [ "$ARG_COMPLETION" = "true" ]; then
+    if [ "$ARG_CONFIRM" = "true" ] || [ ${#ARGS[@]} -gt 0 ]; then
+        usage "--completion cannot be combined with other arguments"
+    fi
+    fn_generate_completion
+    exit 0
+fi
 
 if [ ${#ARGS[@]} -eq 0 ]; then
     usage

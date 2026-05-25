@@ -601,6 +601,32 @@ function test_rebase_to_commit_invalid_hash {
     assert_exit_code 14 "$code" "rebase_invalid_hash: invalid hash exits 14 (ERR_INVALID_ARG)"
 }
 
+function test_completion {
+    local work
+    work=$(make_work_dir "test_completion")
+    local code
+    code=$(patcher_run "$work" --completion)
+    assert_exit_code 0 "$code" "completion: --completion exits with code 0"
+    assert_file_exists "$HOME/.local/share/bash-completion/completions/patcher" \
+        "completion: completion file created"
+}
+
+function test_completion_combined_with_command {
+    local work
+    work=$(make_work_dir "test_completion_combined")
+    local code
+    code=$(patcher_run "$work" --completion init)
+    assert_exit_code 1 "$code" "completion_combined: --completion with command exits 1"
+}
+
+function test_completion_combined_with_y {
+    local work
+    work=$(make_work_dir "test_completion_combined_y")
+    local code
+    code=$(patcher_run "$work" --completion -y)
+    assert_exit_code 1 "$code" "completion_combined_y: --completion with -y exits 1"
+}
+
 function test_confirm_flag {
     local work
     work=$(make_work_dir "test_confirm_flag")
@@ -720,6 +746,12 @@ echo "--- rebase to commit ---"
 test_rebase_to_commit
 test_rebase_to_commit_empty_hash
 test_rebase_to_commit_invalid_hash
+
+echo ""
+echo "--- completion ---"
+test_completion
+test_completion_combined_with_command
+test_completion_combined_with_y
 
 echo ""
 echo "--- -y flag ---"
