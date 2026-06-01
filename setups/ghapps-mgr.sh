@@ -61,7 +61,7 @@ MACHINE="$(uname -s)"
 
 function print_info { echo "[ info   ] $1"; }
 function print_warn { echo "[ warn   ] $1"; }
-function print_error { echo "[ error  ] $1"; >&2 }
+function print_error { echo "[ error  ] $1" >&2; }
 
 function get_machine1 {
 	case "${MACHINE}" in
