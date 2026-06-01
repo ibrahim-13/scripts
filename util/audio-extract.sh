@@ -130,12 +130,15 @@ if ! echo "$YTDLP_JSON" | grep -q '^{'; then
 fi
 
 # extract _filename field from JSON
-DOWNLOADED_FILE=$(echo "$YTDLP_JSON" | awk '/_filename/{print $4;exit}' FS='[""]')
+# using sed here because the output json is in a single line
+# awk can't parse because it tries to find the line with pattern
+DOWNLOADED_FILE=$(echo "$YTDLP_JSON" | sed -n 's/.*"filename": *"\([^"]*\)".*/\1/p')
 
 # if _filename is not absolute, prepend output dir
-if ! echo "$DOWNLOADED_FILE" | grep -q '^/'; then
-    DOWNLOADED_FILE="$ARG_OUTPUT/$DOWNLOADED_FILE"
-fi
+# this is not needed for now, the filename is a relative path
+# if ! echo "$DOWNLOADED_FILE" | grep -q '^/'; then
+#     DOWNLOADED_FILE="$ARG_OUTPUT$DOWNLOADED_FILE"
+# fi
 
 if [ ! -f "$DOWNLOADED_FILE" ]; then
     print_err "downloaded file not found: $DOWNLOADED_FILE"
@@ -148,18 +151,18 @@ print_info "downloaded: $DOWNLOADED_FILE"
 if [ "$ARG_CONVERT" == "true" ]; then
     BASENAME=$(basename "$DOWNLOADED_FILE")
     STEM="${BASENAME%.*}"
-    MP3_FILE="$ARG_OUTPUT/${STEM}.mp3"
+    MP3_FILE="$ARG_OUTPUT${STEM}.mp3"
 
     print_info "converting to MP3: $MP3_FILE"
 
     if [ -n "$ARG_START" ] && [ -n "$ARG_TOTAL" ]; then
-        ffmpeg -i "$DOWNLOADED_FILE" -ss "$ARG_START" -t "$ARG_TOTAL" -q:a 0 -map a "$MP3_FILE" -y -progress -
+        ffmpeg -hide_banner -i "$DOWNLOADED_FILE" -ss "$ARG_START" -t "$ARG_TOTAL" -q:a 0 -map a "$MP3_FILE" -y -progress -
     elif [ -n "$ARG_START" ]; then
-        ffmpeg -i "$DOWNLOADED_FILE" -ss "$ARG_START" -q:a 0 -map a "$MP3_FILE" -y -progress -
+        ffmpeg -hide_banner -i "$DOWNLOADED_FILE" -ss "$ARG_START" -q:a 0 -map a "$MP3_FILE" -y -progress -
     elif [ -n "$ARG_TOTAL" ]; then
-        ffmpeg -i "$DOWNLOADED_FILE" -t "$ARG_TOTAL" -q:a 0 -map a "$MP3_FILE" -y -progress -
+        ffmpeg -hide_banner -i "$DOWNLOADED_FILE" -t "$ARG_TOTAL" -q:a 0 -map a "$MP3_FILE" -y -progress -
     else
-        ffmpeg -i "$DOWNLOADED_FILE" -q:a 0 -map a "$MP3_FILE" -y -progress -
+        ffmpeg -hide_banner -i "$DOWNLOADED_FILE" -q:a 0 -map a "$MP3_FILE" -y -progress -
     fi
 
     print_info "conversion complete: $MP3_FILE"

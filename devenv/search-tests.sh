@@ -165,6 +165,7 @@ EOF
     cat > "$TEST_DIR/spaces/file with spaces.txt" <<'EOF'
 hello spaces file
 This file has spaces in its name.
+another hello in spaces file
 EOF
 
     # docs/special.txt — for literal special-char tests
@@ -904,6 +905,136 @@ function test_phase10 {
 }
 
 #---------------------------------------------------------------------------
+# Phase 9 — Files with spaces in their names
+#---------------------------------------------------------------------------
+
+function test_phase9_spaces {
+    printf "\n${_CBLD}${_CBLU}=== Phase 9: Files with spaces in name ===${_CRST}\n"
+
+    local SPACES_DIR="$TEST_DIR/spaces"
+
+    # SP01: basic name format — already covered by T19, verified here too
+    run_stdout_only -d "$SPACES_DIR" -t "hello"
+    assert_exit_code 0 "$RUN_EXIT" "SP01: basic search (name) → exit 0"
+    assert_contains "file with spaces.txt" "$RUN_OUTPUT" "SP01: basic search finds 'file with spaces.txt'"
+
+    # SP02: format=rel
+    run_stdout_only -d "$SPACES_DIR" -t "hello" -f rel
+    assert_exit_code 0 "$RUN_EXIT" "SP02: format=rel with spaces → exit 0"
+    assert_contains "file with spaces.txt" "$RUN_OUTPUT" "SP02: rel format finds 'file with spaces.txt'"
+    if echo "$RUN_OUTPUT" | grep -q "^/"; then
+        print_fail "SP02: rel format → relative path" "starts with /"
+    else
+        print_pass "SP02: rel format → relative path"
+    fi
+
+    # SP03: format=full
+    run_stdout_only -d "$SPACES_DIR" -t "hello" -f full
+    assert_exit_code 0 "$RUN_EXIT" "SP03: format=full with spaces → exit 0"
+    assert_contains "file with spaces.txt" "$RUN_OUTPUT" "SP03: full format finds 'file with spaces.txt'"
+    if echo "$RUN_OUTPUT" | grep -q "^/"; then
+        print_pass "SP03: full format → absolute path"
+    else
+        print_fail "SP03: full format → absolute path" "doesn't start with /"
+    fi
+
+    # SP04: --line-number (name format) — one entry per match, annotation present
+    run_stdout_only -d "$SPACES_DIR" -t "hello" --line-number
+    assert_exit_code 0 "$RUN_EXIT" "SP04: --line-number with spaces → exit 0"
+    assert_contains "file with spaces.txt L" "$RUN_OUTPUT" "SP04: --line-number shows 'file with spaces.txt' with annotation"
+    assert_matches_pattern 'L[0-9]+:C[0-9]+' "$RUN_OUTPUT" "SP04: --line-number has L<n>:C<n>"
+    # file has two matches → two entries
+    local sp04_count
+    sp04_count=$(echo "$RUN_OUTPUT" | grep -c "file with spaces.txt" || true)
+    if [[ "$sp04_count" -gt 1 ]]; then
+        print_pass "SP04: --line-number produces one entry per match occurrence"
+    else
+        print_fail "SP04: --line-number produces one entry per match occurrence" "only $sp04_count entry"
+    fi
+
+    # SP05: --line-number with correct column for first match on line 1 (col 1)
+    assert_contains "file with spaces.txt L1:C1" "$RUN_OUTPUT" "SP05: --line-number col=1 for line starting with 'hello'"
+
+    # SP06: --line-number with rel format
+    run_stdout_only -d "$SPACES_DIR" -t "hello" --line-number -f rel
+    assert_exit_code 0 "$RUN_EXIT" "SP06: --line-number -f rel with spaces → exit 0"
+    assert_contains "file with spaces.txt L" "$RUN_OUTPUT" "SP06: --line-number rel → annotation present"
+    assert_matches_pattern 'L[0-9]+:C[0-9]+' "$RUN_OUTPUT" "SP06: --line-number rel → L<n>:C<n>"
+    if echo "$RUN_OUTPUT" | grep -q "^/"; then
+        print_fail "SP06: --line-number rel → relative path" "starts with /"
+    else
+        print_pass "SP06: --line-number rel → relative path"
+    fi
+
+    # SP07: --line-number with full format
+    run_stdout_only -d "$SPACES_DIR" -t "hello" --line-number -f full
+    assert_exit_code 0 "$RUN_EXIT" "SP07: --line-number -f full with spaces → exit 0"
+    assert_contains "file with spaces.txt L" "$RUN_OUTPUT" "SP07: --line-number full → annotation present"
+    assert_matches_pattern 'L[0-9]+:C[0-9]+' "$RUN_OUTPUT" "SP07: --line-number full → L<n>:C<n>"
+    if echo "$RUN_OUTPUT" | grep -q "^/"; then
+        print_pass "SP07: --line-number full → absolute path"
+    else
+        print_fail "SP07: --line-number full → absolute path" "doesn't start with /"
+    fi
+
+    # SP08: --context (name format)
+    run_stdout_only -d "$SPACES_DIR" -t "hello" --context
+    assert_exit_code 0 "$RUN_EXIT" "SP08: --context with spaces → exit 0"
+    assert_not_empty "$RUN_OUTPUT" "SP08: --context → non-empty"
+    assert_contains "file with spaces.txt" "$RUN_OUTPUT" "SP08: --context header shows 'file with spaces.txt'"
+    assert_contains "hello spaces file" "$RUN_OUTPUT" "SP08: --context shows matching line content"
+    assert_contains "spaces in its name" "$RUN_OUTPUT" "SP08: --context shows context lines"
+
+    # SP09: --context with rel format
+    run_stdout_only -d "$SPACES_DIR" -t "hello" --context -f rel
+    assert_exit_code 0 "$RUN_EXIT" "SP09: --context -f rel with spaces → exit 0"
+    assert_contains "file with spaces.txt" "$RUN_OUTPUT" "SP09: --context rel header has filename"
+    if echo "$RUN_OUTPUT" | head -1 | grep -q "^/"; then
+        print_fail "SP09: --context rel → header is relative" "starts with /"
+    else
+        print_pass "SP09: --context rel → header is relative"
+    fi
+
+    # SP10: --context with full format
+    run_stdout_only -d "$SPACES_DIR" -t "hello" --context -f full
+    assert_exit_code 0 "$RUN_EXIT" "SP10: --context -f full with spaces → exit 0"
+    assert_contains "file with spaces.txt" "$RUN_OUTPUT" "SP10: --context full header has filename"
+    if echo "$RUN_OUTPUT" | head -1 | grep -q "^/"; then
+        print_pass "SP10: --context full → header is absolute"
+    else
+        print_fail "SP10: --context full → header is absolute" "doesn't start with /"
+    fi
+
+    # SP11: --context --color with spaces in filename
+    run_stdout_only -d "$SPACES_DIR" -t "hello" --context --color
+    assert_exit_code 0 "$RUN_EXIT" "SP11: --context --color with spaces → exit 0"
+    assert_contains "file with spaces.txt" "$RUN_OUTPUT" "SP11: --context --color shows filename"
+    if printf '%s' "$RUN_OUTPUT" | grep -qF $'\033['; then
+        print_pass "SP11: --context --color → ANSI color codes present"
+    else
+        print_fail "SP11: --context --color → ANSI color codes present" "no ESC codes found"
+    fi
+
+    # SP12: -p filter + spaces in filename (long form text search)
+    run_stdout_only -d "$SPACES_DIR" -t "spaces in its name" -p '\.txt$'
+    assert_exit_code 0 "$RUN_EXIT" "SP12: search text with spaces + -p → exit 0"
+    assert_contains "file with spaces.txt" "$RUN_OUTPUT" "SP12: finds file when search text has spaces"
+
+    # SP13: -o output to file, spaces in source filename
+    local sp_out="$TEST_DIR/spaces_output.txt"
+    rm -f "$sp_out"
+    run -d "$SPACES_DIR" -t "hello" -o "$sp_out"
+    assert_exit_code 0 "$RUN_EXIT" "SP13: -o with spaces-in-filename → exit 0"
+    if [[ -f "$sp_out" ]]; then
+        local sp_fc
+        sp_fc="$(cat "$sp_out")"
+        assert_contains "file with spaces.txt" "$sp_fc" "SP13: output file contains 'file with spaces.txt'"
+    else
+        print_fail "SP13: output file created" "file not found: $sp_out"
+    fi
+}
+
+#---------------------------------------------------------------------------
 # Run all tests
 #---------------------------------------------------------------------------
 
@@ -920,6 +1051,7 @@ test_phase5
 test_phase6
 test_phase7
 test_phase8
+test_phase9_spaces
 test_phase10
 
 cleanup_tests
