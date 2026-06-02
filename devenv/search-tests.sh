@@ -182,6 +182,23 @@ EOF
         for i in $(seq 1 20); do echo "filler line $i no match here"; done
         echo "hello at the bottom"
     } > "$TEST_DIR/docs/sparse.txt"
+
+    # excluded dirs — files here must never appear in search results
+    mkdir -p "$TEST_DIR/node_modules"
+    echo "hello from excluded node_modules" > "$TEST_DIR/node_modules/excluded_nm.js"
+
+    mkdir -p "$TEST_DIR/.git"
+    echo "hello from excluded git dir" > "$TEST_DIR/.git/excluded_git.txt"
+
+    mkdir -p "$TEST_DIR/src/node_modules"
+    echo "hello from nested excluded node_modules" > "$TEST_DIR/src/node_modules/excluded_nested.js"
+
+    mkdir -p "$TEST_DIR/.svn"
+    echo "hello from excluded svn dir" > "$TEST_DIR/.svn/excluded_svn.txt"
+
+    # not_node_modules — exact-name check: this dir must NOT be excluded
+    mkdir -p "$TEST_DIR/not_node_modules"
+    echo "hello from not_node_modules dir" > "$TEST_DIR/not_node_modules/not_excluded.txt"
 }
 
 function cleanup_tests {
@@ -762,6 +779,87 @@ function test_phase8 {
 }
 
 #---------------------------------------------------------------------------
+# Phase 11 — Directory exclusion (EXCLUDE_DIRS)
+#---------------------------------------------------------------------------
+
+function test_phase11 {
+    printf "\n${_CBLD}${_CBLU}=== Phase 11: Directory exclusion (EXCLUDE_DIRS) ===${_CRST}\n"
+
+    # EX01: node_modules/ at top level excluded
+    run_stdout_only -d "$TEST_DIR" -t "hello"
+    assert_not_contains "excluded_nm.js"   "$RUN_OUTPUT" "EX01: node_modules/excluded_nm.js not in results"
+
+    # EX02: .git/ at top level excluded
+    run_stdout_only -d "$TEST_DIR" -t "hello"
+    assert_not_contains "excluded_git.txt" "$RUN_OUTPUT" "EX02: .git/excluded_git.txt not in results"
+
+    # EX03: .svn/ at top level excluded
+    run_stdout_only -d "$TEST_DIR" -t "hello"
+    assert_not_contains "excluded_svn.txt" "$RUN_OUTPUT" "EX03: .svn/excluded_svn.txt not in results"
+
+    # EX04: node_modules/ nested inside src/ is also excluded
+    run_stdout_only -d "$TEST_DIR" -t "hello"
+    assert_not_contains "excluded_nested.js" "$RUN_OUTPUT" "EX04: src/node_modules/excluded_nested.js not in results"
+
+    # EX05: not_node_modules/ is NOT excluded (exact-name match only)
+    run_stdout_only -d "$TEST_DIR" -t "hello"
+    assert_contains "not_excluded.txt" "$RUN_OUTPUT" "EX05: not_node_modules/not_excluded.txt IS in results"
+
+    # EX06: normal files outside excluded dirs still found
+    run_stdout_only -d "$TEST_DIR" -t "hello"
+    assert_contains "readme.txt" "$RUN_OUTPUT" "EX06: regular files unaffected by exclusion"
+    assert_contains "main.sh"    "$RUN_OUTPUT" "EX06: regular .sh files unaffected by exclusion"
+
+    # EX07: exclusion applies with -p / --file-pattern
+    run_stdout_only -d "$TEST_DIR" -t "hello" -p '\.js$'
+    assert_not_contains "excluded_nm.js"     "$RUN_OUTPUT" "EX07: -p '\.js$' still excludes node_modules files"
+    assert_not_contains "excluded_nested.js" "$RUN_OUTPUT" "EX07: -p '\.js$' still excludes nested node_modules files"
+
+    # EX08: exclusion applies with --line-number
+    run_stdout_only -d "$TEST_DIR" -t "hello" --line-number
+    assert_not_contains "excluded_nm.js"     "$RUN_OUTPUT" "EX08: --line-number excludes node_modules files"
+    assert_not_contains "excluded_nested.js" "$RUN_OUTPUT" "EX08: --line-number excludes nested node_modules files"
+
+    # EX09: exclusion applies with --context
+    run_stdout_only -d "$TEST_DIR" -t "hello" --context
+    assert_not_contains "excluded_nm.js"     "$RUN_OUTPUT" "EX09: --context excludes node_modules files"
+    assert_not_contains "excluded_git.txt"   "$RUN_OUTPUT" "EX09: --context excludes .git files"
+
+    # EX10: --stats file count and listing both exclude excluded-dir files
+    local tmp_excl_dir
+    tmp_excl_dir=$(mktemp -d)
+    mkdir -p "$tmp_excl_dir/src"
+    mkdir -p "$tmp_excl_dir/node_modules"
+    echo "hello" > "$tmp_excl_dir/src/normal.txt"
+    echo "hello" > "$tmp_excl_dir/node_modules/should_not_count.txt"
+    run -d "$tmp_excl_dir" -t "hello"
+    assert_contains     "files to search: 1"     "$RUN_OUTPUT" "EX10: stats count excludes files in excluded dirs"
+    assert_not_contains "should_not_count.txt"   "$RUN_OUTPUT" "EX10: stats listing does not include excluded file"
+    assert_contains     "normal.txt"             "$RUN_OUTPUT" "EX10: stats listing still shows normal files"
+    rm -rf "$tmp_excl_dir"
+
+    # EX11: --stats with only excluded files → no files to search, exit 1
+    local tmp_excl_only
+    tmp_excl_only=$(mktemp -d)
+    mkdir -p "$tmp_excl_only/node_modules"
+    echo "hello" > "$tmp_excl_only/node_modules/only.txt"
+    run_stdout_only -d "$tmp_excl_only" -t "hello"
+    assert_exit_code 1 "$RUN_EXIT" "EX11: all files in excluded dirs → exit 1"
+    assert_empty "$RUN_OUTPUT" "EX11: all files excluded → empty output"
+    rm -rf "$tmp_excl_only"
+
+    # EX12: exclusion with -f rel still works
+    run_stdout_only -d "$TEST_DIR" -t "hello" -f rel
+    assert_not_contains "excluded_nm.js"   "$RUN_OUTPUT" "EX12: -f rel still excludes node_modules files"
+    assert_not_contains "excluded_git.txt" "$RUN_OUTPUT" "EX12: -f rel still excludes .git files"
+
+    # EX13: exclusion with -f full still works
+    run_stdout_only -d "$TEST_DIR" -t "hello" -f full
+    assert_not_contains "excluded_nm.js"   "$RUN_OUTPUT" "EX13: -f full still excludes node_modules files"
+    assert_not_contains "excluded_git.txt" "$RUN_OUTPUT" "EX13: -f full still excludes .git files"
+}
+
+#---------------------------------------------------------------------------
 # Summary
 #---------------------------------------------------------------------------
 
@@ -1053,6 +1151,7 @@ test_phase7
 test_phase8
 test_phase9_spaces
 test_phase10
+test_phase11
 
 cleanup_tests
 print_summary

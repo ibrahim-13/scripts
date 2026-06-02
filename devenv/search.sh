@@ -22,6 +22,9 @@ CONTEXT_LINES=7
 COLOR_MATCH=$'\033[1;33m'   # bold yellow — applied to entire match line (manual fallback)
 COLOR_RESET=$'\033[0m'
 
+# Directory basenames that are always excluded from file enumeration and search
+EXCLUDE_DIRS=(".git" "node_modules" ".svn" "__pycache__" "bin" "obj")
+
 #---------------------------------------------------------------------------
 # Usage
 #---------------------------------------------------------------------------
@@ -60,6 +63,8 @@ function usage {
     echo "                                uses grep native color when available, else bold yellow"
     echo "                                only applies with --context; ignored otherwise"
     echo "  -o, --output <file>         write output to file instead of stdout"
+    echo "  --no-stats                  hide file list, file count, and elapsed time"
+    echo "                                stats are shown by default"
     echo ""
     echo "Other:"
     echo "  --completion                generate and source bash completion (exclusive)"
@@ -82,7 +87,7 @@ _codesearch_completion() {
     local cur prev opts formats
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
-    opts="-d --directory -t --text -i --case-insensitive -x --exact -r --regex -p --file-pattern -f --format -n --line-number -c --context -C --color -o --output --completion -h --help"
+    opts="-d --directory -t --text -i --case-insensitive -x --exact -r --regex -p --file-pattern -f --format -n --line-number -c --context -C --color --no-stats -o --output --completion -h --help"
     formats="name rel full"
 
     case "$prev" in
@@ -115,6 +120,36 @@ COMP
 }
 
 #---------------------------------------------------------------------------
+# Path exclusion helper
+#---------------------------------------------------------------------------
+
+# Returns 0 (true) if any directory component of filepath exactly matches an
+# entry in EXCLUDE_DIRS; returns 1 otherwise.
+# $1: file path to check
+# Globals: EXCLUDE_DIRS
+function fn_path_has_excluded_dir {
+    local filepath="$1"
+    local dir
+    dir="$(dirname "$filepath")"
+
+    while [[ "$dir" != "." && "$dir" != "/" ]]; do
+        local part
+        part="$(basename "$dir")"
+        local excl
+        for excl in "${EXCLUDE_DIRS[@]}"; do
+            if [[ "$part" == "$excl" ]]; then
+                return 0
+            fi
+        done
+        local parent
+        parent="$(dirname "$dir")"
+        [[ "$parent" == "$dir" ]] && break
+        dir="$parent"
+    done
+    return 1
+}
+
+#---------------------------------------------------------------------------
 # File enumeration
 #---------------------------------------------------------------------------
 
@@ -125,6 +160,7 @@ COMP
 function fn_get_files {
     if [[ -n "$ARG_FILE_PATTERN" ]]; then
         find "$ARG_DIR" -type f -print0 | while IFS= read -r -d $'\0' filepath; do
+            fn_path_has_excluded_dir "$filepath" && continue
             local bn
             bn="$(basename "$filepath")"
             if echo "$bn" | grep -qiE -- "$ARG_FILE_PATTERN" 2>/dev/null; then
@@ -132,7 +168,10 @@ function fn_get_files {
             fi
         done
     else
-        find "$ARG_DIR" -type f -print0
+        find "$ARG_DIR" -type f -print0 | while IFS= read -r -d $'\0' filepath; do
+            fn_path_has_excluded_dir "$filepath" && continue
+            printf '%s\0' "$filepath"
+        done
     fi
 }
 
@@ -282,13 +321,120 @@ function fn_format_context {
 # Search dispatcher
 #---------------------------------------------------------------------------
 
-function fn_search {
-    local output
+# Searches $2+ files one by one, printing a live "remaining: N" counter on
+# stderr that overwrites itself in place. Results go to stdout as normal.
+# $1: total file count
+# $2+: file paths
+function fn_search_with_progress {
+    local total="$1"; shift
+    local remaining="$total"
+    local -a grep_flags
+    read -ra grep_flags <<< "$(fn_build_content_grep_flags)"
 
     if [[ "$ARG_CONTEXT" == "1" ]]; then
-        output=$(fn_format_context)
+        local use_grep_color=0 use_manual_color=0
+        if [[ "$ARG_COLOR" == "1" ]]; then
+            if fn_grep_supports_color; then use_grep_color=1; else use_manual_color=1; fi
+        fi
+        local first_file=1
+
+        for filepath in "$@"; do
+            printf '\r[ info   ] remaining: %-*d' "${#total}" "$remaining" >&2
+            remaining=$(( remaining - 1 ))
+
+            grep "${grep_flags[@]}" -q -- "$ARG_TEXT" "$filepath" 2>/dev/null || continue
+
+            [[ "$first_file" == "1" ]] && first_file=0 || echo ""
+            fn_get_display_path "$filepath"
+
+            local -a ctx_flags=("${grep_flags[@]}" -n -B"$CONTEXT_LINES" -A"$CONTEXT_LINES" --no-filename)
+            [[ "$use_grep_color" == "1" ]] && ctx_flags+=(--color=always)
+
+            grep "${ctx_flags[@]}" -- "$ARG_TEXT" "$filepath" 2>/dev/null | \
+                while IFS= read -r ctx_line; do
+                    if [[ "$ctx_line" == "--" ]]; then
+                        echo "---"
+                    elif [[ "$use_manual_color" == "1" && "$ctx_line" =~ ^[0-9]+: ]]; then
+                        printf "${COLOR_MATCH}%s${COLOR_RESET}\n" "$ctx_line"
+                    else
+                        echo "$ctx_line"
+                    fi
+                done
+        done
+
+    elif [[ "$ARG_LINE_NUMBER" == "1" ]]; then
+        for filepath in "$@"; do
+            printf '\r[ info   ] remaining: %-*d' "${#total}" "$remaining" >&2
+            remaining=$(( remaining - 1 ))
+
+            grep "${grep_flags[@]}" -n -- "$ARG_TEXT" "$filepath" 2>/dev/null | \
+                while IFS= read -r match_line; do
+                    local linenum line_content colnum
+                    linenum="${match_line%%:*}"
+                    line_content="${match_line#*:}"
+                    colnum=$(fn_column_in_line "$line_content")
+                    printf '%s %s\n' \
+                        "$(fn_get_display_path "$filepath")" \
+                        "$(printf "$LINENUM_FORMAT" "$linenum" "$colnum")"
+                done
+        done
+
     else
-        output=$(fn_format_files)
+        for filepath in "$@"; do
+            printf '\r[ info   ] remaining: %-*d' "${#total}" "$remaining" >&2
+            remaining=$(( remaining - 1 ))
+
+            if grep "${grep_flags[@]}" -q -- "$ARG_TEXT" "$filepath" 2>/dev/null; then
+                fn_get_display_path "$filepath"
+            fi
+        done
+    fi
+}
+
+function fn_search {
+    local output
+    local start_ms end_ms elapsed_ms
+
+    if [[ "$ARG_NO_STATS" == "0" ]]; then
+        local -a stat_files=()
+        while IFS= read -r -d $'\0' f; do
+            stat_files+=("$f")
+        done < <(fn_get_files)
+
+        local file_count=${#stat_files[@]}
+
+        print_info "files to search: $file_count" >&2
+        for f in "${stat_files[@]+"${stat_files[@]}"}"; do
+            echo "  $(fn_get_display_path "$f")" >&2
+        done
+        echo "" >&2
+
+        if [[ "$file_count" -gt 100 ]]; then
+            local TMP_ANS
+            read -rp "[ prompt ]  $file_count files found, continue search? (y/N) " TMP_ANS </dev/tty
+            case $TMP_ANS in
+                [Yy]) ;;
+                *) return 1 ;;
+            esac
+        fi
+
+        start_ms=$(date +%s%3N)
+        if [[ "$file_count" -gt 0 ]]; then
+            output=$(fn_search_with_progress "$file_count" "${stat_files[@]}")
+        else
+            output=""
+        fi
+        printf '\r%-60s\r' '' >&2
+        end_ms=$(date +%s%3N)
+        elapsed_ms=$(( end_ms - start_ms ))
+        printf '[ info   ] elapsed: %d.%03ds\n' $(( elapsed_ms / 1000 )) $(( elapsed_ms % 1000 )) >&2
+        echo "" >&2
+    else
+        if [[ "$ARG_CONTEXT" == "1" ]]; then
+            output=$(fn_format_context)
+        else
+            output=$(fn_format_files)
+        fi
     fi
 
     if [[ -z "$output" ]]; then
@@ -319,6 +465,7 @@ ARG_FORMAT_EXPLICIT="0"
 ARG_LINE_NUMBER="0"
 ARG_CONTEXT="0"
 ARG_COLOR="0"
+ARG_NO_STATS="0"
 ARG_OUTPUT=""
 ARG_COMPLETION="0"
 
@@ -337,6 +484,7 @@ while [[ "$#" -gt 0 ]]; do case $1 in
     -n|--line-number)       ARG_LINE_NUMBER="1"; shift;;
     -c|--context)           ARG_CONTEXT="1"; shift;;
     -C|--color)             ARG_COLOR="1"; shift;;
+    --no-stats)             ARG_NO_STATS="1"; shift;;
     -o|--output)            ARG_OUTPUT="$2"; shift; shift;;
     --completion)           ARG_COMPLETION="1"; shift;;
     -h|--help)              usage;;
@@ -348,7 +496,7 @@ if [[ "$ARG_COMPLETION" == "1" ]]; then
     if [[ -n "$ARG_DIR" || -n "$ARG_TEXT" || "$ARG_CASE_INSENSITIVE" == "1" || \
           "$ARG_EXACT" == "1" || "$ARG_REGEX" == "1" || -n "$ARG_FILE_PATTERN" || \
           "$ARG_FORMAT_EXPLICIT" == "1" || "$ARG_LINE_NUMBER" == "1" || \
-          "$ARG_CONTEXT" == "1" || "$ARG_COLOR" == "1" || -n "$ARG_OUTPUT" ]]; then
+          "$ARG_CONTEXT" == "1" || "$ARG_COLOR" == "1" || "$ARG_NO_STATS" == "1" || -n "$ARG_OUTPUT" ]]; then
         usage "--completion cannot be combined with other arguments"
     fi
     fn_generate_completion
