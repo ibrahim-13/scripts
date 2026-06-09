@@ -14,7 +14,7 @@ MACHINE="$(uname -s)"
 # download and print        : CMD_DLP "URL"
 if command -v curl &> /dev/null; then
     CMD_DL="curl -L --progress-bar -o"
-    CMD_DLP="curl -so-"
+    CMD_DLP="curl -fsSLo-"
 elif command -v wget &> /dev/null; then
     CMD_DL="wget -q --show-progress --progress=bar:force:noscroll -O"
     CMD_DLP="wget -qO-"
