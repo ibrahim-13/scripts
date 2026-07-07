@@ -31,6 +31,7 @@ ARG_REVERSE="false"
 ARG_DRY_RUN="false"
 ARG_PAIR_NAME=""
 ARG_INIT="false"
+ARG_INTERACTIVE="false"
 
 # ---------------------------------------------------------------------------
 # Utility helpers
@@ -184,6 +185,11 @@ Sync options:
   -p, --pair <name>          Select sync pair by name (skips interactive menu)
   -r, --reverse              Reverse source and destination
   -n, --dry-run              Show what would be synced without making changes
+
+Interactive mode:
+  -i, --interactive          Ask for every option interactively (direction,
+                             pair, ignore list, dry-run) and then sync.
+                             Cannot be combined with any other option.
 
 Setup options:
       --init                 Generate template config and exclude files
@@ -423,6 +429,151 @@ function select_pair {
 }
 
 # ---------------------------------------------------------------------------
+# Fully interactive mode: -i / --interactive
+# ---------------------------------------------------------------------------
+
+# Numbered pair menu for interactive mode.  Unlike select_pair, this stores
+# the chosen name in the global INTERACTIVE_PAIR_NAME instead of echoing it,
+# so it can be called directly (menu stays visible on the terminal).
+INTERACTIVE_PAIR_NAME=""
+function interactive_select_pair {
+  local names
+  names=$(get_pair_names)
+
+  if [ -z "$names" ]; then
+    print_error "No sync pairs found in: $CONFIG_FILE"
+    exit 1
+  fi
+
+  echo ""
+  echo "Available sync pairs:"
+  echo ""
+
+  local i=1
+  local -a name_array=()
+  local name
+  while IFS= read -r name; do
+    local src dst owner_val owner_display
+    src=$(get_config_value "$name" "src")
+    dst=$(get_config_value "$name" "dst")
+    owner_val=$(get_config_value "$name" "owner")
+    if [ -n "$owner_val" ]; then
+      owner_display="  [owner: $owner_val]"
+    else
+      owner_display=""
+    fi
+    printf "  %d) %-20s  %s  ->  %s%s\n" "$i" "$name" "$src" "$dst" "$owner_display"
+    name_array+=("$name")
+    i=$((i + 1))
+  done <<< "$names"
+
+  echo ""
+  local max_choice=$(( i - 1 ))
+  printf "Select pair number [1-%d]: " "$max_choice"
+  local choice
+  read -r choice
+
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || \
+     [ "$choice" -lt 1 ] || \
+     [ "$choice" -gt "${#name_array[@]}" ]; then
+    print_error "Invalid selection: '$choice'"
+    exit 1
+  fi
+
+  INTERACTIVE_PAIR_NAME="${name_array[$((choice - 1))]}"
+}
+
+# Print the active (non-comment, non-blank) patterns from the exclude file,
+# one per line.  Nothing is printed if the file does not exist.
+function get_saved_exclude_patterns {
+  [ -f "$EXCLUDE_FILE" ] || return 0
+  while IFS= read -r raw_line; do
+    local line="${raw_line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -z "$line" ] && continue
+    printf '%s\n' "$line"
+  done < "$EXCLUDE_FILE"
+}
+
+# Ask for the ignore list, prefilled with the patterns saved in the exclude
+# file (space-separated, editable via readline).  Any pattern in the answer
+# that is not already in the file is appended to it, so the normal
+# --exclude-from mechanism picks everything up when the sync runs.
+function interactive_edit_ignore_list {
+  local -a saved=()
+  local p
+  while IFS= read -r p; do
+    [ -n "$p" ] && saved+=("$p")
+  done <<< "$(get_saved_exclude_patterns)"
+
+  local prefill=""
+  if [ "${#saved[@]}" -gt 0 ]; then
+    prefill="${saved[*]}"
+  fi
+
+  echo ""
+  echo "Ignore list — rsync exclude patterns, separated by spaces."
+  echo "Prefilled from: $EXCLUDE_FILE"
+  echo "Add new patterns at the end; new ones are saved back to that file."
+  echo "(Removing a pattern from this line does NOT remove it from the file.)"
+  local input
+  read -e -r -p "> " -i "$prefill" input
+
+  # Split the answer into words without glob expansion (patterns like *.pyc
+  # must not expand against the current directory).
+  local -a entered=()
+  read -r -a entered <<< "$input"
+
+  local -a new_patterns=()
+  local pat s found
+  for pat in "${entered[@]}"; do
+    found="false"
+    for s in "${saved[@]}"; do
+      [ "$s" = "$pat" ] && { found="true"; break; }
+    done
+    [ "$found" = "false" ] && new_patterns+=("$pat")
+  done
+
+  if [ "${#new_patterns[@]}" -gt 0 ]; then
+    {
+      printf '\n# Added interactively by %s\n' "$(basename "$0")"
+      printf '%s\n' "${new_patterns[@]}"
+    } >> "$EXCLUDE_FILE"
+    print_info "Saved ${#new_patterns[@]} new pattern(s) to: $EXCLUDE_FILE"
+  else
+    print_info "No new patterns — exclude file unchanged."
+  fi
+}
+
+# Drive the full interactive flow.  Only sets the same ARG_* variables the
+# command-line options would set, then returns — the script continues through
+# the normal resolve/summary/confirm/sync path exactly as usual.
+function run_interactive_mode {
+  echo ""
+  print_info "Interactive mode — answer the prompts below."
+  echo ""
+
+  # 1. Direction
+  if ask_yes_no "Reverse source and destination?"; then
+    ARG_REVERSE="true"
+  fi
+
+  # 2. Pair selection
+  interactive_select_pair
+  ARG_PAIR_NAME="$INTERACTIVE_PAIR_NAME"
+
+  # 3. Ignore list
+  interactive_edit_ignore_list
+
+  # 4. Dry run
+  echo ""
+  if ask_yes_no "Is this a dry run (show changes without applying them)?"; then
+    ARG_DRY_RUN="true"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # Setup command: --init
 # ---------------------------------------------------------------------------
 
@@ -552,8 +703,20 @@ function build_exclude_args {
 # Argument parsing
 # ---------------------------------------------------------------------------
 
+# -i/--interactive is exclusive: when present it must be the only argument.
+for _arg in "$@"; do
+  case "$_arg" in
+    -i|--interactive) ARG_INTERACTIVE="true" ;;
+  esac
+done
+if [ "$ARG_INTERACTIVE" = "true" ] && [ "$#" -ne 1 ]; then
+  usage "-i/--interactive cannot be combined with any other option"
+fi
+
 while [[ "$#" -gt 0 ]]; do
   case "$1" in
+    -i|--interactive)
+      shift ;;   # already handled by the pre-scan above
     -p|--pair)
       [ -z "${2:-}" ] && usage "--pair requires a name argument"
       ARG_PAIR_NAME="$2"; shift 2 ;;
@@ -601,6 +764,14 @@ fi
 
 validate_config
 validate_exclude_file
+
+# ---------------------------------------------------------------------------
+# Interactive mode — collect all options via prompts, then continue normally
+# ---------------------------------------------------------------------------
+
+if [ "$ARG_INTERACTIVE" = "true" ]; then
+  run_interactive_mode
+fi
 
 # ---------------------------------------------------------------------------
 # Resolve the pair
@@ -730,6 +901,13 @@ if [ -f "$EXCLUDE_FILE" ]; then
   done < "$EXCLUDE_FILE"
 fi
 printf "    - (patterns from .gitignore files in each directory)\n"
+echo ""
+printf "  Full rsync command to be executed:\n"
+printf "    rsync"
+for _rsync_arg in "${RSYNC_OPTS[@]}" "${EXCLUDE_ARGS[@]}" "$SRC_DIR/" "$DST_DIR/"; do
+  printf " %q" "$_rsync_arg"
+done
+printf "\n"
 echo ""
 printf "  WARNING: Files in the destination that are absent in the source\n"
 printf "           WILL BE PERMANENTLY DELETED (rsync --delete).\n"

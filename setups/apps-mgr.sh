@@ -205,6 +205,33 @@ function os_font_install_info {
 }
 register_opt os_font_install_info "Print required font information"
 
+function os_font_install_kalpurush {
+	local FONT_URL="https://www.omicronlab.com/download/fonts/kalpurush.ttf"
+	local FONT_TMP="$DIR_TMP/Kalpurush-OmicronLab.ttf"
+	print_info "installing kalpurush font system-wide"
+	if command -v curl &> /dev/null
+	then
+		curl -fL -o "$FONT_TMP" "$FONT_URL"
+	elif command -v wget &> /dev/null
+	then
+		wget -O "$FONT_TMP" "$FONT_URL"
+	else
+		print_error "curl or wget not found"
+		return
+	fi
+	if [ ! -f "$FONT_TMP" ]
+	then
+		print_error "failed to download font"
+		return
+	fi
+	echo "installing font to /usr/local/share/fonts"
+	sudo mkdir -p /usr/local/share/fonts
+	sudo cp "$FONT_TMP" /usr/local/share/fonts/Kalpurush-OmicronLab.ttf
+	echo "updating font cache"
+	fc-cache -fv
+}
+register_opt os_font_install_kalpurush "Install Kalpurush font (OmicronLab)"
+
 ###############################
 # END: Configuration for `os` #
 ###############################
