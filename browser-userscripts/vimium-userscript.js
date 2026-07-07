@@ -282,7 +282,11 @@
     //    isn't scrollable and there's no valid cache, so it runs rarely; the result is cached.
     let best = null;
     let bestArea = 0;
-    const all = document.body ? document.body.getElementsByTagName('*') : [];
+    // Include <body> itself — getElementsByTagName('*') only yields descendants,
+    // and body is the actual scroller on pages that set html { overflow: hidden }.
+    const all = document.body
+      ? [document.body, ...document.body.getElementsByTagName('*')]
+      : [];
     for (const node of all) {
       if (_overflowScrolls(node, axis)) {
         const r = node.getBoundingClientRect();
@@ -490,6 +494,12 @@
           return;
         } catch (_) { /* fall through to click */ }
       }
+    }
+    // A synthetic .click() does not move focus like a real click, so focus
+    // text-entry elements explicitly before clicking.
+    const tag = el.tagName ? el.tagName.toLowerCase() : '';
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable) {
+      try { el.focus(); } catch (_) { /* ignore */ }
     }
     el.click();
   }

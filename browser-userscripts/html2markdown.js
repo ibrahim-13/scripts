@@ -98,6 +98,8 @@
     function replace(el) {
       const tag = el.tagName.toLowerCase();
       if (SKIP.has(tag)) return "";
+      // Never include this script's own dialog when converting the page.
+      if (el.id && el.id === PREFIX + "_dialog") return "";
 
       switch (tag) {
         case "h1":
@@ -384,7 +386,7 @@
     }
 
     return process(root)
-      .replace(/[ \t]+\n/g, (m) => (m === "  \n" ? m : "\n")) // keep hard breaks
+      .replace(/[ \t]+\n/g, (m) => (m.endsWith("  \n") ? "  \n" : "\n")) // keep hard breaks
       .replace(/\n{3,}/g, "\n\n")
       .trim();
   }
