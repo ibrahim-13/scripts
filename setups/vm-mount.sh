@@ -105,7 +105,7 @@ sudo mkdir -p "$ARG_MOUNT"
 sudo mkdir -p "$ARG_MAP_MOUNT"
 
 sudo mount -t 9p -o trans=virtio "$ARG_LABEL" "$ARG_MOUNT" -oversion=9p2000.L
-if ! [ "$1" == "0" ]; then print_err "could not mount directory, aborting"; exit 1; fi
+if ! [ "$?" == "0" ]; then print_err "could not mount directory, aborting"; exit 1; fi
 
 MOUNT_UID=$(ls -nd "$ARG_MOUNT" | awk '{print $3}')
 MOUNT_GID=$(ls -nd "$ARG_MOUNT" | awk '{print $4}')
