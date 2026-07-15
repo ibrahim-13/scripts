@@ -10,12 +10,13 @@
 #    model : model name + reasoning effort level, e.g. "Opus 4.8 (high)"
 #    cost  : total session cost in USD
 #    diff  : lines added/removed this session, e.g. "+156 / -23"
-#    ctx   : context window used % / remaining %
+#    ctx   : context window used %
 #    rate  : rate-limit usage 5h% / 7d% (Claude Pro/Max only)
 #    wt    : worktree path — only when inside a --worktree session
 #
-#  Segments are joined with " | ". If the full line is wider than the
-#  terminal ($COLUMNS) it wraps onto multiple lines automatically.
+#  Segments are joined with " | ". Lines wrap onto multiple lines once they
+#  exceed 80% of $COLUMNS — the 20% slack absorbs the statusLine "padding"
+#  setting so the terminal doesn't hard-crop the line.
 #
 #  DEPENDENCIES: bash + GNU coreutils. `git` is OPTIONAL.
 #    - The JSON payload is parsed with pure bash (no jq, grep, sed or awk).
@@ -168,7 +169,6 @@ lines_add=$(jget "$input" cost total_lines_added); [ -n "$lines_add" ] || lines_
 lines_del=$(jget "$input" cost total_lines_removed); [ -n "$lines_del" ] || lines_del=0
 
 ctx_used=$(jget "$input" context_window used_percentage)
-ctx_left=$(jget "$input" context_window remaining_percentage)
 
 rate_5h=$(jget "$input" rate_limits five_hour used_percentage)
 rate_7d=$(jget "$input" rate_limits seven_day used_percentage)
@@ -254,10 +254,9 @@ if [ "$lines_add" != "0" ] || [ "$lines_del" != "0" ]; then
   add "diff: +${lines_add} / -${lines_del}" "${DIM}diff:${R} ${GREEN}+${lines_add}${R} ${DIM}/${R} ${RED}-${lines_del}${R}"
 fi
 
-# ctx (hidden only if both values empty)
-if [ -n "$ctx_used" ] || [ -n "$ctx_left" ]; then
-  u=${ctx_used:-?}; l=${ctx_left:-?}
-  add "ctx: ${u}% used / ${l}% left" "${DIM}ctx:${R} ${YELLOW}${u}%${R} ${DIM}used /${R} ${GREEN}${l}%${R} ${DIM}left${R}"
+# ctx (hidden if empty)
+if [ -n "$ctx_used" ]; then
+  add "ctx: ${ctx_used}% used" "${DIM}ctx:${R} ${YELLOW}${ctx_used}%${R} ${DIM}used${R}"
 fi
 
 # rate (hidden if no rate-limit data; Pro/Max only)
@@ -276,7 +275,10 @@ fi
 # =============================================================================
 #  Wrap into multiple lines if wider than the terminal
 # =============================================================================
-width=$(( ${COLUMNS:-80} - 1 ))   # small safety margin
+# Wrap at 80% of the terminal width — the slack absorbs the statusLine
+# "padding" setting (not part of the stdin payload) so lines don't get
+# hard-cropped by the terminal.
+width=$(( ${COLUMNS:-80} * 80 / 100 ))
 [ "$width" -lt 20 ] && width=20
 sep_plain=" | "
 sep_color="${DIM} | ${R}"

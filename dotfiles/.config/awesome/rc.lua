@@ -31,6 +31,8 @@ local hotkeys_popup = require("awful.hotkeys_popup")
 -- Enable hotkeys help widget for VIM and other apps
 -- when client with a matching name is opened:
 require("awful.hotkeys_popup.keys")
+-- Custom module: adds a "custom" submenu below "applications"
+local custom = require("custom")
 
 -- {{{ Error handling
 -- Check if awesome encountered an error during startup and fell back to
@@ -111,20 +113,15 @@ mymainmenu = awful.menu({ items = { { "awesome", myawesomemenu, beautiful.awesom
                                   }
                         })
 
--- generate applications menu
-menubar.menu_gen.generate(function(entries)
-    local items = {}
-    for _, v in ipairs(entries) do
-        table.insert(items, { v.name, v.cmdline, v.icon })
-    end
-    mymainmenu:add({ 'applications', items }, 2)
-end)
+-- Generate the "applications" menu (index 2) and the "custom" submenu
+-- (index 3, right below it). Both live in custom.lua.
+custom.init(mymainmenu, 2)
 
 mylauncher = awful.widget.launcher({ image = beautiful.awesome_icon,
                                      menu = mymainmenu })
 
 -- Menubar configuration
-menubar.utils.terminal = terminal -- Set the terminal for applications that require it
+-- (menubar.utils.terminal is set in custom.init, before the app menu is built)
 -- }}}
 
 -- Keyboard map indicator and switcher
@@ -193,8 +190,9 @@ awful.screen.connect_for_each_screen(function(s)
     -- Wallpaper
     set_wallpaper(s)
 
-    -- Each screen has its own tag table.
-    awful.tag({ "1", "2", "3", "4", "5", "6", "7", "8", "9" }, s, awful.layout.layouts[1])
+    -- Each screen has its own tag table. Tags start with the last layout
+    -- selected from the layoutbox/keybindings (persisted by custom.lua).
+    awful.tag({ "1", "2", "3", "4", "5", "6", "7", "8", "9" }, s, custom.get_default_layout())
 
     -- Create a promptbox for each screen
     s.mypromptbox = awful.widget.prompt()
@@ -243,6 +241,10 @@ awful.screen.connect_for_each_screen(function(s)
     }
 end)
 -- }}}
+
+-- Persist the layout whenever it is changed (layoutbox clicks, Mod+space,
+-- ...), so the selection survives restarts and shutdowns.
+tag.connect_signal("property::layout", function(t) custom.save_layout(t) end)
 
 -- {{{ Mouse bindings
 root.buttons(gears.table.join(
