@@ -11,12 +11,16 @@
 #    cost  : total session cost in USD
 #    diff  : lines added/removed this session, e.g. "+156 / -23"
 #    ctx   : context window used %
-#    rate  : rate-limit usage 5h% / 7d% (Claude Pro/Max only)
+#    rate  : rate-limit usage + time until reset, e.g. "5h 30% 1h 1m / 7d
+#            41% 1d 2h" (Claude Pro/Max only)
 #    wt    : worktree path — only when inside a --worktree session
 #
 #  Segments are joined with " | ". Lines wrap onto multiple lines once they
-#  exceed 80% of $COLUMNS — the 20% slack absorbs the statusLine "padding"
-#  setting so the terminal doesn't hard-crop the line.
+#  exceed $LINE_WIDTH_PERCENT of $COLUMNS — the slack absorbs the statusLine
+#  "padding" setting so the terminal doesn't hard-crop the line.
+#
+#  Tunable constants (thresholds, wrap width) live at the top of the script,
+#  right below `set -uo pipefail`.
 #
 #  DEPENDENCIES: bash + GNU coreutils. `git` is OPTIONAL.
 #    - The JSON payload is parsed with pure bash (no jq, grep, sed or awk).
@@ -73,6 +77,14 @@
 # =============================================================================
 
 set -uo pipefail
+
+# =============================================================================
+#  Tunable constants
+# =============================================================================
+LINE_WIDTH_PERCENT=90   # wrap lines once they exceed this % of $COLUMNS
+LINE_WIDTH_MIN=20       # never wrap narrower than this many columns
+RATE_RED_PCT=80         # rate-limit % at/above which the value turns red
+RATE_YELLOW_PCT=50      # rate-limit % at/above which the value turns yellow
 
 # Read the whole JSON payload Claude Code sends on stdin (cat = coreutils).
 input=$(cat)
@@ -175,6 +187,34 @@ rate_7d=$(jget "$input" rate_limits seven_day used_percentage)
 [ -n "$rate_5h" ] && rate_5h=$(printf '%.0f' "$rate_5h" 2>/dev/null || printf '%s' "$rate_5h")
 [ -n "$rate_7d" ] && rate_7d=$(printf '%.0f' "$rate_7d" 2>/dev/null || printf '%s' "$rate_7d")
 
+# Reset times (unix epoch seconds); may be independently absent.
+rate_5h_reset=$(jget "$input" rate_limits five_hour resets_at)
+rate_7d_reset=$(jget "$input" rate_limits seven_day resets_at)
+
+# fmt_reset EPOCH
+#   Echoes the time remaining until EPOCH, e.g. "1h 1m" (< 1 day) or "1d 1h"
+#   (>= 1 day). Zero-valued units are dropped, and minutes are omitted once
+#   the reset is a day or more away. Under a minute shows "<1m". Empty when
+#   EPOCH is missing, invalid, or already past.
+#   Uses bash's $EPOCHSECONDS (bash 5+) with a `date` fallback.
+fmt_reset() {
+  local at=${1%%.*} now rem d h m out=''
+  [[ $at =~ ^[0-9]+$ ]] || return 0
+  now=${EPOCHSECONDS:-$(date +%s)}
+  rem=$(( at - now ))
+  (( rem > 0 )) || return 0
+  d=$(( rem / 86400 )); h=$(( rem % 86400 / 3600 )); m=$(( rem % 3600 / 60 ))
+  if (( d > 0 )); then
+    out="${d}d"; (( h > 0 )) && out+=" ${h}h"
+  else
+    (( h > 0 )) && out="${h}h"
+    (( m > 0 )) && out+="${out:+ }${m}m"
+    [ -n "$out" ] || out="<1m"
+  fi
+  printf '%s' "$out"
+  return 0
+}
+
 wt_path=$(jget "$input" worktree path)
 
 # ---- git branch + dirty flag ---------------------------------------------
@@ -260,11 +300,15 @@ if [ -n "$ctx_used" ]; then
 fi
 
 # rate (hidden if no rate-limit data; Pro/Max only)
+# Each window shows "<used>% <time to reset>", e.g. "30% 1h 1m" / "30% 1d 1h".
 if [ -n "$rate_5h" ] || [ -n "$rate_7d" ]; then
-  rate_color() { if [ "${1:-0}" -ge 80 ] 2>/dev/null; then printf '%s' "$RED"; elif [ "${1:-0}" -ge 50 ] 2>/dev/null; then printf '%s' "$YELLOW"; else printf '%s' "$GREEN"; fi; }
+  rate_color() { if [ "${1:-0}" -ge "$RATE_RED_PCT" ] 2>/dev/null; then printf '%s' "$RED"; elif [ "${1:-0}" -ge "$RATE_YELLOW_PCT" ] 2>/dev/null; then printf '%s' "$YELLOW"; else printf '%s' "$GREEN"; fi; }
   h=${rate_5h:-?}; d2=${rate_7d:-?}
   hc=$(rate_color "$rate_5h"); dc=$(rate_color "$rate_7d")
-  add "rate: 5h ${h}% / 7d ${d2}%" "${DIM}rate:${R} ${DIM}5h${R} ${hc}${h}%${R} ${DIM}/ 7d${R} ${dc}${d2}%${R}"
+  hr=$(fmt_reset "$rate_5h_reset"); dr=$(fmt_reset "$rate_7d_reset")
+  [ -n "$hr" ] && hr=" $hr"
+  [ -n "$dr" ] && dr=" $dr"
+  add "rate: 5h ${h}%${hr} / 7d ${d2}%${dr}" "${DIM}rate:${R} ${DIM}5h${R} ${hc}${h}%${R}${DIM}${hr}${R} ${DIM}/ 7d${R} ${dc}${d2}%${R}${DIM}${dr}${R}"
 fi
 
 # wt (hidden if no worktree)
@@ -275,11 +319,11 @@ fi
 # =============================================================================
 #  Wrap into multiple lines if wider than the terminal
 # =============================================================================
-# Wrap at 80% of the terminal width — the slack absorbs the statusLine
-# "padding" setting (not part of the stdin payload) so lines don't get
-# hard-cropped by the terminal.
-width=$(( ${COLUMNS:-80} * 80 / 100 ))
-[ "$width" -lt 20 ] && width=20
+# Wrap at $LINE_WIDTH_PERCENT of the terminal width — the slack absorbs the
+# statusLine "padding" setting (not part of the stdin payload) so lines don't
+# get hard-cropped by the terminal.
+width=$(( ${COLUMNS:-80} * LINE_WIDTH_PERCENT / 100 ))
+[ "$width" -lt "$LINE_WIDTH_MIN" ] && width=$LINE_WIDTH_MIN
 sep_plain=" | "
 sep_color="${DIM} | ${R}"
 

@@ -5,7 +5,9 @@
 -- (labelled "custom") in the main menu. The custom submenu contains:
 --   * every user-defined command (persisted on disk),
 --   * a "Natural Scroll: <state>" toggle for the Xorg pointer devices
---     (the chosen state is persisted and re-applied on startup), and
+--     (the chosen state is persisted and re-applied on startup),
+--   * a "Display Always On: <state>" toggle that disables/re-enables X11
+--     screen blanking and DPMS (not persisted; always starts false), and
 --   * an "Edit cmd" entry that opens the commands file in the editor
 --     (creating a sample file first if none exists).
 --
@@ -37,6 +39,7 @@ local state_file = gears.filesystem.get_configuration_dir() .. "custom_state.txt
 custom.mainmenu      = nil    -- reference to the main menu we live in
 custom.index         = nil    -- our position inside that main menu
 custom.natural_scroll = false -- current natural-scrolling state (bool)
+custom.display_always_on = false -- current "keep display on" state (bool, not persisted)
 
 -- Persistence ---------------------------------------------------------------
 -- File format: one command per line, "NAME=COMMAND". Lines starting with "#"
@@ -169,6 +172,112 @@ function custom.toggle_natural_scroll()
     custom.rebuild_menu()
 end
 
+-- Display Always On -----------------------------------------------------------
+-- Toggles whether the screen is allowed to blank/sleep. Unlike natural
+-- scroll, this state is NOT persisted: it always starts as `false` (normal
+-- blanking behaviour) on every awesome restart/login, so a machine never
+-- boots up with blanking accidentally left disabled.
+
+local xset_available = os.execute("command -v xset >/dev/null 2>&1")
+xset_available = (xset_available == true or xset_available == 0)
+
+local function notify_no_xset()
+    naughty.notify({
+        preset = naughty.config.presets.critical,
+        title  = "custom menu",
+        text   = "'xset' is not installed — cannot control display blanking.",
+    })
+end
+
+-- Disable/re-enable the X11 screensaver and DPMS via xset.
+-- This is stateless (two shell commands, no background process to track)
+-- and is sufficient when the screen is blanked by X itself rather than by
+-- systemd/logind-triggered suspend.
+local function apply_display_always_on(enabled)
+    local shell
+    if enabled then
+        shell = "xset s off; xset -dpms"
+    else
+        shell = "xset s on; xset +dpms"
+    end
+    awful.spawn.with_shell(shell)
+end
+
+-- "noblank"/"blank" instead of "off"/"on".
+-- Changes *how* the screensaver blanks the video signal rather than turning the screensaver
+-- mechanism off/on outright. Still stateless (no background process), just
+-- a different xset sub-command; some drivers reportedly respect `noblank`
+-- more reliably than `s off`. Swap this in for apply_display_always_on
+-- above if `s off` ever turns out not to be enough on a given machine.
+--
+-- local function apply_display_always_on(enabled)
+--     if enabled then
+--         awful.spawn.with_shell("xset s noblank; xset -dpms")
+--     else
+--         awful.spawn.with_shell("xset s blank; xset +dpms")
+--     end
+-- end
+
+-- Hold a systemd-logind idle/sleep
+-- inhibitor instead of touching xset at all. This operates at the
+-- systemd/logind level rather than X11, so it stops logind-triggered
+-- idle/suspend actions but does NOT by itself stop the X11 screensaver or
+-- DPMS blanking — only useful if something other than X is putting the
+-- screen/system to sleep. Requires tracking the spawned process's PID so it
+-- can be killed again when toggled off — more state to manage than the
+-- stateless xset approach.
+--
+-- custom.display_always_on_pid = nil
+--
+-- local function apply_display_always_on(enabled)
+--     if enabled then
+--         awful.spawn(
+--             "systemd-inhibit --what=idle:sleep:handle-lid-switch " ..
+--             "--who=awesome --why='Display Always On' sleep infinity",
+--             function(c) custom.display_always_on_pid = c.pid end
+--         )
+--     else
+--         if custom.display_always_on_pid then
+--             awful.spawn.with_shell("kill " .. custom.display_always_on_pid)
+--             custom.display_always_on_pid = nil
+--         end
+--     end
+-- end
+
+-- belt-and-suspenders combination of the
+-- Covering both the X11 blanking source and systemd/logind-triggered suspend at the
+-- same time. Most complete, but also the most complex: it needs both the
+-- xset calls and PID tracking for the inhibitor process.
+--
+-- custom.display_always_on_pid = nil
+--
+-- local function apply_display_always_on(enabled)
+--     if enabled then
+--         awful.spawn.with_shell("xset s off; xset -dpms")
+--         awful.spawn(
+--             "systemd-inhibit --what=idle:sleep:handle-lid-switch " ..
+--             "--who=awesome --why='Display Always On' sleep infinity",
+--             function(c) custom.display_always_on_pid = c.pid end
+--         )
+--     else
+--         awful.spawn.with_shell("xset s on; xset +dpms")
+--         if custom.display_always_on_pid then
+--             awful.spawn.with_shell("kill " .. custom.display_always_on_pid)
+--             custom.display_always_on_pid = nil
+--         end
+--     end
+-- end
+
+function custom.toggle_display_always_on()
+    if not xset_available then
+        notify_no_xset()
+        return
+    end
+    custom.display_always_on = not custom.display_always_on
+    apply_display_always_on(custom.display_always_on)
+    custom.rebuild_menu()
+end
+
 -- Layout persistence ---------------------------------------------------------
 -- The last layout selected (layoutbox clicks, Mod+space, ...) is saved by
 -- name and used as the default layout for all tags on the next startup.
@@ -247,6 +356,15 @@ function custom.build_items()
     table.insert(items, {
         ns_label,
         function() custom.toggle_natural_scroll() end,
+    })
+
+    -- Display-always-on toggle.
+    local dao_label = xset_available
+        and ("Display Always On: " .. tostring(custom.display_always_on))
+        or  "Display Always On: unavailable"
+    table.insert(items, {
+        dao_label,
+        function() custom.toggle_display_always_on() end,
     })
 
     -- Edit-commands entry (kept last).

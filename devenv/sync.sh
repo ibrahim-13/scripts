@@ -171,14 +171,37 @@ if [[ ${#SRCS[@]} -eq 0 ]]; then
     exit 1
 fi
 
+# Longest shared leading directory prefix of two paths (display only),
+# compared whole component by component, e.g. /a/b/c/d + /a/b/e/f -> /a/b/.
+shared_prefix() {
+    local a="$1" b="$2" prefix=""
+    while [[ "$a" == */* && "$b" == */* ]]; do
+        [[ "${a%%/*}" == "${b%%/*}" ]] || break
+        prefix+="${a%%/*}/"
+        a="${a#*/}"; b="${b#*/}"
+    done
+    printf '%s' "$prefix"
+}
+
 # Each config entry gets two options: the normal direction, and (indented)
 # the reversed direction for syncing changes back to the source.
 echo "Configured syncs:"
 for i in "${!SRCS[@]}"; do
+    src="${SRCS[$i]}" dest="${DESTS[$i]}"
+    prefix="$(shared_prefix "$src" "$dest")"
+    src_disp="${src#"$prefix"}" dest_disp="${dest#"$prefix"}"
+    # Only factor the prefix out when it names at least one shared directory
+    # and neither path collapses to nothing; otherwise show full paths.
+    if [[ "$prefix" == */*/* && -n "$src_disp" && -n "$dest_disp" ]]; then
+        src_lead="[$prefix] $src_disp" dest_lead="[$prefix] $dest_disp"
+    else
+        src_lead="$src" dest_lead="$dest"
+        src_disp="$src" dest_disp="$dest"
+    fi
     printf '%2d) %s [%s] -> %s [%s]\n' "$((i * 2 + 1))" \
-        "${SRCS[$i]}" "${SRC_OWNS[$i]}" "${DESTS[$i]}" "${DEST_OWNS[$i]}"
+        "$src_lead" "${SRC_OWNS[$i]}" "$dest_disp" "${DEST_OWNS[$i]}"
     printf '  %2d) %s [%s] -> %s [%s]\n' "$((i * 2 + 2))" \
-        "${DESTS[$i]}" "${DEST_OWNS[$i]}" "${SRCS[$i]}" "${SRC_OWNS[$i]}"
+        "$dest_lead" "${DEST_OWNS[$i]}" "$src_disp" "${SRC_OWNS[$i]}"
 done
 
 max=$(( ${#SRCS[@]} * 2 ))
