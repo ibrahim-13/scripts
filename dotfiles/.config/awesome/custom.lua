@@ -20,10 +20,13 @@
 --     ...
 --     custom.init(mymainmenu, 2)   -- applications at 2, custom at 3
 
-local awful   = require("awful")
-local naughty = require("naughty")
-local gears   = require("gears")
-local menubar = require("menubar")
+local awful     = require("awful")
+local naughty   = require("naughty")
+local gears     = require("gears")
+local menubar   = require("menubar")
+local beautiful = require("beautiful")
+local xresources = require("beautiful.xresources")
+local dpi        = xresources.apply_dpi
 
 local custom = {}
 
@@ -326,17 +329,70 @@ end
 
 -- Menu building -------------------------------------------------------------
 
--- awful.menu does not auto-size a menu to its content, so long labels get
--- cropped at the default width. Attach a `theme.width` to the items table
--- (menu.new reads it) large enough to fit the longest label.
-local function set_menu_width(items)
-    local longest = 0
-    for _, it in ipairs(items) do
-        local label = tostring(it[1] or "")
-        if #label > longest then longest = #label end
+-- Measure a label the way awesome will actually draw it: same Pango stack as
+-- wibox.widget.textbox, same font and screen DPI. A per-character estimate is
+-- not good enough for a proportional font -- in "sans 10" a character is
+-- anywhere from 3px ("l") to 12px ("W") wide. Set up lazily; if Pango is not
+-- reachable for any reason we degrade to a rough estimate rather than break
+-- the menus.
+local pango_layout = nil   -- nil = not tried yet, false = unavailable
+
+local function text_width(text)
+    if pango_layout == nil then
+        local ok, layout = pcall(function()
+            local lgi = require("lgi")
+            local ctx = lgi.PangoCairo.font_map_get_default():create_context()
+            ctx:set_resolution(xresources.get_dpi())
+            -- Measure the way the text is drawn, not the way textbox:fit
+            -- measures it. Drawing goes through a cairo context whose font
+            -- options hint glyph advances, so hinted text can come out a few
+            -- pixels wider than an unhinted measurement -- and a label that
+            -- does not fit gets wrapped by Pango, which in a one-line-tall
+            -- menu entry simply hides the tail of the name. Best-effort: plain
+            -- unhinted measurement if this cairo API is not reachable.
+            pcall(function()
+                local fo = lgi.cairo.FontOptions.create()
+                fo:set_hint_metrics(lgi.cairo.HintMetrics.ON)
+                ctx:set_font_options(fo)
+            end)
+            return lgi.Pango.Layout.new(ctx)
+        end)
+        pango_layout = ok and layout or false
     end
-    -- ~7px per char, plus room for icon, submenu arrow and margins.
-    items.theme = { width = math.max(200, longest * 7 + 60) }
+    if not pango_layout then
+        return #text * 7
+    end
+    pango_layout:set_font_description(
+        beautiful.get_font(beautiful.menu_font or beautiful.font))
+    pango_layout:set_text(text, -1)
+    local _, logical = pango_layout:get_pixel_extents()
+    return logical.width
+end
+
+-- awful.menu does not auto-size a menu to its content, so long labels get
+-- cropped at the default width (beautiful.menu_width). Attach a `theme.width`
+-- to the items table (menu.new reads it) that fits the widest label plus:
+--   * the icon gutter awful.menu.entry reserves on the left of every entry --
+--     theme.height + dpi(2), whether or not the entry has an icon,
+--   * the same gutter again on the right, so the label sits between matching
+--     margins instead of running to the edge, and
+--   * a submenu indicator, scaled to the entry height -- only when some entry
+--     opens a submenu.
+-- The right-hand gutter doubles as slack: text_width measures a label to the
+-- pixel, so without it a label that exactly fits has nothing to give if the
+-- drawn glyphs land a pixel or two wider.
+local function set_menu_width(items)
+    local height = beautiful.menu_height or dpi(16)
+    local gutter = height + dpi(2)
+    local widest, has_submenu = 0, false
+    for _, it in ipairs(items) do
+        local w = text_width(tostring(it[1] or ""))
+        if w > widest then widest = w end
+        if type(it[2]) == "table" then has_submenu = true end
+    end
+    local width = gutter + widest + gutter
+    if has_submenu then width = width + height end
+    items.theme = { width = math.ceil(width) }
     return items
 end
 custom.set_menu_width = set_menu_width
