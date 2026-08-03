@@ -190,12 +190,12 @@ if prompt_confirmation "install golang?" $ARG_CONFIRM; then
     GOLANG_FILE_PATTERN="go.*.$(get_machine1)-$(get_arch1).tar.gz"
     GOLANG_FILENAME=$($CMD_DLP "https://go.dev/dl/?mode=json" | grep -o "$GOLANG_FILE_PATTERN" | head -n 1 | tr -d '\r\n' )
     GOLANG_URL="https://go.dev/dl/$GOLANG_FILENAME"
-    if ! [ -f "$APPS_DIR/golang.tag" ] || ! [ "$GOLANG_FILENAME" == "$(cat "$APPS_DIR/golang.tag")" ]; then
+    GOLANG_INSTALLED_FILENAME=""
+    if [ -f "$APPS_DIR/golang.tag" ]; then GOLANG_INSTALLED_FILENAME="$(cat "$APPS_DIR/golang.tag")"; else GOLANG_INSTALLED_FILENAME=""; fi
+    if ! [ "$GOLANG_FILENAME" == "$GOLANG_INSTALLED_FILENAME" ]; then
+        print_info "golang: $GOLANG_INSTALLED_FILENAME --> $GOLANG_FILENAME"
         $CMD_DL "$APPS_DIR/$GOLANG_FILENAME" "$GOLANG_URL"
-        if [ -d /usr/local/go ]; then
-            sudo rm -rf /usr/local/go
-        fi
-        sudo tar -C /usr/local -xzf "$APPS_DIR/$GOLANG_FILENAME"
+        sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf "$APPS_DIR/$GOLANG_FILENAME"
         rm "$APPS_DIR/$GOLANG_FILENAME"
         print_info "adding path entry in .bashrc.d"
         tee "$HOME/.bashrc.d/golang.sh" > /dev/null <<EOT
@@ -213,16 +213,6 @@ if prompt_confirmation "install node version manager?" $ARG_CONFIRM; then
     nvm install --lts
     nvm use --lts
     set -eu
-fi
-
-if prompt_confirmation "install ghostty?" $ARG_CONFIRM; then
-    print_info "installing ghostty"
-    if dnf copr list | grep -qF "scottames/ghostty"; then
-        print_info "ghostty copr repo already enabled"
-    else
-        sudo dnf copr enable scottames/ghostty
-    fi
-    sudo dnf install ghostty -y
 fi
 
 if prompt_confirmation "install claude cli?" $ARG_CONFIRM; then

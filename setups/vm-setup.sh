@@ -78,25 +78,47 @@ while [[ "$#" > 0 ]]; do case $1 in
     *) usage "invalid arguments";;
 esac; done
 
-if ! [ -f /etc/dnf/dnf.conf ]; then
-  print_warn "dnf config file not found, configuration will be skipped"
-elif line_exists "install_weak_deps=false" "/etc/dnf/dnf.conf"; then
-  print_info "dnf already configured to disable weak deps"
-elif prompt_confirmation "disable weak dependencies for dnf?" $ARG_CONFIRM; then
-  sudo tee -a /etc/dnf/dnf.conf > /dev/null <<EOT
-install_weak_deps=false
-EOT
-  print_info "dnf weak dependencies disabled"
-else
-  print_warn "weak dependencies for dnf NOT disabled"
+
+if prompt_confirmation "set locale for mac?" $ARG_CONFIRM; then
+  localectl set-locale "en_US.UTF8"
+  localectl set-x11-keymap de pc105 mac
 fi
 
-AWESOME_EXEC="exec awesome &> $HOME/awesomewm.log"
-if line_exists "$AWESOME_EXEC" "$HOME/.xinitrc"; then
-  print_info "xinit already configured for awesome wm"
-elif prompt_confirmation "set awesome wm for xinit?" $ARG_CONFIRM; then
-  echo "$AWESOME_EXEC" >> $HOME/.xinitrc 2>&1
-  print_info "xinit configured to start awesome wm"
+if ! [ -f /etc/dnf/dnf.conf ]; then
+  print_warn "dnf config file not found, configuration will be skipped"
+elif prompt_confirmation "configure dnf?" $ARG_CONFIRM; then
+  sudo tee /etc/dnf/dnf.conf > /dev/null <<EOT
+# see \`man dnf.conf\` for defaults and possible options
+[main]
+
+# Use the fastest mirror
+fastestmirror=True
+
+# Number of parallel downloads 10
+max_parallel_downloads=10
+
+# Ensures DNF always tries to install the highest version of a package
+best=1
+
+# Automatically removes orphaned dependencies when a package is uninstalled
+clean_requirements_on_remove=True
+
+# Limits the number of old kernels or install-only packages retained to prevent disk space exhaustion
+installonly_limit=3
+
+# Removes downloaded package archives after installation to save disk space
+keepcache=0
+
+# Ensures DNF verifies package signatures against trusted GPG keys
+gpgcheck=1
+
+# Sets the cache expiration to 12 hours (in seconds)
+metadata_expire=43200
+
+# Disable installing weak dependencies (such as Recommends or Supplements) when installing a package
+install_weak_deps=false
+EOT
+  print_info "dnf config updated"
 fi
 
 if prompt_confirmation "update all system packages?" $ARG_CONFIRM; then
@@ -104,18 +126,43 @@ if prompt_confirmation "update all system packages?" $ARG_CONFIRM; then
   print_info "packages updated"
 fi
 
-if prompt_confirmation "install xorg and the required packages?" $ARG_CONFIRM; then
+if prompt_confirmation "install xorg display server?" $ARG_CONFIRM; then
   sudo dnf group install base-x
   print_info "xorg display server installed"
 fi
 
-if prompt_confirmation "install the necessary packages?" $ARG_CONFIRM; then
-  sudo dnf install thunar thunar-archive-plugin engrampa xdg-user-dirs awesome desktop-file-utils git wget curl xclip xinput rsync
+AWESOME_EXEC="exec awesome &> $HOME/awesomewm.log"
+if ! [ -f "$HOME/.xinitrc" ]; then
+  print_warn "$HOME/.xinitrc not found, xinit is not configured yet"
+fi
+if [ -f "$HOME/.xinitrc" ] && line_exists "$AWESOME_EXEC" "$HOME/.xinitrc"; then
+  print_info "xinit already configured for awesome wm"
+elif prompt_confirmation "set awesome wm for xinit?" $ARG_CONFIRM; then
+  echo "$AWESOME_EXEC" >> $HOME/.xinitrc 2>&1
+  print_info "xinit configured to start awesome wm"
+fi
+
+STARTX_EXEC='if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then exec startx; fi'
+if ! command_exists startx; then
+  print_warn "startx not found, xorg autostart will be skipped"
+elif ! [ -f "$HOME/.bashrc" ]; then
+  print_warn "$HOME/.bashrc not found, xorg autostart is not configured"
+elif ! [ -f "$HOME/.xinitrc" ] || ! line_exists "$AWESOME_EXEC" "$HOME/.xinitrc"; then
+  print_warn "xinit is not configured, it should be configured first"
+elif line_exists "$STARTX_EXEC" "$HOME/.bashrc"; then
+  print_info "bashrc already configured to start xorg display"
+elif prompt_confirmation "start xorg display on login (append to .bashrc)?" $ARG_CONFIRM; then
+  echo "$STARTX_EXEC" >> $HOME/.bashrc
+  print_info "bashrc configured to start xorg display"
+fi
+
+if prompt_confirmation "install file manager, awesome wm, git, curl, rsync etc. packages?" $ARG_CONFIRM; then
+  sudo dnf install thunar thunar-archive-plugin engrampa xdg-user-dirs awesome desktop-file-utils git wget curl xclip xinput xset rsync
   print_info "user packages installed"
 fi
 
 if prompt_confirmation "install neovim?" $ARG_CONFIRM; then
-  sudo dnf install nvim
+  sudo dnf install nvim ripgrep xsel
   print_info "neovim installed"
 fi
 
@@ -144,6 +191,16 @@ if prompt_confirmation "install rpmfution repository and ffmpeg?" $ARG_CONFIRM; 
   sudo dnf swap ffmpeg-free ffmpeg --allowerasing
   sudo dnf -y install ffmpeg
   print_info "ffmpeg installed"
+fi
+
+if prompt_confirmation "install ghostty?" $ARG_CONFIRM; then
+    print_info "installing ghostty"
+    if dnf copr list | grep -qF "scottames/ghostty"; then
+        print_info "ghostty copr repo already enabled"
+    else
+        sudo dnf copr enable scottames/ghostty
+    fi
+    sudo dnf install ghostty -y
 fi
 
 echo "============="

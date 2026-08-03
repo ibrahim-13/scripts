@@ -2,8 +2,49 @@
 #
 # Interactive directory sync tool driven by a config file.
 #
-# Config file format (~/.sync-dirs), one entry per line:
-#   <source>|<dest>|<src_uid>:<src_gid>|<dest_uid>:<dest_gid>
+# Syncs one configured directory into another with rsync, honoring the
+# .gitignore files it finds along the way. File modes and ownership are
+# deliberately not managed, and the same file runs on Linux and macOS.
+#
+# NO PERMISSION HANDLING
+# ======================
+# Nothing here reads, records, or applies file modes or ownership:
+#   - the config file stores only <source>|<dest>
+#   - there is no --chown, and no 'stat'/'id' call left to feed one
+#   - rsync runs with '-rltv', deliberately NOT '-a': -a implies -p -o -g
+#     (permissions, owner, group), so avoiding it leaves modes and ownership
+#     entirely to the destination filesystem and the caller's umask
+#
+# Dropping -p says less than it might seem to, so concretely:
+#   - a NEW file is created with the source's mode masked by the receiving
+#     umask. Under the usual umask 022 an executable therefore stays
+#     executable (755 -> 755) while group/other write bits are dropped
+#     (664 -> 644); a restrictive umask tightens it further (755 -> 700
+#     under umask 077).
+#   - an EXISTING destination file keeps the mode it already has, even when
+#     its contents are re-transferred, so later source mode changes never
+#     propagate. With -p (which -a implies) they would.
+# Add -E (--executability) to RSYNC_OPTS below if you want the execute bit
+# alone to keep tracking the source on files that already exist; it is the
+# only permission-adjacent flag omitted here by choice rather than necessity.
+#
+# PORTABILITY
+# ===========
+# Targets bash 3.2, the version macOS ships: no associative arrays, no
+# 'mapfile', no globstar, no '${var^^}'. At runtime the only external program
+# is rsync — the .gitignore scan is a recursive shell-builtin walk instead of
+# 'find -print0', and nothing calls 'stat -c' or 'id', both of which differ
+# between GNU and BSD userlands. rsync's own
+# flags are probed rather than assumed, because macOS has shipped more than
+# one implementation (see the preflight section).
+#
+# CONFIG FILE
+# ===========
+# ~/.sync2-dirs, one entry per line:
+#   <source>|<dest>
+# Any further '|'-separated fields on a line are read and ignored, so a
+# config that carries extra trailing columns (uid:gid ownership, say) can be
+# used unchanged.
 #
 # EXCLUSION PATTERN HANDLING
 # ==========================
@@ -44,7 +85,7 @@
 
 set -euo pipefail
 
-CONFIG_FILE="$HOME/.sync-dirs"
+CONFIG_FILE="$HOME/.sync2-dirs"
 
 # LAYER 1 — Global exclude patterns applied to every sync (see header).
 # Edit this array to change them; --help prints the current list.
@@ -54,24 +95,24 @@ usage() {
     cat <<EOF
 Usage:
   $0 --init <source-dir> <dest-dir>
-      Append a source/dest pair (with their ownership) to $CONFIG_FILE.
-      Does nothing else. Creates the config file on first use.
+      Append a source/dest pair to $CONFIG_FILE. Does nothing else.
+      Creates the config file on first use.
 
   $0
       Interactive mode: list configured entries, pick one, confirm the
-      exact rsync command, optionally enable the SELinux
-      'rsync_full_access' boolean for the run, choose dry-run or real
-      sync, then run it. rsync output is always human-readable (-avh).
-      If the SELinux boolean is enabled it is always turned back off
-      when the script exits, however it exits.
+      exact rsync command, choose dry-run or real sync, then run it.
 
 Options:
   -h, --help    Show this help and exit.
 
 Config file: $CONFIG_FILE
-  One entry per line:  <source>|<dest>|<src_uid>:<src_gid>|<dest_uid>:<dest_gid>
+  One entry per line:  <source>|<dest>
   Lines starting with '#' and blank lines are ignored, so it is safe to
-  edit by hand.
+  edit by hand. Extra '|'-separated fields are ignored.
+
+File modes and ownership are not managed: rsync runs with -rltv, not -a.
+Owner and group are never set, new files take the source mode masked by
+your umask, and existing destination files keep the mode they have.
 
 Global excludes (edit GLOBAL_EXCLUDES in this script to change):
   ${GLOBAL_EXCLUDES[*]}
@@ -118,32 +159,26 @@ if (( INIT )); then
     # On first use, create the config file with instructions for hand-editing.
     if [[ ! -f "$CONFIG_FILE" ]]; then
         cat > "$CONFIG_FILE" <<'EOF'
-# Sync entries for sync.sh — safe to edit by hand.
+# Sync entries for sync2.sh — safe to edit by hand.
 #
-# One entry per line, four '|'-separated fields:
-#   <source>|<dest>|<src_uid>:<src_gid>|<dest_uid>:<dest_gid>
+# One entry per line, two '|'-separated fields:
+#   <source>|<dest>
 #
 # Example:
-#   /mnt/myfiles/dir1|/home/me/dir1|1000:1000|1000:1000
+#   /home/me/dir1|/home/me/dir2
 #
 # - Use absolute paths without a trailing slash.
-# - Ownership is numeric uid:gid; the dest ownership is applied by rsync
-#   via --chown (find yours with:  id -u  and  id -g).
+# - File modes and ownership are not managed; they are left to the
+#   destination filesystem and your umask.
+# - Any further '|'-separated fields are ignored, so entries carrying extra
+#   trailing columns (uid:gid ownership, say) still work here.
 # - To remove or change an entry, delete or edit its line.
 # - Lines starting with '#' and blank lines are ignored.
 EOF
     fi
 
-    src_own="$(stat -c '%u:%g' "$src")"
-    if [[ -d "$dest" ]]; then
-        dest_own="$(stat -c '%u:%g' "$dest")"
-    else
-        # Destination doesn't exist yet; default to the current user.
-        dest_own="$(id -u):$(id -g)"
-    fi
-
-    printf '%s|%s|%s|%s\n' "$src" "$dest" "$src_own" "$dest_own" >> "$CONFIG_FILE"
-    echo "Added: $src -> $dest (src $src_own, dest $dest_own)"
+    printf '%s|%s\n' "$src" "$dest" >> "$CONFIG_FILE"
+    echo "Added: $src -> $dest"
     exit 0
 fi
 
@@ -154,6 +189,40 @@ if [[ ${#ARGS[@]} -gt 0 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# Portability preflight
+#
+# rsync is the only external program this script needs, and it must
+# understand filter rules. That is worth checking rather than assuming:
+# macOS has shipped rsync 2.6.9 (filter rules present since 2.6.0) and, more
+# recently, openrsync, whose option set is narrower. Probe the help text so
+# an unsupported rsync fails here with an explanation instead of failing
+# mid-sync with an option error.
+# ---------------------------------------------------------------------------
+if ! command -v rsync >/dev/null 2>&1; then
+    echo "Error: rsync was not found in PATH." >&2
+    exit 1
+fi
+
+RSYNC_HELP="$(rsync --help 2>&1 || true)"
+
+if [[ "$RSYNC_HELP" != *--filter* ]]; then
+    echo "Error: this rsync does not support --filter rules, which this" >&2
+    echo "script needs to apply .gitignore patterns per directory." >&2
+    echo "  rsync in use: $(command -v rsync)" >&2
+    echo "On macOS, install a full rsync (e.g. 'brew install rsync')." >&2
+    exit 1
+fi
+
+# -r -l -t: recurse, recreate symlinks as symlinks, preserve mtimes (which
+# is what keeps repeat syncs incremental). Not -a: see the header.
+RSYNC_OPTS=(-r -l -t -v --delete)
+# -h is human-readable in GNU rsync but has meant --help elsewhere; only
+# pass it when this rsync advertises the long form.
+if [[ "$RSYNC_HELP" == *human-readable* ]]; then
+    RSYNC_OPTS+=(-h)
+fi
+
+# ---------------------------------------------------------------------------
 # Normal run: interactive sync
 # ---------------------------------------------------------------------------
 if [[ ! -s "$CONFIG_FILE" ]]; then
@@ -161,12 +230,14 @@ if [[ ! -s "$CONFIG_FILE" ]]; then
     exit 1
 fi
 
-# Load entries, skipping comments and blank lines.
-SRCS=() DESTS=() SRC_OWNS=() DEST_OWNS=()
-while IFS='|' read -r src dest src_own dest_own; do
+# Load entries, skipping comments and blank lines. 'rest' absorbs any extra
+# '|' fields so they are ignored rather than folded into the destination
+# path. The '|| [[ -n ... ]]' guard reads a final line that has no trailing
+# newline.
+SRCS=() DESTS=()
+while IFS='|' read -r src dest rest || [[ -n "$src" ]]; do
     [[ -z "$src" || "$src" == \#* ]] && continue
     SRCS+=("$src"); DESTS+=("$dest")
-    SRC_OWNS+=("$src_own"); DEST_OWNS+=("$dest_own")
 done < "$CONFIG_FILE"
 
 if [[ ${#SRCS[@]} -eq 0 ]]; then
@@ -201,10 +272,8 @@ for i in "${!SRCS[@]}"; do
         src_lead="$src" dest_lead="$dest"
         src_disp="$src" dest_disp="$dest"
     fi
-    printf '%2d) %s [%s] -> %s [%s]\n' "$((i * 2 + 1))" \
-        "$src_lead" "${SRC_OWNS[$i]}" "$dest_disp" "${DEST_OWNS[$i]}"
-    printf '  %2d) %s [%s] -> %s [%s]\n' "$((i * 2 + 2))" \
-        "$dest_lead" "${DEST_OWNS[$i]}" "$src_disp" "${SRC_OWNS[$i]}"
+    printf '%2d) %s -> %s\n'   "$((i * 2 + 1))" "$src_lead"  "$dest_disp"
+    printf '  %2d) %s -> %s\n' "$((i * 2 + 2))" "$dest_lead" "$src_disp"
 done
 
 max=$(( ${#SRCS[@]} * 2 ))
@@ -218,12 +287,10 @@ idx=$(( (choice - 1) / 2 ))
 if (( choice % 2 )); then
     SRC="${SRCS[$idx]}"
     DEST="${DESTS[$idx]}"
-    DEST_OWN="${DEST_OWNS[$idx]}"
 else
     # Reversed direction: sync destination back to source.
     SRC="${DESTS[$idx]}"
     DEST="${SRCS[$idx]}"
-    DEST_OWN="${SRC_OWNS[$idx]}"
 fi
 
 if [[ ! -d "$SRC" ]]; then
@@ -231,10 +298,48 @@ if [[ ! -d "$SRC" ]]; then
     exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# Collect every .gitignore under the sync source, for layer 2 below.
+#
+# Done with shell builtins rather than 'find -print0' to keep the script
+# free of userland differences. Two deliberate restrictions:
+#   - symlinked directories are not descended into, matching rsync's -l
+#     (which copies them as links), and incidentally ruling out link loops
+#   - directories matching a global exclude are pruned: layer 1 outranks
+#     anything they could contribute, so their negations could never
+#     re-include a file anyway
+# ---------------------------------------------------------------------------
+is_globally_excluded() {
+    local name="$1" pattern
+    for pattern in "${GLOBAL_EXCLUDES[@]}"; do
+        # Unquoted $pattern on purpose: it is a glob, e.g. '*.swp'.
+        if [[ "$name" == $pattern ]]; then return 0; fi
+    done
+    return 1
+}
+
+GITIGNORES=()
+collect_gitignores() {
+    local dir="$1" entry name
+    if [[ -f "$dir/.gitignore" ]]; then
+        GITIGNORES+=("$dir/.gitignore")
+    fi
+    # The three globs together cover every entry except '.' and '..'.
+    # A glob that matches nothing expands to itself; the -d test drops it.
+    for entry in "$dir"/* "$dir"/.[!.]* "$dir"/..?*; do
+        [[ -d "$entry" && ! -L "$entry" ]] || continue
+        name="${entry##*/}"
+        if is_globally_excluded "$name"; then continue; fi
+        collect_gitignores "$entry"
+    done
+    return 0
+}
+
+collect_gitignores "$SRC"
+
 # Build the rsync command. Exclusion layers 1-3 (see file header) are added
 # in precedence order — rsync applies the first rule that matches a file.
-#   --chown applies the configured destination ownership while syncing.
-CMD=(rsync -avh --delete --chown="$DEST_OWN")
+CMD=(rsync "${RSYNC_OPTS[@]}")
 
 # LAYER 1: global excludes — first in the command, so nothing below
 # (including negations) can re-include them.
@@ -243,29 +348,33 @@ for pattern in "${GLOBAL_EXCLUDES[@]}"; do
 done
 
 # LAYER 2: gitignore negations. The dir-merge in layer 3 misreads '!' as
-# its list-clearing token, so scan every .gitignore in the sync source and
+# its list-clearing token, so read every .gitignore in the sync source and
 # translate each '!pattern' line into explicit include rules scoped to that
 # .gitignore's own directory. Placed after layer 1 and before layer 3:
 # negations override gitignore excludes, global excludes still win.
-while IFS= read -r -d '' gi; do
-    dir="${gi#"$SRC"}"           # /docs/.gitignore -> /docs, /.gitignore -> ""
-    dir="${dir%/.gitignore}"
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ "$line" == \!* ]] || continue     # only negation lines
-        pat="${line#!}"
-        pat="${pat%"${pat##*[![:space:]]}"}"   # trim trailing whitespace
-        [[ -z "$pat" ]] && continue
-        if [[ "${pat%/}" == */* ]]; then
-            # Contains a slash: gitignore anchors it to the .gitignore's
-            # own directory -> one anchored include rule.
-            CMD+=(--filter="+ $dir/${pat#/}")
-        else
-            # No slash: matches at any depth below the .gitignore's
-            # directory -> include it there and in every subdirectory.
-            CMD+=(--filter="+ $dir/$pat" --filter="+ $dir/**/$pat")
-        fi
-    done < "$gi"
-done < <(find "$SRC" -name .gitignore -type f -print0)
+if (( ${#GITIGNORES[@]} > 0 )); then
+    for gi in "${GITIGNORES[@]}"; do
+        dir="${gi#"$SRC"}"           # /docs/.gitignore -> /docs, /.gitignore -> ""
+        dir="${dir%/.gitignore}"
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            [[ "$line" == \!* ]] || continue     # only negation lines
+            pat="${line#!}"
+            # Trim trailing whitespace, which also drops a CR from a
+            # .gitignore saved with Windows line endings.
+            pat="${pat%"${pat##*[![:space:]]}"}"
+            [[ -z "$pat" ]] && continue
+            if [[ "${pat%/}" == */* ]]; then
+                # Contains a slash: gitignore anchors it to the .gitignore's
+                # own directory -> one anchored include rule.
+                CMD+=(--filter="+ $dir/${pat#/}")
+            else
+                # No slash: matches at any depth below the .gitignore's
+                # directory -> include it there and in every subdirectory.
+                CMD+=(--filter="+ $dir/$pat" --filter="+ $dir/**/$pat")
+            fi
+        done < "$gi"
+    done
+fi
 
 # LAYER 3: .gitignore excludes. One dir-merge rule; rsync reads each
 # .gitignore during the walk and applies its patterns only from that
@@ -283,33 +392,6 @@ if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
 fi
 
 mkdir -p "$DEST"
-
-# ---------------------------------------------------------------------------
-# Optional SELinux relaxation
-# ---------------------------------------------------------------------------
-# On SELinux systems rsync can be denied access to paths outside the usual
-# rsync contexts (e.g. mounted volumes). Enabling the 'rsync_full_access'
-# boolean lifts that restriction. It is a system-wide setting, so it is only
-# turned on for the duration of this run and always turned back off on exit —
-# normal exit, abort, error, or Ctrl-C alike.
-SELINUX_BOOL_SET=0
-restore_selinux_bool() {
-    (( SELINUX_BOOL_SET )) || return 0
-    SELINUX_BOOL_SET=0
-    echo "Disabling SELinux boolean rsync_full_access..."
-    sudo setsebool rsync_full_access off || echo \
-        "Warning: failed to disable rsync_full_access. Run 'sudo setsebool rsync_full_access off' manually." >&2
-}
-trap restore_selinux_bool EXIT
-trap 'restore_selinux_bool; exit 130' INT
-trap 'restore_selinux_bool; exit 143' TERM
-
-read -rp "Enable SELinux rsync_full_access for this run? [y/N]: " selinux
-if [[ "$selinux" =~ ^[Yy]$ ]]; then
-    echo "Enabling SELinux boolean rsync_full_access..."
-    sudo setsebool rsync_full_access on
-    SELINUX_BOOL_SET=1
-fi
 
 read -rp "Dry-run? [y/N]: " dry
 if [[ "$dry" =~ ^[Yy]$ ]]; then
