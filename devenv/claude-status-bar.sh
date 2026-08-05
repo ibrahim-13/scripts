@@ -39,9 +39,10 @@
 #         {
 #           "statusLine": {
 #             "type": "command",
-#             "command": "/home/USER/.claude/status-bar.sh",
+#             "command": "/home/USER/.claude/claude-status-bar.sh",
 #             "padding": 1,
-#             "hideVimModeIndicator": true
+#             "hideVimModeIndicator": true,
+#             "refreshInterval": 5
 #           }
 #         }
 #
