@@ -23,6 +23,7 @@
 local awful     = require("awful")
 local naughty   = require("naughty")
 local gears     = require("gears")
+local wibox     = require("wibox")
 local menubar   = require("menubar")
 local beautiful = require("beautiful")
 local xresources = require("beautiful.xresources")
@@ -325,6 +326,86 @@ function custom.edit_cmds()
         end
     end
     awful.spawn(editor_cmd .. " " .. cmds_file)
+end
+
+-- CPU / memory usage widget ---------------------------------------------------
+-- A textbox for the wibar showing current CPU and memory usage percentages,
+-- refreshed on a timer. Both values are read from /proc (no external
+-- processes spawned):
+--   * CPU: the aggregate "cpu" line of /proc/stat. Usage is computed from
+--     the delta between two consecutive reads (the very first reading is
+--     therefore the average since boot).
+--   * Memory: MemTotal/MemAvailable from /proc/meminfo.
+--
+-- Usage from rc.lua:
+--     mycpumem = custom.cpu_mem_widget()                -- 15 s refresh
+--     mycpumem = custom.cpu_mem_widget({ timeout = 5 }) -- custom refresh
+
+function custom.cpu_mem_widget(args)
+    args = args or {}
+    local timeout = args.timeout or 15
+
+    local widget = wibox.widget {
+        widget = wibox.widget.textbox,
+        text   = " cpu --% mem --% ",
+    }
+
+    -- Previous /proc/stat totals, for delta-based CPU usage.
+    local prev_total, prev_idle = 0, 0
+
+    local function cpu_percent()
+        local f = io.open("/proc/stat", "r")
+        if not f then return nil end
+        local line = f:read("*l") or ""
+        f:close()
+
+        -- "cpu  user nice system idle iowait irq softirq steal ..."
+        local fields = {}
+        for n in line:gmatch("%d+") do table.insert(fields, tonumber(n)) end
+        if #fields < 4 then return nil end
+
+        local total = 0
+        for _, n in ipairs(fields) do total = total + n end
+        local idle = fields[4] + (fields[5] or 0) -- idle + iowait
+
+        local dtotal = total - prev_total
+        local didle  = idle - prev_idle
+        prev_total, prev_idle = total, idle
+
+        if dtotal <= 0 then return nil end
+        return (dtotal - didle) / dtotal * 100
+    end
+
+    local function mem_percent()
+        local f = io.open("/proc/meminfo", "r")
+        if not f then return nil end
+        local total, available
+        for line in f:lines() do
+            local k, v = line:match("^(%w+):%s+(%d+)")
+            if k == "MemTotal" then total = tonumber(v)
+            elseif k == "MemAvailable" then available = tonumber(v) end
+            if total and available then break end
+        end
+        f:close()
+        if not (total and available) or total == 0 then return nil end
+        return (total - available) / total * 100
+    end
+
+    local function fmt(v)
+        return v and string.format("%.0f%%", v) or "--%"
+    end
+
+    gears.timer {
+        timeout   = timeout,
+        call_now  = true,
+        autostart = true,
+        callback  = function()
+            widget.text = string.format(
+                " cpu %s mem %s ", fmt(cpu_percent()), fmt(mem_percent()))
+        end,
+    }
+
+    return widget
 end
 
 -- Menu building -------------------------------------------------------------

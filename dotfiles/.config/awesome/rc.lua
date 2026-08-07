@@ -154,10 +154,17 @@ end
 
 -- Keyboard map indicator and switcher
 mykeyboardlayout = awful.widget.keyboardlayout()
+-- Drop the widget's built-in left-click "next layout" binding: with a single
+-- configured layout it sets a nonexistent xkb group, which blanks the widget.
+mykeyboardlayout:buttons({})
 
 -- {{{ Wibar
 -- Create a textclock widget
 mytextclock = wibox.widget.textclock(" %a %b %d, %I:%M %p ")
+
+-- CPU/memory usage widget (from custom.lua); refreshes every 15 seconds
+-- by default (pass { timeout = N } to override).
+mycpumem = custom.cpu_mem_widget()
 
 -- Create a wibox for each screen and add it
 local taglist_buttons = gears.table.join(
@@ -267,6 +274,7 @@ awful.screen.connect_for_each_screen(function(s)
         s.mytasklist, -- Middle widget
         { -- Right widgets
             layout = wibox.layout.fixed.horizontal,
+            mycpumem,
             mykeyboardlayout,
             wibox.widget.systray(),
             mytextclock,

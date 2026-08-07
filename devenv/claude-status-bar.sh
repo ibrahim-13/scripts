@@ -12,7 +12,10 @@
 #    diff  : lines added/removed this session, e.g. "+156 / -23"
 #    ctx   : context window used %
 #    rate  : rate-limit usage + time until reset, e.g. "5h 30% 1h 1m / 7d
-#            41% 1d 2h" (Claude Pro/Max only)
+#            41% 1d 2h / fable 78% 2d 3h" (Claude Pro/Max only). The "fable"
+#            part is the model-scoped weekly limit — it is NOT in the stdin
+#            payload, so it is fetched from Anthropic's OAuth usage endpoint
+#            in a detached background job and cached (see FABLE_CACHE_TTL).
 #    wt    : worktree path — only when inside a --worktree session
 #
 #  Segments are joined with " | ". Lines wrap onto multiple lines once they
@@ -22,8 +25,12 @@
 #  Tunable constants (thresholds, wrap width) live at the top of the script,
 #  right below `set -uo pipefail`.
 #
-#  DEPENDENCIES: bash + GNU coreutils. `git` is OPTIONAL.
+#  DEPENDENCIES: bash + GNU coreutils. `git` and `curl` are OPTIONAL.
 #    - The JSON payload is parsed with pure bash (no jq, grep, sed or awk).
+#    - The "fable" part of the rate segment needs `curl` (plus coreutils
+#      `date`/`stat`/`mkdir`) and the OAuth token in ~/.claude/.credentials.json.
+#      Without them it is silently hidden; the bar itself never blocks on the
+#      network — fetches run detached and only the cache file is read.
 #    - The git BRANCH is read directly from .git/HEAD (no git binary needed).
 #    - The git DIRTY marker ("*") needs the `git` binary. It is added only when
 #      BOTH a .git is found AND `git` is on PATH; otherwise it is silently
@@ -86,6 +93,8 @@ LINE_WIDTH_PERCENT=90   # wrap lines once they exceed this % of $COLUMNS
 LINE_WIDTH_MIN=20       # never wrap narrower than this many columns
 RATE_RED_PCT=80         # rate-limit % at/above which the value turns red
 RATE_YELLOW_PCT=50      # rate-limit % at/above which the value turns yellow
+FABLE_CACHE_TTL=60      # seconds between background fetches of Fable usage
+FABLE_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/claude-status-bar-fable"
 
 # Read the whole JSON payload Claude Code sends on stdin (cat = coreutils).
 input=$(cat)
@@ -191,6 +200,60 @@ rate_7d=$(jget "$input" rate_limits seven_day used_percentage)
 # Reset times (unix epoch seconds); may be independently absent.
 rate_5h_reset=$(jget "$input" rate_limits five_hour resets_at)
 rate_7d_reset=$(jget "$input" rate_limits seven_day resets_at)
+
+# ---- Fable model-scoped weekly usage ----------------------------------------
+# Not part of the stdin payload. Fetched from Anthropic's (undocumented) OAuth
+# usage endpoint with the Claude Code OAuth token, in a DETACHED background job
+# at most once per FABLE_CACHE_TTL seconds; the bar only ever reads the cache
+# file ("<pct> <reset-epoch>"), so rendering never waits on the network.
+
+# fable_fetch  (background job)
+#   Curls the usage endpoint, picks the "weekly_scoped" limit whose scope model
+#   is Fable out of the "limits" array, and atomically rewrites $FABLE_CACHE.
+#   Every failure path just returns 0 — a stale/empty cache hides the segment.
+fable_fetch() {
+  local creds tok resp rest entry pct='' reset_iso='' reset_epoch=''
+  [ -f "$HOME/.claude/.credentials.json" ] || return 0
+  creds=$(<"$HOME/.claude/.credentials.json")
+  tok=$(jget "$creds" claudeAiOauth accessToken)
+  [ -n "$tok" ] || return 0
+  resp=$(curl -sf --max-time 10 https://api.anthropic.com/api/oauth/usage \
+           -H "Authorization: Bearer $tok" \
+           -H "anthropic-beta: oauth-2025-04-20") || return 0
+  # Walk the top-level "limits" array entry by entry (each entry nests a
+  # scope object, so json_balanced is needed to find the entry boundaries).
+  rest=$(json_raw "$resp" limits); rest=${rest#\[}
+  while :; do
+    rest=${rest#"${rest%%[\{\]]*}"}          # skip to next '{' (or ']' = end)
+    [ "${rest:0:1}" = '{' ] || break
+    entry=$(json_balanced "$rest")
+    rest=${rest:${#entry}}
+    if [ "$(jget "$entry" kind)" = "weekly_scoped" ] && \
+       [ "$(jget "$entry" scope model display_name)" = "Fable" ]; then
+      pct=$(jget "$entry" percent)
+      reset_iso=$(jget "$entry" resets_at)
+      break
+    fi
+  done
+  [ -n "$pct" ] || return 0
+  pct=$(printf '%.0f' "$pct" 2>/dev/null || printf '%s' "$pct")
+  reset_epoch=$(date -d "$reset_iso" +%s 2>/dev/null) || reset_epoch=''
+  printf '%s %s\n' "$pct" "$reset_epoch" > "$FABLE_CACHE.tmp" &&
+    mv -f "$FABLE_CACHE.tmp" "$FABLE_CACHE"
+  return 0
+}
+
+fable_pct=""; fable_reset=""
+if command -v curl >/dev/null 2>&1; then
+  now=${EPOCHSECONDS:-$(date +%s)}
+  mtime=$(stat -c %Y "$FABLE_CACHE" 2>/dev/null) || mtime=0
+  if (( now - mtime >= FABLE_CACHE_TTL )); then
+    mkdir -p "${FABLE_CACHE%/*}" 2>/dev/null
+    touch "$FABLE_CACHE" 2>/dev/null     # debounce: parallel repaints skip
+    fable_fetch </dev/null >/dev/null 2>&1 &
+  fi
+  [ -f "$FABLE_CACHE" ] && read -r fable_pct fable_reset < "$FABLE_CACHE" 2>/dev/null
+fi
 
 # fmt_reset EPOCH
 #   Echoes the time remaining until EPOCH, e.g. "1h 1m" (< 1 day) or "1d 1h"
@@ -302,14 +365,27 @@ fi
 
 # rate (hidden if no rate-limit data; Pro/Max only)
 # Each window shows "<used>% <time to reset>", e.g. "30% 1h 1m" / "30% 1d 1h".
-if [ -n "$rate_5h" ] || [ -n "$rate_7d" ]; then
+# The trailing "/ fable ..." part is the model-scoped weekly limit (cached
+# fetch above) and is dropped whenever the cache has nothing usable.
+if [ -n "$rate_5h" ] || [ -n "$rate_7d" ] || [ -n "$fable_pct" ]; then
   rate_color() { if [ "${1:-0}" -ge "$RATE_RED_PCT" ] 2>/dev/null; then printf '%s' "$RED"; elif [ "${1:-0}" -ge "$RATE_YELLOW_PCT" ] 2>/dev/null; then printf '%s' "$YELLOW"; else printf '%s' "$GREEN"; fi; }
   h=${rate_5h:-?}; d2=${rate_7d:-?}
   hc=$(rate_color "$rate_5h"); dc=$(rate_color "$rate_7d")
   hr=$(fmt_reset "$rate_5h_reset"); dr=$(fmt_reset "$rate_7d_reset")
   [ -n "$hr" ] && hr=" $hr"
   [ -n "$dr" ] && dr=" $dr"
-  add "rate: 5h ${h}%${hr} / 7d ${d2}%${dr}" "${DIM}rate:${R} ${DIM}5h${R} ${hc}${h}%${R}${DIM}${hr}${R} ${DIM}/ 7d${R} ${dc}${d2}%${R}${DIM}${dr}${R}"
+  fp=""; fc_seg=""
+  if [ -n "$fable_pct" ]; then
+    fc=$(rate_color "$fable_pct")
+    fr=$(fmt_reset "$fable_reset"); [ -n "$fr" ] && fr=" $fr"
+    fp="fable ${fable_pct}%${fr}"
+    fc_seg="${DIM}fable${R} ${fc}${fable_pct}%${R}${DIM}${fr}${R}"
+  fi
+  if [ -n "$rate_5h" ] || [ -n "$rate_7d" ]; then
+    add "rate: 5h ${h}%${hr} / 7d ${d2}%${dr}${fp:+ / $fp}" "${DIM}rate:${R} ${DIM}5h${R} ${hc}${h}%${R}${DIM}${hr}${R} ${DIM}/ 7d${R} ${dc}${d2}%${R}${DIM}${dr}${R}${fc_seg:+${DIM} / ${R}$fc_seg}"
+  else
+    add "rate: $fp" "${DIM}rate:${R} ${fc_seg}"
+  fi
 fi
 
 # wt (hidden if no worktree)
