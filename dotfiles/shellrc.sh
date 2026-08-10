@@ -322,7 +322,8 @@ _prompt_command() {
 
 
 # customized prompt command
-# PROMPT_COMMAND=_prompt_command
+# merges with any existing PROMPT_COMMAND (ex. 'history -a') instead of overriding it
+# PROMPT_COMMAND="_prompt_command${PROMPT_COMMAND:+; $PROMPT_COMMAND}"
 
 #########
 # Paths #

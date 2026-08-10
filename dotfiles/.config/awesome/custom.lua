@@ -23,6 +23,7 @@
 local awful     = require("awful")
 local naughty   = require("naughty")
 local gears     = require("gears")
+local wibox     = require("wibox")
 local menubar   = require("menubar")
 local beautiful = require("beautiful")
 local xresources = require("beautiful.xresources")
@@ -327,6 +328,86 @@ function custom.edit_cmds()
     awful.spawn(editor_cmd .. " " .. cmds_file)
 end
 
+-- CPU / memory usage widget ---------------------------------------------------
+-- A textbox for the wibar showing current CPU and memory usage percentages,
+-- refreshed on a timer. Both values are read from /proc (no external
+-- processes spawned):
+--   * CPU: the aggregate "cpu" line of /proc/stat. Usage is computed from
+--     the delta between two consecutive reads (the very first reading is
+--     therefore the average since boot).
+--   * Memory: MemTotal/MemAvailable from /proc/meminfo.
+--
+-- Usage from rc.lua:
+--     mycpumem = custom.cpu_mem_widget()                -- 15 s refresh
+--     mycpumem = custom.cpu_mem_widget({ timeout = 5 }) -- custom refresh
+
+function custom.cpu_mem_widget(args)
+    args = args or {}
+    local timeout = args.timeout or 15
+
+    local widget = wibox.widget {
+        widget = wibox.widget.textbox,
+        text   = " cpu --% mem --% ",
+    }
+
+    -- Previous /proc/stat totals, for delta-based CPU usage.
+    local prev_total, prev_idle = 0, 0
+
+    local function cpu_percent()
+        local f = io.open("/proc/stat", "r")
+        if not f then return nil end
+        local line = f:read("*l") or ""
+        f:close()
+
+        -- "cpu  user nice system idle iowait irq softirq steal ..."
+        local fields = {}
+        for n in line:gmatch("%d+") do table.insert(fields, tonumber(n)) end
+        if #fields < 4 then return nil end
+
+        local total = 0
+        for _, n in ipairs(fields) do total = total + n end
+        local idle = fields[4] + (fields[5] or 0) -- idle + iowait
+
+        local dtotal = total - prev_total
+        local didle  = idle - prev_idle
+        prev_total, prev_idle = total, idle
+
+        if dtotal <= 0 then return nil end
+        return (dtotal - didle) / dtotal * 100
+    end
+
+    local function mem_percent()
+        local f = io.open("/proc/meminfo", "r")
+        if not f then return nil end
+        local total, available
+        for line in f:lines() do
+            local k, v = line:match("^(%w+):%s+(%d+)")
+            if k == "MemTotal" then total = tonumber(v)
+            elseif k == "MemAvailable" then available = tonumber(v) end
+            if total and available then break end
+        end
+        f:close()
+        if not (total and available) or total == 0 then return nil end
+        return (total - available) / total * 100
+    end
+
+    local function fmt(v)
+        return v and string.format("%.0f%%", v) or "--%"
+    end
+
+    gears.timer {
+        timeout   = timeout,
+        call_now  = true,
+        autostart = true,
+        callback  = function()
+            widget.text = string.format(
+                " cpu %s mem %s ", fmt(cpu_percent()), fmt(mem_percent()))
+        end,
+    }
+
+    return widget
+end
+
 -- Menu building -------------------------------------------------------------
 
 -- Measure a label the way awesome will actually draw it: same Pango stack as
@@ -429,11 +510,47 @@ function custom.build_items()
     return set_menu_width(items)
 end
 
--- Replace our submenu in-place so label/state changes take effect.
+-- Refresh our submenu so label/state changes take effect.
+--
+-- Deleting our entry from the main menu and re-adding it (the obvious way to
+-- do this) does not work. awful.menu keeps the submenus it has built in
+-- `mainmenu.child`, a table keyed by *entry index*, and it fills that table
+-- lazily -- the entry for a submenu only appears once that submenu has been
+-- opened. Ours sits at index 3, so opening it and nothing else leaves
+-- `child` holding a single value at index 3 and nothing at 1 or 2, i.e. a
+-- table whose `#` is 0. `menu:delete` ends with
+--     table.remove(self.child, num)
+-- and Lua 5.2+ rejects a position past `#t + 1`, so that call raises
+--     bad argument #2 to 'remove' (position out of bounds)
+-- Re-adding would not refresh the labels anyway: `menu:add` never touches
+-- `child`, so the submenu built from the previous items table stays cached
+-- and is reused with its stale labels on the next hover.
+--
+-- Update our entry in place instead. `awful.menu.entry` keeps the items table
+-- it was given as `item.cmd` and `menu.new` builds the submenu from it, so
+-- rewriting that same table (rather than swapping in a new one) is enough,
+-- and dropping the cached submenu makes awful rebuild it from the new
+-- contents the next time the entry is opened.
 function custom.rebuild_menu()
-    if not (custom.mainmenu and custom.index) then return end
-    custom.mainmenu:delete(custom.index)
-    custom.mainmenu:add({ "custom", custom.build_items() }, custom.index)
+    local mainmenu = custom.mainmenu
+    if not (mainmenu and custom.index) then return end
+    local item = mainmenu.items[custom.index]
+    if not (item and type(item.cmd) == "table") then return end
+
+    -- pairs, not ipairs: the items table also carries the `theme` key that
+    -- set_menu_width attaches for the submenu width.
+    local items = custom.build_items()
+    for k in pairs(item.cmd) do item.cmd[k] = nil end
+    for k, v in pairs(items) do item.cmd[k] = v end
+
+    local child = mainmenu.child[custom.index]
+    if child then
+        child:hide()
+        if mainmenu.active_child == child then
+            mainmenu.active_child = nil
+        end
+        mainmenu.child[custom.index] = nil
+    end
 end
 
 -- Entry point: register the submenu into `mainmenu` at position `index`.
