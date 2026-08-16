@@ -37,6 +37,54 @@ local function check_if_exec_exists(exec, msg)
 	end
 end
 
+-- Show a string in a read-only scratch buffer, opened in a vertical split.
+-- Press 'q' in the preview to close it.
+local function open_string_readonly(content, title)
+	local name = title or "Read-Only Preview"
+
+	-- Buffer names have to be unique, so wipe a leftover preview of the same
+	-- name before creating a new one (otherwise set_name fails with E95)
+	for _, b in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.bo[b].buftype == "nofile"
+			and vim.fn.fnamemodify(vim.api.nvim_buf_get_name(b), ":t") == name then
+			pcall(vim.api.nvim_buf_delete, b, { force = true })
+		end
+	end
+
+	-- Unlisted scratch buffer
+	local buf = vim.api.nvim_create_buf(false, true)
+
+	-- Fill the buffer BEFORE locking it down, a non-modifiable buffer
+	-- rejects nvim_buf_set_lines
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(content or "", "\n", { plain = true }))
+
+	vim.bo[buf].buftype = "nofile"
+	vim.bo[buf].bufhidden = "wipe"
+	vim.bo[buf].swapfile = false
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].readonly = true
+	vim.api.nvim_buf_set_name(buf, name)
+
+	-- Show it in a vertical split
+	vim.cmd("vsplit")
+	vim.api.nvim_win_set_buf(0, buf)
+	-- Window-local tweaks, spell check is on globally and is noise here
+	vim.wo.spell = false
+	vim.wo.number = false
+
+	vim.keymap.set('n', 'q', '<CMD>close<CR>', { buffer = buf, nowait = true, silent = true })
+end
+
+-- Text shown by the :CustomInfo command
+local custom_info_text = [[
+Custom Info
+===========
+
+This text lives in `custom_info_text` in init.lua, edit it to show
+whatever information should be at hand.
+
+Press 'q' to close this window.]]
+
 -------------
 -- Options --
 -------------
@@ -579,6 +627,17 @@ end
 vim.api.nvim_create_user_command("CmdShowLspLog", CmdShowLspLog, {
 	desc = "Opens the lsp log.",
 })
+
+-- Type :CustomInfo to show custom_info_text in a read-only split.
+-- Ex command names must start with an uppercase letter and cannot contain
+-- underscores, so ':custom_info' is wired up below as an abbreviation for it.
+vim.api.nvim_create_user_command("CustomInfo", function()
+	open_string_readonly(custom_info_text, "Custom Info")
+end, {
+	desc = "Shows the custom info text in a read-only split.",
+})
+-- Expand 'custom_info' to 'CustomInfo', but only when it is the whole command line
+vim.cmd([[cnoreabbrev <expr> custom_info (getcmdtype() ==# ':' && getcmdline() ==# 'custom_info') ? 'CustomInfo' : 'custom_info']])
 
 -- hop.nvim
 -- Find with 1 char with 'f' in the visible buffer

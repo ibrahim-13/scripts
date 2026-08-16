@@ -34,7 +34,10 @@
 #    - The git BRANCH is read directly from .git/HEAD (no git binary needed).
 #    - The git DIRTY marker ("*") needs the `git` binary. It is added only when
 #      BOTH a .git is found AND `git` is on PATH; otherwise it is silently
-#      skipped and just the branch is shown.
+#      skipped and just the branch is shown. `git status` walks the whole work
+#      tree and can take many seconds on a slow/network filesystem, so — like
+#      the fable fetch — it runs detached and cached (see GIT_DIRTY_CACHE_TTL)
+#      and the bar only ever reads the cache file.
 #    - The only always-used external command is `cat` (coreutils) for stdin.
 #
 # -----------------------------------------------------------------------------
@@ -95,6 +98,9 @@ RATE_RED_PCT=80         # rate-limit % at/above which the value turns red
 RATE_YELLOW_PCT=50      # rate-limit % at/above which the value turns yellow
 FABLE_CACHE_TTL=60      # seconds between background fetches of Fable usage
 FABLE_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/claude-status-bar-fable"
+GIT_DIRTY_CACHE_TTL=10  # seconds between background `git status` rescans
+GIT_DIRTY_TIMEOUT=30    # hard kill for a background scan that hangs on a mount
+GIT_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/claude-status-bar-git"
 
 # Read the whole JSON payload Claude Code sends on stdin (cat = coreutils).
 input=$(cat)
@@ -309,11 +315,40 @@ while [ -n "$d" ]; do
   d=${d%/*}; [ -n "$d" ] || d=/
 done
 
-# Dirty marker: requires the optional git binary. Checks both conditions.
-if [ -n "$git_root" ] && command -v git >/dev/null 2>&1; then
-  if [ -n "$(git -C "$git_root" status --porcelain 2>/dev/null)" ]; then
-    git_dirty="*"
+# git_dirty_scan ROOT CACHE  (background job)
+#   Writes "1" (dirty) or "0" (clean) to CACHE, atomically. `timeout` caps a
+#   scan wedged on an unresponsive mount; every failure path leaves the previous
+#   answer in place, so a stale marker is the worst case.
+git_dirty_scan() {
+  local root=$1 cache=$2 out
+  if command -v timeout >/dev/null 2>&1; then
+    out=$(timeout "$GIT_DIRTY_TIMEOUT" git -C "$root" status --porcelain 2>/dev/null) || return 0
+  else
+    out=$(git -C "$root" status --porcelain 2>/dev/null) || return 0
   fi
+  [ -n "$out" ] && out=1 || out=0
+  printf '%s\n' "$out" > "$cache.tmp" && mv -f "$cache.tmp" "$cache"
+  return 0
+}
+
+# Dirty marker: requires the optional git binary. Checks both conditions.
+# `git status` stats the entire work tree — on a fuse/network mount that can
+# run for tens of seconds, well past the few seconds Claude Code gives a
+# statusLine command before it gives up and draws NOTHING. So the scan is
+# detached and rate-limited to once per GIT_DIRTY_CACHE_TTL, and rendering
+# only reads the cache file (one stat + one read). The bar never waits on git.
+if [ -n "$git_root" ] && command -v git >/dev/null 2>&1; then
+  git_cache="$GIT_CACHE_DIR/${git_root//\//%}"
+  now=${EPOCHSECONDS:-$(date +%s)}
+  mtime=$(stat -c %Y "$git_cache" 2>/dev/null) || mtime=0
+  if (( now - mtime >= GIT_DIRTY_CACHE_TTL )); then
+    mkdir -p "$GIT_CACHE_DIR" 2>/dev/null
+    touch "$git_cache" 2>/dev/null       # debounce: parallel repaints skip
+    git_dirty_scan "$git_root" "$git_cache" </dev/null >/dev/null 2>&1 &
+  fi
+  cached_dirty=0
+  [ -f "$git_cache" ] && read -r cached_dirty < "$git_cache" 2>/dev/null
+  [ "${cached_dirty:-0}" = "1" ] && git_dirty="*"
 fi
 
 # =============================================================================

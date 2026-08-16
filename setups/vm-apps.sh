@@ -208,11 +208,20 @@ fi
 if prompt_confirmation "install node version manager?" $ARG_CONFIRM; then
     print_info "installing node version manager"
     $CMD_DLP https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.4/install.sh | bash
-    set +eu
-    source $HOME/.bashrc
-    nvm install --lts
-    nvm use --lts
-    set -eu
+    print_info "installing node lts and updating npm"
+    # nvm.sh is sourced inside a subshell, so the main script's shell options
+    # and environment are left untouched
+    if ! bash -c '
+        set +u
+        export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+        [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+        nvm install --lts
+        nvm use --lts
+        echo "installing latest npm"
+        npm install -g npm@latest
+    '; then
+        print_error "node installation failed"
+    fi
 fi
 
 if prompt_confirmation "install claude cli?" $ARG_CONFIRM; then
