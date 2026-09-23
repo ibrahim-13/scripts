@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# run — dispatcher for the script toolkit.
+#
+#   run                         live picker (type to filter, Enter runs)
+#   run <ns>/<name> [ARGS]      execute cmd/<ns>/<name>.sh   (also: run <ns> <name> [ARGS])
+#   run help                    overview of verbs (this file's usage())
+#
+# Every path is derived from this file's real location (readlink -f follows symlinks),
+# then lib/loader.sh re-derives RUN_ROOT/RUN_LIB/RUN_CMD from ITS location. Nothing here
+# depends on cwd, PATH or inherited environment. See README.md "Layout and flow".
+set -euo pipefail
+HERE=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")
+source "$HERE/../lib/loader.sh"; use core
+
+usage() {
+  # NOTE: unquoted heredoc so $RUN_ROOT expands — no backticks or $(...) in the text below.
+  cat <<USAGE
+usage: run [-y] [VERB | COMMAND] [ARGS...]
+
+  Every command asks "Run <cmd> ARGS? [y/N]" first; a group asks once for all its steps.
+  -y / --yes (or RUN_YES=1) skips it AND answers yes to the command's own questions;
+  DRY_RUN=1 never asks.
+
+  run                          live picker: type to filter, Up/Down move, Enter runs, Esc cancels
+  run <ns>/<name> [ARGS]       run cmd/<ns>/<name>.sh   ('run <ns> <name>' works too)
+  run list                     every command with its summary and role
+  run search TERM...           grep the index (commands AND library functions); any term matches
+  run help <ns>/<name>         a command's header: summary, usage, roles, needs, completions
+  run root                     print where this tree resolved itself
+  run index                    force a rebuild of .cache/index.tsv (normally automatic)
+  run bundle <ns>/<name>       print ONE self-contained script with its libraries inlined
+  run remote HOST <ns>/<name> [ARGS]
+                               bundle, then execute on HOST via 'ssh HOST bash -s' (HOST needs bash)
+  run selftest                 run tools/selftest.sh
+
+groups       a command whose main() calls   run_cmd <ns>/<name> [ARGS]   for each step; list the
+             steps in its "# @steps" header so bundle/remote inline them (README.md "Command groups")
+
+environment  DRY_RUN=1    commands only print what they would do (convention inside main())
+             RUN_YES=1    yes to everything: no gate, confirm() answers yes, package managers get -y
+             RUN_FORCE=1  run even if @roles does not match this machine
+             RUN_ROLE=vm|host|container   override role detection
+             PICK_ROWS=N  picker height (default 12)
+docs         $RUN_ROOT/README.md
+USAGE
+}
+
+# index -> prints the path of the TSV index, rebuilding it first if any script is newer.
+index() { "$RUN_ROOT/tools/index.sh"; }
+
+# resolve ARGS... -> sets CMD_FILE and NSHIFT (how many words the command name used).
+# Accepts "vm/mount" (1 word) or "vm mount" (2 words). Returns 1 if neither exists.
+resolve() {
+  if   [[ -f $RUN_CMD/${1:-}.sh ]];        then CMD_FILE=$RUN_CMD/$1.sh    NSHIFT=1
+  elif [[ -f $RUN_CMD/${1:-}/${2:-}.sh ]]; then CMD_FILE=$RUN_CMD/$1/$2.sh NSHIFT=2
+  else return 1; fi
+}
+
+cmd_list() {
+  local kind id summary tags roles file
+  while IFS=$'\t' read -r kind id summary tags roles file; do
+    [[ $kind == cmd ]] && printf '  \e[1m%-24s\e[0m %s \e[2m[%s]\e[0m\n' "$id" "$summary" "$roles"
+  done < "$(index)"
+}
+
+# cmd_search TERM... -> case-insensitive grep of the index; terms are OR-ed.
+cmd_search() {
+  local q; q=$(IFS='|'; echo "$*")
+  grep -iE -- "$q" "$(index)" | cut -f1-4 | column -ts $'\t' 2>/dev/null || true
+}
+
+cmd_help() {
+  resolve "$@" || die "unknown command: $*"
+  local f; for f in summary usage roles needs steps complete; do
+    printf '\e[1m%-9s\e[0m%s\n' "$f" "$(_run_header_field "$CMD_FILE" "$f" | tr '\n' ' ')"
+  done; echo "file     ${CMD_FILE#"$RUN_ROOT/"}"
+}
+
+# cmd_pick [QUERY] -> live picker over the commands, then a readline prompt for extra
+# arguments, then exec. Refuses without a controlling terminal (cron, backticks, CI).
+cmd_pick() {
+  { : </dev/tty; } 2>/dev/null || die "no terminal attached: use 'run <cmd>' or 'run list'"
+  local choice
+  choice=$(grep -P '^cmd\t' "$(index)" | cut -f2,3,4 | "$RUN_ROOT/tools/pick.sh" "${1:-}") || exit $?
+  local extra=; read -r -e -p "run $choice " extra </dev/tty || true
+  # shellcheck disable=SC2086
+  exec "$0" "$choice" $extra
+}
+
+# `run -y ...` / `run --yes ...`: skip the confirmation prompt (same as RUN_YES=1).
+if [[ ${1:-} == -y || ${1:-} == --yes ]]; then export RUN_YES=1; shift; fi
+
+# Verbs below are RESERVED: a namespace directory with one of these names is unreachable.
+case ${1:-} in
+  ''|pick)      shift $(( $# ? 1 : 0 )); cmd_pick "$@" ;;
+  list|ls)      cmd_list ;;
+  root)         printf '%s\n' "$RUN_ROOT" ;;
+  search|s)     shift; cmd_search "$@" ;;
+  help|h)       shift; if (( $# )); then cmd_help "$@"; else usage; fi ;;
+  --help|-h)    usage ;;
+  index)        "$RUN_ROOT/tools/index.sh" --rebuild >/dev/null; echo "index rebuilt" ;;
+  bundle)       shift; exec "$RUN_ROOT/tools/bundle.sh" "$@" ;;
+  selftest)     exec "$RUN_ROOT/tools/selftest.sh" ;;
+  remote)       shift; host=${1:?usage: run remote HOST <ns>/<name> [ARGS]}; shift
+                resolve "$@" || die "unknown command: $*"
+                id=${CMD_FILE#"$RUN_CMD/"}; id=${id%.sh}
+                # Confirm HERE (ssh without -t has no terminal), then tell the remote not to ask.
+                if [[ -z ${RUN_YES:-} && -z ${DRY_RUN:-} ]]; then
+                  { : </dev/tty; } 2>/dev/null || die "no terminal to confirm; set RUN_YES=1 (or run -y)"
+                  printf '\e[1m%s\e[0m — %s\n' "$id" "$(_run_header_field "$CMD_FILE" summary)" >&2
+                  steps=$(_run_header_field "$CMD_FILE" steps | tr '\n' ' '); [[ -n ${steps// } ]] && echo "  group of: $steps" >&2
+                  read -r -p "Run $id ${*:NSHIFT+1} on $host? [y/N] " ans </dev/tty
+                  [[ $ans == [yY]* ]] || die -c 130 "cancelled"
+                fi
+                # DRY_RUN / RUN_FORCE travel with the command; %q quotes each argument; the bundle arrives on stdin.
+                envs="RUN_CONFIRMED=1${RUN_YES:+ RUN_YES=1}${DRY_RUN:+ DRY_RUN=1}${RUN_FORCE:+ RUN_FORCE=1}"
+                exec ssh "$host" "$envs bash -s -- $(printf '%q ' "${@:NSHIFT+1}")" < <("$RUN_ROOT/tools/bundle.sh" "$id") ;;
+  --complete)   shift; grep -P '^cmd\t' "$(index)" | cut -f2 ;;
+  *)            resolve "$@" || { warn "unknown command: $1"; cmd_search "$1"; exit 1; }
+                shift "$NSHIFT"; exec "$CMD_FILE" "$@" ;;
+esac

@@ -1,0 +1,1281 @@
+#!/usr/bin/env bash
+#: ostree-mgr — one tool for Fedora Atomic (Silverblue/Kinoite/…): packages, deployments, apps.
+#:
+#: Usage: ostree-mgr [-n] [-y] <group> <command> [args]
+#:        ostree-mgr <group> -h          commands of one group
+#:        ostree-mgr <group> <cmd> -h    what a command does, how it works, its options
+#:        ostree-mgr help | -h           this text
+#:
+#: Groups:
+#:   pkg    RPM layering: search, install, uninstall, list, info, override, repo, refresh
+#:   layer  deployments: status, pending, diff, upgrade, rollback, deploy, rebase, branches,
+#:          pin, unpin, cleanup, cancel, reset, kargs, unlock, space
+#:   app    non-RPM software: check, run, tarball, appimage, container, bindmount, list, uninstall
+#:
+#: Global flags (before or after the group):
+#:   -n, --dry-run   print the commands that would run, change nothing
+#:   -y, --yes       answer yes to every confirmation (also skips the reboot hint)
+#:   -h, --help      help
+#:
+#: Every command that alters the system asks "…? [y/N]" first. Layering, overrides, rebase,
+#: kargs and rollback stage a NEW deployment that becomes active after a reboot.
+#: Environment: DRY_RUN=1, ASSUME_YES=1, OSTREE_FORCE=1 (run on a non-ostree host, for testing).
+#:
+#: Cheat-sheet:
+#:   ostree-mgr pkg install htop --live          ostree-mgr layer pin
+#:   ostree-mgr pkg uninstall htop               ostree-mgr layer rollback --reboot
+#:   ostree-mgr pkg repo add tailscale URL --key URL
+#:   ostree-mgr app check https://x/install.sh   ostree-mgr app run https://x/install.sh --rewrite
+#:   ostree-mgr app tarball lazygit URL --bin lazygit
+set -euo pipefail
+SELF=$(readlink -f "${BASH_SOURCE[0]}")
+
+# =============================================================================
+# shared helpers
+# =============================================================================
+
+: "${DRY_RUN:=0}" "${ASSUME_YES:=0}" "${OSTREE_FORCE:=0}" "${WANT_HELP:=0}"
+
+if [[ -t 2 ]]; then
+    C_B=$'\e[1;34m' C_Y=$'\e[1;33m' C_R=$'\e[1;31m' C_G=$'\e[1;32m' C_0=$'\e[0m'
+else
+    C_B= C_Y= C_R= C_G= C_0=
+fi
+
+info() { printf '%s==>%s %s\n' "$C_B" "$C_0" "$*" >&2; }
+ok()   { printf '%s ✔ %s %s\n' "$C_G" "$C_0" "$*" >&2; }
+warn() { printf '%sWARN:%s %s\n' "$C_Y" "$C_0" "$*" >&2; }
+die()  { printf '%sERROR:%s %s\n' "$C_R" "$C_0" "$*" >&2; exit "${2:-1}"; }
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# confirm "question" -> 0 yes / 1 no. ASSUME_YES=1 or DRY_RUN=1 skip the prompt.
+confirm() {
+    [[ $ASSUME_YES == 1 || $DRY_RUN == 1 ]] && return 0
+    local a
+    # prefer the terminal (works inside pipelines); fall back to stdin when there is no tty
+    { read -rp "$* [y/N] " a </dev/tty; } 2>/dev/null || read -rp "$* [y/N] " a || return 1
+    [[ $a == [yY]* ]]
+}
+
+# run CMD... — echo the command, execute unless DRY_RUN=1.
+run() {
+    printf '%s+%s %s\n' "$C_B" "$C_0" "$(printf '%q ' "$@")" >&2
+    [[ $DRY_RUN == 1 ]] || "$@"
+}
+
+# as_root CMD... — run() with sudo when not already root.
+as_root() {
+    if (( EUID == 0 )); then run "$@"; else run sudo "$@"; fi
+}
+
+is_ostree() { [[ -f /run/ostree-booted ]]; }
+
+require_ostree() {
+    is_ostree || [[ $OSTREE_FORCE == 1 || $DRY_RUN == 1 ]] \
+        || die "Not an ostree-booted system (no /run/ostree-booted). Set OSTREE_FORCE=1 to override."
+}
+
+require_cmd() {
+    local c
+    for c in "$@"; do have "$c" || [[ $DRY_RUN == 1 ]] || die "missing command: $c"; done
+}
+
+# Parse common flags in place; leaves the remainder in ARGS array.
+# Recognised: -n/--dry-run, -y/--yes, -h/--help (calls usage).
+parse_common() {
+    ARGS=()
+    while (( $# )); do
+        case $1 in
+            --)           shift; ARGS+=(-- "$@"); break ;;
+            -n|--dry-run) DRY_RUN=1 ;;
+            -y|--yes)     ASSUME_YES=1 ;;
+            -h|--help)    WANT_HELP=1 ;;
+            *)            ARGS+=("$1") ;;
+        esac
+        shift
+    done
+}
+
+# usage — prints the header comment block (lines starting with '#:' ) of the caller.
+usage() {
+    # print the "#:" header block; stop at the first line that is not part of it
+    sed -n '1{/^#!/d}; /^#:/!q; s/^#: \{0,1\}//p' "$SELF"
+}
+
+# ---------- rpm-ostree status helpers (text parsing, no jq) ----------------
+
+# status_text — cached `rpm-ostree status` output.
+status_text() {
+    [[ -n ${_STATUS_TEXT-} ]] || _STATUS_TEXT=$(rpm-ostree status 2>/dev/null || true)
+    printf '%s\n' "$_STATUS_TEXT"
+}
+
+# booted_block — the status paragraph of the booted deployment (marked ●).
+booted_block() {
+    status_text | awk 'BEGIN{RS=""; FS="\n"} /●/ {print; exit}'
+}
+
+# status_field FIELD [BLOCK] — value of a possibly wrapped "Field: a b\n            c" entry.
+status_field() {
+    local field=$1 block=${2:-$(booted_block)}
+    printf '%s\n' "$block" | awk -v f="$field:" '
+        $1==f { $1=""; sub(/^[ \t]+/, ""); out=$0; grab=1; next }
+        grab && /^[ \t]+/ && $1 !~ /:$/ { sub(/^[ \t]+/, ""); out=out" "$0; next }
+        grab { exit }
+        END { print out }'
+}
+
+layered_packages()   { status_field LayeredPackages; }
+local_packages()     { status_field LocalPackages; }
+removed_base()       { status_field RemovedBasePackages; }
+replaced_base()      { status_field ReplacedBasePackages; }
+
+has_pending() { status_text | awk 'BEGIN{RS=""} NR==1{ exit ($0 ~ /●/) ? 1 : 0 }'; }
+
+# deployment_count — number of deployment paragraphs.
+deployment_count() { status_text | awk 'BEGIN{RS=""} /(ostree|Version):/ {n++} END{print n+0}'; }
+
+# is_layered PKG — 0 if PKG is in LayeredPackages or LocalPackages.
+is_layered() {
+    local p=$1 x
+    for x in $(layered_packages) $(local_packages); do
+        [[ ${x%%-[0-9]*} == "$p" || $x == "$p" ]] && return 0
+    done
+    return 1
+}
+
+# is_installed PKG — rpm knows it (base or layered).
+is_installed() { rpm -q "$1" >/dev/null 2>&1; }
+
+# ---------- misc ----------------------------------------------------------
+
+# fetch URL DEST — download with curl or wget (both are in the base image).
+fetch() {
+    local url=$1 dest=$2
+    if have curl;   then run curl -fsSL --retry 3 -o "$dest" "$url"
+    elif have wget; then run wget -qO "$dest" "$url"
+    else die "need curl or wget"; fi
+}
+
+# mktmpd — scratch directory removed on exit.
+mktmpd() {
+    TMPD=$(mktemp -d "${TMPDIR:-/tmp}/ostree-XXXXXX")
+    trap 'rm -rf "$TMPD"' EXIT
+}
+
+# reboot_hint [--reboot flag given?]
+reboot_hint() {
+    if [[ ${1-} == 1 ]]; then as_root systemctl reboot
+    else info "Change staged for next boot. Run 'systemctl reboot' when ready, or 'rpm-ostree cancel' / 'ostree-layer cleanup -p' to drop it."; fi
+}
+
+# =============================================================================
+# group: pkg
+# =============================================================================
+pkg_help() {
+cat <<'HLP'
+ostree-mgr pkg — RPM package layering on Fedora Atomic (rpm-ostree).
+
+Usage: ostree-mgr pkg [-n] [-y] <command> [args]      (ostree-mgr pkg <command> -h for details)
+
+  search TERM...                 search enabled repos
+  install [opts] PKG|file.rpm|URL...
+       --live      apply to the running system too (rpm-ostree -A); additions only
+       --reboot    reboot when the new deployment is staged
+       --inactive  allow packages already in the base image (--allow-inactive)
+  uninstall [--reboot] PKG...    remove layered packages (base pkgs -> use 'override remove')
+  list                           layered / local / removed / replaced packages of the booted tree
+  info PKG                       where a package comes from (base, layered, local, not installed)
+  override remove PKG...         drop a base-image package for next boot
+  override replace RPM|URL...    swap a base package for another build (koji/bodhi URLs ok)
+  override reset PKG...|--all    undo overrides
+  repo add NAME URL|FILE [--key URL]   install a .repo into /etc/yum.repos.d (+GPG key file)
+  repo list | repo remove NAME
+  refresh                        rpm-ostree refresh-md
+HLP
+}
+
+pkg_search() {
+    (( $# )) || die "search: need a term"
+    run rpm-ostree search "$@"
+}
+
+pkg_install() {
+    local live=0 reboot=0 inactive=0 pkgs=() a f
+    while (( $# )); do
+        case $1 in
+            --live)     live=1 ;;
+            --reboot)   reboot=1 ;;
+            --inactive) inactive=1 ;;
+            -*)         die "install: unknown flag $1" ;;
+            *)          pkgs+=("$1") ;;
+        esac; shift
+    done
+    (( ${#pkgs[@]} )) || die "install: nothing to install"
+
+    # Resolve URLs to local files; rpm-ostree install takes package names and .rpm paths.
+    local resolved=()
+    for a in "${pkgs[@]}"; do
+        if [[ $a == http://* || $a == https://* ]]; then
+            [[ -n ${TMPD-} ]] || mktmpd
+            f=$TMPD/${a##*/}
+            info "downloading $a"; fetch "$a" "$f"; resolved+=("$f")
+        else
+            resolved+=("$a")
+        fi
+    done
+
+    # Already layered? Skip to keep this idempotent.
+    local todo=() p
+    for p in "${resolved[@]}"; do
+        if [[ $p != *.rpm ]] && is_layered "$p"; then ok "$p already layered"; else todo+=("$p"); fi
+    done
+    (( ${#todo[@]} )) || exit 0
+
+    local flags=(--idempotent)
+    (( inactive )) && flags+=(--allow-inactive)
+    (( reboot ))   && flags+=(--reboot)
+    if (( live )); then
+        if has_pending; then
+            warn "A pending deployment already exists; --live cannot be combined with it."
+            confirm "Stage the install for next boot instead (no live apply)?" || exit 1
+        else
+            flags+=(--apply-live)
+        fi
+    fi
+    info "layering: ${todo[*]}"
+    confirm "Run rpm-ostree install ${flags[*]} ${todo[*]}?" || exit 1
+    as_root rpm-ostree install "${flags[@]}" "${todo[@]}"
+    (( live || reboot )) || reboot_hint
+}
+
+pkg_uninstall() {
+    local reboot=0 pkgs=() p
+    while (( $# )); do
+        case $1 in --reboot) reboot=1 ;; -*) die "uninstall: unknown flag $1" ;; *) pkgs+=("$1") ;; esac; shift
+    done
+    (( ${#pkgs[@]} )) || die "uninstall: nothing given"
+    local todo=()
+    for p in "${pkgs[@]}"; do
+        if is_layered "$p"; then todo+=("$p")
+        elif is_installed "$p"; then
+            warn "$p is part of the BASE image, not a layer. Use: ostree-mgr pkg override remove $p"
+        else
+            warn "$p is not installed"
+        fi
+    done
+    (( ${#todo[@]} )) || exit 1
+    local flags=(); (( reboot )) && flags+=(--reboot)
+    confirm "Remove layered package(s): ${todo[*]}?" || exit 1
+    as_root rpm-ostree uninstall "${flags[@]}" "${todo[@]}"
+    (( reboot )) || reboot_hint
+}
+
+pkg_list() {
+    local b; b=$(booted_block)
+    [[ -n $b ]] || die "could not read rpm-ostree status"
+    printf 'Booted:      %s\n' "$(printf '%s\n' "$b" | grep -m1 '●' | sed 's/^[● ]*//')"
+    printf 'Version:     %s\n' "$(status_field Version "$b")"
+    printf 'Layered:     %s\n' "$(status_field LayeredPackages "$b")"
+    printf 'Local RPMs:  %s\n' "$(status_field LocalPackages "$b")"
+    printf 'Removed:     %s\n' "$(status_field RemovedBasePackages "$b")"
+    printf 'Replaced:    %s\n' "$(status_field ReplacedBasePackages "$b")"
+    printf 'Pinned:      %s\n' "$(status_field Pinned "$b")"
+    if has_pending; then
+        printf '\nPending deployment differences (booted -> pending):\n'
+        rpm-ostree db diff 2>/dev/null || true
+    fi
+}
+
+pkg_info() {
+    local p=${1:?info: need a package}
+    if ! is_installed "$p"; then
+        echo "$p: not installed"; rpm-ostree search "$p" 2>/dev/null | head -20 || true; return 1
+    fi
+    rpm -q "$p"
+    if is_layered "$p"; then echo "origin: LAYERED (rpm-ostree install)"
+    else echo "origin: BASE IMAGE"; fi
+    rpm -qi "$p" | sed -n 's/^\(Summary\|URL\|Install Date\|From repo\) *:/\1:/p'
+}
+
+pkg_override() {
+    local sub=${1:-}; shift || true
+    case $sub in
+        remove)
+            (( $# )) || die "override remove: need package(s)"
+            warn "Removing base packages can break upgrades if dependencies change. Prefer leaving base alone."
+            confirm "Remove base package(s) ${*} for next boot?" || exit 1
+            as_root rpm-ostree override remove "$@"; reboot_hint ;;
+        replace)
+            (( $# )) || die "override replace: need RPM files or URLs"
+            confirm "Replace base package(s) with: ${*}?" || exit 1
+            as_root rpm-ostree override replace "$@"; reboot_hint ;;
+        reset)
+            (( $# )) || die "override reset: need package(s) or --all"
+            confirm "Reset override(s) ${*}?" || exit 1
+            as_root rpm-ostree override reset "$@"; reboot_hint ;;
+        *) die "override: remove|replace|reset" ;;
+    esac
+}
+
+pkg_repo() {
+    local sub=${1:-}; shift || true
+    local d=/etc/yum.repos.d k=/etc/pki/rpm-gpg
+    case $sub in
+        list)
+            grep -H '^\[' "$d"/*.repo 2>/dev/null | sed 's|.*/||; s/\.repo:\[/  /; s/\]$//' | column -t 2>/dev/null \
+                || ls "$d" ;;
+        add)
+            local name=${1:?repo add: NAME} src=${2:?repo add: URL|FILE}; shift 2
+            local key=
+            while (( $# )); do case $1 in --key) key=$2; shift ;; *) die "repo add: unknown $1";; esac; shift; done
+            [[ -n ${TMPD-} ]] || mktmpd
+            local tmp=$TMPD/$name.repo
+            if [[ $src == http* ]]; then fetch "$src" "$tmp"; else run cp "$src" "$tmp"; fi
+            if [[ -n $key ]]; then
+                # rpm --import does not work on a booted ostree system (read-only rpmdb);
+                # keys dropped into /etc/pki/rpm-gpg are trusted automatically by rpm-ostree.
+                local kf=$k/RPM-GPG-KEY-$name
+                fetch "$key" "$TMPD/key"
+                as_root install -m 0644 "$TMPD/key" "$kf"
+                [[ $DRY_RUN == 1 ]] || sed -i "s|^gpgkey=.*|gpgkey=file://$kf|" "$tmp"
+            fi
+            [[ $DRY_RUN == 1 ]] || { grep -q '^\[' "$tmp" || die "$src does not look like a .repo file"; }
+            as_root install -m 0644 "$tmp" "$d/$name.repo"
+            ok "installed $d/$name.repo"; info "now: ostree-mgr pkg install <package>" ;;
+        remove)
+            local name=${1:?repo remove: NAME}
+            confirm "Delete $d/$name.repo (and $k/RPM-GPG-KEY-$name if present)?" || exit 1
+            as_root rm -f "$d/$name.repo" "$k/RPM-GPG-KEY-$name" ;;
+        *) die "repo: add|list|remove" ;;
+    esac
+}
+
+pkg_refresh() { as_root rpm-ostree refresh-md "$@"; }
+
+# =============================================================================
+# group: layer
+# =============================================================================
+layer_help() {
+cat <<'HLP'
+ostree-mgr layer — deployments ("layers") on Fedora Atomic: status, pin, rollback, cleanup, rebase.
+
+Usage: ostree-mgr layer [-n] [-y] <command> [args]      (ostree-mgr layer <command> -h for details)
+
+  status [-v]                 deployments in boot order (● = booted, first = default)
+  pending                     what the staged deployment changes vs booted (db diff)
+  diff [FROM TO]              package diff between two commits/deployments
+  upgrade [--check|--preview|--reboot]
+  rollback [--reboot]         swap default with the previous deployment
+  deploy VERSION|COMMIT [--reboot]
+  rebase REF [--reboot]       e.g. fedora:fedora/45/x86_64/silverblue
+                              or ostree-image-signed:docker://quay.io/fedora/fedora-silverblue:45
+  branches [FILTER]           refs available on the 'fedora' remote
+  pin [INDEX|booted|pending|rollback]   protect a deployment from garbage collection (default: booted)
+  unpin INDEX
+  cleanup [-p] [-r] [-b] [-m] | cleanup all
+       -p pending  -r rollback  -b base/transient  -m repo metadata cache
+  cancel                      abort a running rpm-ostree transaction
+  reset [--overlays] [--overrides] [--initramfs]   drop layered pkgs / overrides (all by default)
+  kargs [show|append ARG|delete ARG|replace K=V=NEW]
+  unlock [--hotfix]           writable /usr overlay: transient (default) or persistent hotfix
+  space                       disk usage of the ostree repo and deployments
+HLP
+}
+
+layer_status() {
+    rpm-ostree status "$@"
+    echo
+    echo "Legend: ● booted; first entry = default for next boot; 'Pinned: yes' survives cleanup."
+    echo "Indexes for pin/unpin count from 0 in the order shown above."
+}
+
+layer_pending() {
+    if has_pending; then
+        info "Pending deployment vs booted:"
+        rpm-ostree db diff
+    else
+        ok "no pending deployment"
+    fi
+}
+
+layer_diff() { rpm-ostree db diff "$@"; }
+
+layer_upgrade() {
+    local flags=() a
+    for a in "$@"; do
+        case $a in
+            --check)   flags+=(--check) ;;
+            --preview) flags+=(--preview) ;;
+            --reboot)  flags+=(--reboot) ;;
+            *) die "upgrade: unknown $a" ;;
+        esac
+    done
+    if [[ ${#flags[@]} -eq 0 || ${flags[*]} == *--reboot* ]]; then
+        confirm "Stage an upgrade to the latest image?" || exit 1
+        as_root rpm-ostree upgrade "${flags[@]+"${flags[@]}"}"
+        [[ ${flags[*]-} == *--reboot* ]] || reboot_hint
+    else
+        run rpm-ostree upgrade "${flags[@]}"
+    fi
+}
+
+layer_rollback() {
+    local flags=(); [[ ${1-} == --reboot ]] && flags+=(--reboot)
+    rpm-ostree status | grep -A3 -m2 'Version' || true
+    confirm "Make the previous deployment the default?" || exit 1
+    as_root rpm-ostree rollback "${flags[@]+"${flags[@]}"}"
+    (( ${#flags[@]} )) || reboot_hint
+}
+
+layer_deploy() {
+    local target=${1:?deploy: VERSION or COMMIT}; shift
+    local flags=(); [[ ${1-} == --reboot ]] && flags+=(--reboot)
+    confirm "Deploy $target?" || exit 1
+    as_root rpm-ostree deploy "$target" "${flags[@]+"${flags[@]}"}"
+    (( ${#flags[@]} )) || reboot_hint
+}
+
+layer_rebase() {
+    local ref=${1:?rebase: REF}; shift
+    local flags=(); [[ ${1-} == --reboot ]] && flags+=(--reboot)
+    info "Layered packages and /etc changes are carried over to the new base."
+    if [[ $ref == *:docker://* ]] && [[ $ref != ostree-image-signed:* ]]; then
+        warn "unverified container ref; prefer ostree-image-signed:docker://... for Fedora images"
+    fi
+    confirm "Rebase to $ref? (pin the current deployment first: ostree-mgr layer pin)" || exit 1
+    as_root rpm-ostree rebase "$ref" "${flags[@]+"${flags[@]}"}"
+    (( ${#flags[@]} )) || reboot_hint
+}
+
+layer_branches() {
+    local f=${1:-}
+    run ostree remote refs fedora | { if [[ -n $f ]]; then grep -- "$f"; else cat; fi; }
+}
+
+layer_pin() {
+    local idx=${1:-booted}
+    if [[ $idx == booted ]]; then
+        idx=$(status_text | awk 'BEGIN{RS=""} /Deployments:/{sub(/.*Deployments:\n/,"")} {n++} /●/{print n-1; exit}')
+        [[ -n $idx ]] || idx=0
+    fi
+    confirm "Pin deployment $idx (kept until unpinned, even across upgrades/cleanup)?" || exit 1
+    as_root ostree admin pin "$idx"
+}
+
+layer_unpin() {
+    local idx=${1:?unpin: INDEX}
+    confirm "Unpin deployment $idx?" || exit 1
+    as_root ostree admin pin --unpin "$idx"
+}
+
+layer_cleanup() {
+    local flags=() a
+    if [[ ${1-} == all ]]; then flags=(-p -r -b -m)
+    else
+        for a in "$@"; do case $a in -p|-r|-b|-m) flags+=("$a") ;; *) die "cleanup: unknown $a" ;; esac; done
+    fi
+    (( ${#flags[@]} )) || flags=(-b -m)
+    [[ ${flags[*]} == *-r* ]] && warn "-r deletes the rollback deployment: no way back if the current one misbehaves."
+    confirm "rpm-ostree cleanup ${flags[*]}?" || exit 1
+    as_root rpm-ostree cleanup "${flags[@]}"
+}
+
+layer_cancel() { as_root rpm-ostree cancel; }
+
+layer_reset() {
+    local flags=("$@")
+    if (( ${#flags[@]} == 0 )); then
+        warn "This removes ALL layered packages, overrides and initramfs settings (back to a stock image)."
+    fi
+    confirm "rpm-ostree reset ${flags[*]-}?" || exit 1
+    as_root rpm-ostree reset "${flags[@]+"${flags[@]}"}"
+    reboot_hint
+}
+
+layer_kargs() {
+    local sub=${1:-show}; shift || true
+    case $sub in
+        show)    run rpm-ostree kargs ;;
+        append)  confirm "Append kernel arg(s) $*?" || exit 1
+                 local a f=(); for a in "$@"; do f+=(--append-if-missing="$a"); done
+                 as_root rpm-ostree kargs "${f[@]}"; reboot_hint ;;
+        delete)  confirm "Delete kernel arg(s) $*?" || exit 1
+                 local a f=(); for a in "$@"; do f+=(--delete-if-present="$a"); done
+                 as_root rpm-ostree kargs "${f[@]}"; reboot_hint ;;
+        replace) confirm "Replace kernel arg $1?" || exit 1
+                 as_root rpm-ostree kargs --replace="$1"; reboot_hint ;;
+        *) die "kargs: show|append|delete|replace" ;;
+    esac
+}
+
+layer_unlock() {
+    if [[ ${1-} == --hotfix ]]; then
+        warn "--hotfix clones the booted deployment and keeps /usr writable across reboots."
+        warn "It does NOT combine with rpm-ostree install/upgrade: the next deployment drops the hotfix."
+        confirm "ostree admin unlock --hotfix?" || exit 1
+        as_root ostree admin unlock --hotfix
+    else
+        info "Transient overlay on /usr: everything written there disappears at reboot."
+        confirm "rpm-ostree usroverlay?" || exit 1
+        as_root rpm-ostree usroverlay
+    fi
+}
+
+layer_space() {
+    run df -h /sysroot /var /boot 2>/dev/null || true
+    as_root du -sh /sysroot/ostree/repo /sysroot/ostree/deploy 2>/dev/null || true
+    echo; echo "Free space: ostree-mgr layer cleanup -b -m   (safe)   |   cleanup -p / -r (drops deployments)"
+}
+
+# =============================================================================
+# group: app
+# =============================================================================
+app_help() {
+cat <<'HLP'
+ostree-mgr app — install non-RPM software (install scripts, tarballs, AppImages, containers)
+             on Fedora Atomic, where only /etc and /var are writable.
+
+Usage: ostree-mgr app [-n] [-y] <command> [args]      (ostree-mgr app <command> -h for details)
+
+  check SCRIPT|URL                  scan an install script for writes that fail on ostree
+  run   SCRIPT|URL [opts] [-- ARGS] run an installer with paths redirected to writable places
+       --name NAME       record installed files under this name (for 'uninstall')
+       --prefix DIR      export PREFIX/INSTALL_DIR/DESTDIR... (default /usr/local)
+       --rewrite         sed-rewrite hard-coded /usr/{bin,lib,share,...} -> /usr/local/... in a copy
+       --user            install for this user only (prefix ~/.local)
+       --overlay         run inside a transient `rpm-ostree usroverlay` (lost at reboot!)
+  tarball NAME ARCHIVE|URL [--bin REL...] [--user]
+                                    unpack into /var/opt/NAME, link binaries into /usr/local/bin
+  appimage FILE|URL [--name NAME]   put an AppImage in ~/.local/bin + .desktop entry
+  container NAME [--image IMG] [--export BIN...] [--export-app DESKTOP...] [-- INSTALL CMD]
+                                    toolbox/distrobox: install inside, expose on the host
+  bindmount SRC TARGET              persistent bind of a /var path onto a top-level dir (e.g. /nix)
+  list | uninstall NAME             manifests live in /var/lib/ostree-mgr app (or ~/.local/state/ostree-mgr app)
+
+Writable on Fedora Atomic: /etc, /var, and the symlinks into /var: /opt /usr/local /home
+/root /srv /mnt. Read-only: everything else under / and /usr (composefs since F42).
+Preference order: Flatpak > container(+export) > /usr/local or /var/opt > RPM layer > overlay.
+HLP
+}
+
+# Paths that are read-only on an ostree deployment (regexes, anchored at word start).
+RO_PATHS='/usr/(bin|sbin|lib|lib64|libexec|share|include|etc)|/bin/|/sbin/|/lib/|/lib64/|/boot/'
+# Top-level names that exist as writable symlinks into /var.
+WRITABLE_TOP='etc|var|opt|home|root|srv|mnt|tmp|run|dev|proc|sys|usr'
+
+state_dir() {
+    if (( EUID == 0 )) || [[ ${USER_MODE:-0} == 0 ]]; then echo /var/lib/ostree-app
+    else echo "${XDG_STATE_HOME:-$HOME/.local/state}/ostree-app"; fi
+}
+
+# get_script SRC -> prints local path (downloads URLs into $TMPD)
+get_script() {
+    local src=$1
+    if [[ $src == http://* || $src == https://* ]]; then
+        [[ -n ${TMPD-} ]] || mktmpd
+        local f=$TMPD/${src##*/}; [[ $f == *.* ]] || f=$f.sh
+        fetch "$src" "$f" >/dev/null
+        [[ $DRY_RUN == 1 && ! -s $f ]] && { echo "$f"; return; }
+        printf '%s\n' "$f"
+    else
+        [[ -r $src ]] || die "cannot read $src"
+        printf '%s\n' "$src"
+    fi
+}
+
+# ---------------------------------------------------------------- check ----
+app_check() {
+    local s; s=$(get_script "${1:?check: SCRIPT|URL}")
+    [[ -s $s ]] || { warn "empty script (dry-run download?)"; return 0; }
+    local rc=0
+    report() { printf '  %s%-9s%s %s\n' "$1" "$2" "$C_0" "$3"; }
+    info "scanning $s"
+
+    local hits
+    hits=$(grep -nE "((mkdir|install|cp|mv|ln|tee|touch|chmod|chown|rm|rsync|tar|unzip|sed -i|>+)[^|;&]*[[:space:]\"']|[^a-zA-Z0-9_./-])($RO_PATHS)" "$s" \
+           | grep -vE '^[0-9]+:[[:space:]]*#|/bin/(ba|z|da)?sh([^a-zA-Z0-9_/-]|$)|/usr/bin/env([^a-zA-Z0-9_/-]|$)' \
+           | grep -E "(mkdir|install|cp|mv|ln|tee|touch|chmod|chown|rm|rsync|tar|unzip|sed -i|>)" || true)
+    if [[ -n $hits ]]; then
+        rc=1; report "$C_R" "READ-ONLY" "writes/paths under /usr or /bin etc. (fail on ostree):"
+        printf '%s\n' "$hits" | head -20 | sed 's/^/      /'
+        echo "      -> run with --rewrite (maps to /usr/local) or --prefix, or use a container."
+    fi
+
+    hits=$(grep -nP '(mkdir|install|cp|mv|ln|tee|touch|chmod|chown)[^|;&]*\s/(?!(?:'"$WRITABLE_TOP"')(?:/|\s|$))[a-zA-Z0-9_.-]+' "$s" || true)
+    if [[ -n $hits ]]; then
+        rc=1; report "$C_R" "TOP-LEVEL" "creates a new top-level directory (/ is read-only):"
+        printf '%s\n' "$hits" | head -10 | sed 's/^/      /'
+        echo "      -> ostree-mgr app bindmount /var/lib/NAME /NAME  (needs root.transient, see notes)"
+    fi
+
+    hits=$(grep -nE '\b(dnf|yum|apt(-get)?|zypper|pacman)\b[[:space:]]+(-y[[:space:]]+)?(install|remove)' "$s" || true)
+    [[ -n $hits ]] && { rc=1; report "$C_Y" "PKG-MGR" "calls a package manager; on the host that must be rpm-ostree install:"; printf '%s\n' "$hits" | head -5 | sed 's/^/      /'; }
+
+    hits=$(grep -nE 'rpm[[:space:]]+--import' "$s" || true)
+    [[ -n $hits ]] && { rc=1; report "$C_Y" "GPG" "rpm --import fails on a booted ostree; drop the key into /etc/pki/rpm-gpg instead (ostree-mgr pkg repo add --key)."; }
+
+    hits=$(grep -nE '/opt/|/usr/local/|/etc/|\$\{?(PREFIX|DESTDIR|INSTALL_DIR|BIN_DIR|INSTALL_PATH)' "$s" || true)
+    [[ -n $hits ]] && report "$C_G" "OK" "uses /opt, /usr/local, /etc or a PREFIX-style variable (writable / redirectable): $(printf '%s\n' "$hits" | wc -l) lines"
+
+    hits=$(grep -nE 'systemctl[[:space:]]+(enable|daemon-reload)|/etc/systemd/system|udev' "$s" || true)
+    [[ -n $hits ]] && report "$C_G" "OK" "systemd/udev integration goes to /etc (works)"
+
+    hits=$(grep -nE '\b(sudo|su -c)\b' "$s" || true)
+    [[ -n $hits ]] && report "$C_B" "ROOT" "escalates privileges ($(printf '%s\n' "$hits" | wc -l) lines) — read it before running."
+
+    hits=$(grep -nE 'AppImage|--appimage-extract|libfuse|fuse2' "$s" || true)
+    [[ -n $hits ]] && report "$C_Y" "FUSE" "AppImage/FUSE2 usage: Fedora 44 images dropped FUSE2; use --appimage-extract-and-run or layer fuse-libs."
+
+    if (( rc == 0 )); then ok "no obvious ostree blockers found"; fi
+    return $rc
+}
+
+# ------------------------------------------------------------------ run ----
+manifest_begin() { MARK=$(mktemp "${TMPDIR:-/tmp}/ostree-app-mark.XXXX"); }
+manifest_end() {
+    local name=$1 sd; sd=$(state_dir)
+    [[ $DRY_RUN == 1 ]] && { rm -f "$MARK"; return; }
+    local roots=(/usr/local /var/opt /etc/systemd/system /etc/profile.d /etc/bash_completion.d /etc/udev/rules.d)
+    (( EUID != 0 )) && roots+=("$HOME/.local/bin" "$HOME/.local/share/applications" "$HOME/.local/opt")
+    local out; out=$(find "${roots[@]}" -newer "$MARK" -not -type d -not -name '*.cache' 2>/dev/null || true)
+    rm -f "$MARK"
+    if [[ -z $out ]]; then warn "no new files detected under ${roots[*]}"; return; fi
+    if (( EUID == 0 )) || [[ $sd == /var/* ]]; then as_root mkdir -p "$sd"; printf '%s\n' "$out" | as_root tee "$sd/$name.manifest" >/dev/null
+    else mkdir -p "$sd"; printf '%s\n' "$out" > "$sd/$name.manifest"; fi
+    ok "recorded $(printf '%s\n' "$out" | wc -l) files in $sd/$name.manifest"
+}
+
+app_run() {
+    local src=${1:?run: SCRIPT|URL}; shift
+    local name= prefix=/usr/local rewrite=0 overlay=0 user=0 args=()
+    while (( $# )); do
+        case $1 in
+            --name)    name=$2; shift ;;
+            --prefix)  prefix=$2; shift ;;
+            --rewrite) rewrite=1 ;;
+            --overlay) overlay=1 ;;
+            --user)    user=1; USER_MODE=1; prefix=$HOME/.local ;;
+            --)        shift; args=("$@"); break ;;
+            *) die "run: unknown flag $1" ;;
+        esac; shift
+    done
+    local s; s=$(get_script "$src")
+    [[ -n $name ]] || { name=${s##*/}; name=${name%%.*}; }
+
+    app_check "$s" || true
+    echo
+
+    if (( rewrite )); then
+        [[ -n ${TMPD-} ]] || mktmpd
+        local rw=$TMPD/rewritten-${s##*/}
+        # order matters: /usr/local must not be rewritten to /usr/local/local
+        sed -E '/^#!/b;
+                s#(^|[^a-zA-Z0-9_./-])/usr/bin/env([^a-zA-Z0-9_/-]|$)#\1\x01ENV\2#g;
+                s#(^|[^a-zA-Z0-9_./-])/bin/((ba|z|da)?sh)([^a-zA-Z0-9_/-]|$)#\1\x01SH\2\4#g;
+                s#(^|[^a-zA-Z0-9_./-])/usr/(bin|sbin|lib|lib64|libexec|share|include)/#\1'"$prefix"'/\2/#g;
+                s#(^|[^a-zA-Z0-9_./-])/usr/(bin|sbin|lib|lib64|libexec|share|include)([^a-zA-Z0-9_/-]|$)#\1'"$prefix"'/\2\3#g;
+                s#(^|[^a-zA-Z0-9_./-])/(bin|sbin|lib|lib64)/#\1'"$prefix"'/\2/#g;
+                s#\x01ENV#/usr/bin/env#g; s#\x01SH#/bin/#g' "$s" > "$rw"
+        info "rewrote read-only paths -> $prefix; diff:"
+        diff -u "$s" "$rw" | sed -n '3,40p' | sed 's/^/    /' || true
+        s=$rw
+    fi
+
+    local env=(PREFIX="$prefix" INSTALL_DIR="$prefix/bin" BIN_DIR="$prefix/bin" BINDIR="$prefix/bin"
+               INSTALL_PATH="$prefix/bin" DESTDIR= OSTREE_APP=1)
+    (( user )) && env+=(XDG_BIN_HOME="$HOME/.local/bin")
+
+    local runner=(env "${env[@]}" bash "$s" "${args[@]+"${args[@]}"}")
+    if (( overlay )); then
+        warn "--overlay: files written under /usr vanish at reboot. Only for testing."
+        runner=(sh -c 'rpm-ostree usroverlay >/dev/null 2>&1 || true; exec "$@"' _ "${runner[@]}")
+    fi
+
+    confirm "Run installer $s with PREFIX=$prefix (name: $name)?" || exit 1
+    manifest_begin
+    if (( user )); then run "${runner[@]}"; else as_root "${runner[@]}"; fi
+    manifest_end "$name"
+    (( user )) || { [[ ":$PATH:" == *:/usr/local/bin:* ]] || warn "/usr/local/bin is not in PATH"; }
+}
+
+# -------------------------------------------------------------- tarball ----
+app_tarball() {
+    local name=${1:?tarball: NAME} src=${2:?tarball: ARCHIVE|URL}; shift 2
+    local bins=() user=0
+    while (( $# )); do
+        case $1 in --bin) shift; while (( $# )) && [[ $1 != --* ]]; do bins+=("$1"); shift; done; continue ;;
+                   --user) user=1; USER_MODE=1 ;; *) die "tarball: unknown $1" ;; esac; shift
+    done
+    local dest bindir
+    if (( user )); then dest=$HOME/.local/opt/$name bindir=$HOME/.local/bin
+    else dest=/var/opt/$name bindir=/usr/local/bin; fi   # /opt -> /var/opt on Atomic
+    local a; a=$(get_script "$src")
+    local taropt=(); case $a in *.zip) taropt=(zip) ;; esac
+    confirm "Unpack $a into $dest and link ${bins[*]:-<none>} into $bindir?" || exit 1
+    manifest_begin
+    local doit=(run); (( user )) || doit=(as_root)
+    "${doit[@]}" mkdir -p "$dest" "$bindir"
+    if [[ ${taropt[*]-} == zip ]]; then "${doit[@]}" unzip -oq "$a" -d "$dest"
+    else "${doit[@]}" tar -xaf "$a" -C "$dest" --strip-components="${STRIP:-1}"; fi
+    local b
+    for b in "${bins[@]+"${bins[@]}"}"; do
+        "${doit[@]}" ln -sfn "$dest/$b" "$bindir/${b##*/}"
+    done
+    # touch dest so the manifest catches the directory tree even if mtimes were preserved
+    "${doit[@]}" find "$dest" -exec touch -h {} + 2>/dev/null || true
+    manifest_end "$name"
+}
+
+# ------------------------------------------------------------- appimage ----
+app_appimage() {
+    local src=${1:?appimage: FILE|URL}; shift
+    local name=
+    while (( $# )); do case $1 in --name) name=$2; shift ;; *) die "appimage: unknown $1" ;; esac; shift; done
+    USER_MODE=1
+    local f; f=$(get_script "$src")
+    [[ -n $name ]] || { name=${f##*/}; name=${name%%.AppImage}; name=${name%%-*}; }
+    local bindir=$HOME/.local/bin appdir=$HOME/.local/share/applications
+    local target=$bindir/$name.AppImage
+    confirm "Install $f as $target with a desktop entry?" || exit 1
+    manifest_begin
+    run mkdir -p "$bindir" "$appdir"
+    run install -m 0755 "$f" "$target"
+    # Fedora 44 Atomic dropped FUSE2: run extracted, no libfuse.so.2 needed.
+    [[ $DRY_RUN == 1 ]] || cat > "$appdir/$name.desktop" <<DESK
+[Desktop Entry]
+Type=Application
+Name=$name
+Exec=env APPIMAGE_EXTRACT_AND_RUN=1 $target %U
+Icon=application-x-executable
+Terminal=false
+Categories=Utility;
+Comment=AppImage installed by ostree-app
+DESK
+    run update-desktop-database "$appdir" 2>/dev/null || true
+    manifest_end "$name"
+    info "If it fails with 'libfuse.so.2': APPIMAGE_EXTRACT_AND_RUN=1 is already set; else layer: ostree-mgr pkg install fuse-libs"
+}
+
+# ------------------------------------------------------------ container ----
+app_container() {
+    local name=${1:?container: NAME}; shift
+    local image= exports=() apps=() install=()
+    while (( $# )); do
+        case $1 in
+            --image)      image=$2; shift ;;
+            --export)     shift; while (( $# )) && [[ $1 != --* ]]; do exports+=("$1"); shift; done; continue ;;
+            --export-app) shift; while (( $# )) && [[ $1 != --* ]]; do apps+=("$1"); shift; done; continue ;;
+            --)           shift; install=("$@"); break ;;
+            *) die "container: unknown $1" ;;
+        esac; shift
+    done
+    local tool
+    if have distrobox; then tool=distrobox
+    elif have toolbox; then tool=toolbox
+    else die "need toolbox (in the base image) or distrobox (ostree-mgr pkg install distrobox)"; fi
+    USER_MODE=1
+    local bindir=$HOME/.local/bin; mkdir -p "$bindir"
+
+    if ! { [[ $tool == toolbox ]] && toolbox list -c 2>/dev/null | grep -qw "$name"; } \
+       && ! { [[ $tool == distrobox ]] && distrobox list 2>/dev/null | grep -qw "$name"; }; then
+        confirm "Create $tool container '$name'${image:+ from $image}?" || exit 1
+        if [[ $tool == toolbox ]]; then run toolbox create -y ${image:+--image "$image"} "$name"
+        else run distrobox create -Y -n "$name" ${image:+-i "$image"}; fi
+    fi
+    if (( ${#install[@]} )); then
+        info "running inside $name: ${install[*]}"
+        if [[ $tool == toolbox ]]; then run toolbox run -c "$name" "${install[@]}"
+        else run distrobox enter -n "$name" -- "${install[@]}"; fi
+    fi
+    manifest_begin
+    local b
+    for b in "${exports[@]+"${exports[@]}"}"; do
+        if [[ $tool == distrobox ]]; then
+            run distrobox enter -n "$name" -- distrobox-export --bin "$(command -v "$b" 2>/dev/null || echo "/usr/bin/$b")" --export-path "$bindir"
+        else
+            # toolbox has no exporter: generate a wrapper that enters the container.
+            [[ $DRY_RUN == 1 ]] || printf '#!/usr/bin/env bash\nexec toolbox run -c %q %q "$@"\n' "$name" "$b" > "$bindir/$b"
+            run chmod +x "$bindir/$b"; ok "wrapper $bindir/$b -> toolbox $name"
+        fi
+    done
+    for b in "${apps[@]+"${apps[@]}"}"; do
+        if [[ $tool == distrobox ]]; then run distrobox enter -n "$name" -- distrobox-export --app "$b"
+        else warn "toolbox cannot export .desktop files; create one in ~/.local/share/applications with Exec=toolbox run -c $name $b"; fi
+    done
+    manifest_end "container-$name"
+}
+
+# ------------------------------------------------------------ bindmount ----
+app_bindmount() {
+    local src=${1:?bindmount: SRC (under /var)} target=${2:?bindmount: TARGET (e.g. /nix)}
+    [[ $src == /var/* ]] || die "SRC must live under /var (only persistent writable tree)"
+    local unit; unit=$(systemd-escape -p --suffix=mount "$target")
+    local conf=/etc/ostree/prepare-root.conf
+    if [[ ! -d $target ]]; then
+        warn "$target does not exist and / is read-only; the directory must be created at boot."
+        warn "That requires '[root] transient = true' in $conf (a reboot activates it)."
+        if confirm "Enable root.transient in $conf now?"; then
+            as_root mkdir -p /etc/ostree
+            if [[ $DRY_RUN != 1 ]]; then
+                if grep -qs '^\[root\]' "$conf"; then
+                    as_root sed -i '/^\[root\]/,/^\[/{s/^transient *=.*/transient = true/}' "$conf"
+                    grep -A2 '^\[root\]' "$conf" | grep -q 'transient = true' || printf '[root]\ntransient = true\n' | as_root tee -a "$conf" >/dev/null
+                else printf '\n[root]\ntransient = true\n' | as_root tee -a "$conf" >/dev/null; fi
+            fi
+        fi
+        printf 'd %s 0755 root root -\n' "$target" | as_root tee "/etc/tmpfiles.d/ostree-app-${unit%.mount}.conf" >/dev/null
+    fi
+    confirm "Create $src, and mount unit $unit binding it onto $target?" || exit 1
+    as_root mkdir -p "$src"
+    [[ $DRY_RUN == 1 ]] || as_root tee "/etc/systemd/system/$unit" >/dev/null <<UNIT
+[Unit]
+Description=Bind $src onto $target (ostree-app)
+DefaultDependencies=no
+After=systemd-tmpfiles-setup.service local-fs-pre.target
+Before=local-fs.target
+
+[Mount]
+What=$src
+Where=$target
+Type=none
+Options=bind
+
+[Install]
+WantedBy=local-fs.target
+UNIT
+    as_root systemctl daemon-reload
+    as_root systemctl enable "$unit"
+    if [[ -d $target ]]; then as_root systemctl start "$unit" && ok "mounted now"
+    else info "reboot to create $target and activate the mount"; fi
+}
+
+# ------------------------------------------------------ list / uninstall ----
+app_list() {
+    local d
+    for d in /var/lib/ostree-mgr app "${XDG_STATE_HOME:-$HOME/.local/state}/ostree-app"; do
+        [[ -d $d ]] || continue
+        local m; for m in "$d"/*.manifest; do
+            [[ -e $m ]] || continue
+            printf '%-30s %5s files  %s\n' "$(basename "$m" .manifest)" "$(wc -l <"$m")" "$m"
+        done
+    done
+}
+
+app_uninstall() {
+    local name=${1:?uninstall: NAME} m=
+    for m in /var/lib/ostree-app/$name.manifest "${XDG_STATE_HOME:-$HOME/.local/state}/ostree-app/$name.manifest"; do
+        [[ -f $m ]] && break; m=
+    done
+    [[ -n $m ]] || die "no manifest for $name (ostree-mgr app list)"
+    echo "Files recorded for $name:"; sed 's/^/  /' "$m"
+    confirm "Delete these files (and empty parent dirs under /var/opt, /usr/local, ~/.local/opt)?" || exit 1
+    local doit=(run); [[ $m == /var/* ]] && doit=(as_root)
+    "${doit[@]}" xargs -a "$m" -d '\n' rm -f --
+    "${doit[@]}" bash -c 'for p in /var/opt/'"$name"' /usr/local/'"$name"' "$HOME/.local/opt/'"$name"'"; do [[ -d $p ]] && find "$p" -depth -type d -empty -delete; done; true'
+    "${doit[@]}" rm -f "$m"
+    ok "$name removed"
+}
+
+# =============================================================================
+# per-command help:  ostree-mgr <group> <command> -h
+# =============================================================================
+cmd_help() {
+    local key=$1/$2
+    case $key in
+# ----------------------------------------------------------------- pkg -----
+pkg/search) cat <<'H'
+ostree-mgr pkg search TERM...
+
+What:  Search the enabled RPM repositories for packages.
+How:   Runs `rpm-ostree search TERM...`, which uses libdnf with the repos in
+       /etc/yum.repos.d and /usr/share/dnf5/repos.d. Read-only; nothing is staged.
+Ex:    ostree-mgr pkg search htop
+H
+;;
+pkg/install|pkg/add|pkg/in) cat <<'H'
+ostree-mgr pkg install [--live] [--reboot] [--inactive] PKG|file.rpm|URL...
+
+What:  Layer RPM packages on top of the base image.
+How:   rpm-ostree downloads the packages and builds a NEW deployment (a full root
+       filesystem) with them installed, then sets it as the default for the next boot.
+       The running system is untouched until you reboot. Packages already layered are
+       skipped (--idempotent is always passed). URLs are downloaded to a temp dir first;
+       .rpm paths are layered as "LocalPackages". Layered packages are re-applied on top of
+       every future upgrade/rebase, so keep the list small and system-level.
+Options:
+  --live      also apply to the running system now (rpm-ostree --apply-live). Works for
+              additions only and is refused when a pending deployment already exists;
+              the tool then offers to stage without live-apply.
+  --reboot    reboot as soon as the deployment is staged.
+  --inactive  allow requesting a package that is already in the base image
+              (--allow-inactive), so it stays if a future image drops it.
+Undo:  ostree-mgr pkg uninstall PKG  (or `ostree-mgr layer cleanup -p` before rebooting)
+Ex:    ostree-mgr pkg install distrobox --live
+       ostree-mgr pkg install ./foo-1.0.rpm https://example.com/bar.rpm
+H
+;;
+pkg/uninstall|pkg/remove|pkg/rm) cat <<'H'
+ostree-mgr pkg uninstall [--reboot] PKG...
+
+What:  Remove packages that were layered with `install`.
+How:   `rpm-ostree uninstall` builds a new deployment without them; active after reboot.
+       If PKG is part of the base image (not a layer) the tool refuses and points you to
+       `override remove`. Not-installed packages are reported and skipped.
+Options: --reboot  reboot when staged.
+Ex:    ostree-mgr pkg uninstall htop zsh
+H
+;;
+pkg/list|pkg/ls) cat <<'H'
+ostree-mgr pkg list
+
+What:  Show what differs from the stock image in the BOOTED deployment.
+How:   Parses `rpm-ostree status`: LayeredPackages (install), LocalPackages (.rpm files),
+       RemovedBasePackages (override remove), ReplacedBasePackages (override replace),
+       Pinned. If a pending deployment exists, also prints `rpm-ostree db diff`.
+H
+;;
+pkg/info) cat <<'H'
+ostree-mgr pkg info PKG
+
+What:  Tell where a package comes from and show its summary.
+How:   `rpm -q` for installed state, `rpm-ostree status` to decide BASE IMAGE vs LAYERED,
+       `rpm -qi` for Summary/URL/repo. If not installed, runs a repo search instead.
+H
+;;
+pkg/override) cat <<'H'
+ostree-mgr pkg override remove PKG...
+ostree-mgr pkg override replace RPM|URL...
+ostree-mgr pkg override reset PKG...|--all
+
+What:  Modify packages that belong to the BASE image (not layers).
+How:   remove  — `rpm-ostree override remove`: the next deployment is built without the
+                 package (e.g. firefox). Base packages cannot be `uninstall`ed.
+       replace — `rpm-ostree override replace`: swap the image's build of a package for
+                 another RPM (local file, URL, Koji or Bodhi link). Used for testing a fix.
+       reset   — undo the above; the image's own version comes back.
+       All three stage a new deployment; reboot to activate.
+Risk:  Overrides can block future upgrades when dependencies shift; reset them if an
+       upgrade fails. Pin first: ostree-mgr layer pin
+H
+;;
+pkg/repo) cat <<'H'
+ostree-mgr pkg repo add NAME URL|FILE [--key URL]
+ostree-mgr pkg repo list
+ostree-mgr pkg repo remove NAME
+
+What:  Manage third-party RPM repositories.
+How:   add     — downloads or copies the .repo file to /etc/yum.repos.d/NAME.repo.
+                 With --key the GPG key is stored as /etc/pki/rpm-gpg/RPM-GPG-KEY-NAME and
+                 the repo's gpgkey= line is rewritten to point at it. This is needed
+                 because `rpm --import` cannot write the read-only rpmdb on ostree; keys
+                 placed in /etc/pki/rpm-gpg are trusted automatically by rpm-ostree.
+       list    — repo ids per file.  remove — deletes the .repo and the key file.
+Ex:    ostree-mgr pkg repo add tailscale https://pkgs.tailscale.com/stable/fedora/tailscale.repo \
+           --key https://pkgs.tailscale.com/stable/fedora/repo.gpg
+       ostree-mgr pkg install tailscale
+H
+;;
+pkg/refresh) cat <<'H'
+ostree-mgr pkg refresh
+
+What:  Refresh RPM repository metadata (`rpm-ostree refresh-md`). Use when a freshly
+       added repo or a new package version is not found by search/install.
+H
+;;
+# --------------------------------------------------------------- layer -----
+layer/status|layer/st|layer/ls) cat <<'H'
+ostree-mgr layer status [-v]
+
+What:  List deployments (bootable roots) in bootloader order.
+How:   `rpm-ostree status`. The first entry is the default for the next boot; ● marks the
+       one running now; a first entry without ● is a PENDING (staged) deployment; the last
+       is usually the ROLLBACK. -v adds package diffs, GPG info and inactive requests.
+       Indexes used by pin/unpin count from 0 in this order.
+H
+;;
+layer/pending) cat <<'H'
+ostree-mgr layer pending
+
+What:  Show what the staged (pending) deployment changes compared with the booted one.
+How:   Detects a pending entry in `rpm-ostree status`, then runs `rpm-ostree db diff`
+       (added/removed/upgraded RPMs). Prints "no pending deployment" otherwise.
+H
+;;
+layer/diff) cat <<'H'
+ostree-mgr layer diff [FROM TO]
+
+What:  Package-level diff between two ostree commits or deployments.
+How:   `rpm-ostree db diff [FROM TO]`; without arguments booted vs pending.
+H
+;;
+layer/upgrade) cat <<'H'
+ostree-mgr layer upgrade [--check|--preview|--reboot]
+
+What:  Fetch the newest base image and stage it.
+How:   `rpm-ostree upgrade` downloads the new commit, re-applies your layered packages
+       and overrides on top, 3-way-merges /etc, and creates a new deployment (default at
+       next boot). /var is never touched.
+Options:
+  --check    only ask the server whether something newer exists (no download).
+  --preview  download just the package list and print the diff.
+  --reboot   reboot once staged.
+H
+;;
+layer/rollback) cat <<'H'
+ostree-mgr layer rollback [--reboot]
+
+What:  Make the previous deployment the default again.
+How:   `rpm-ostree rollback` swaps bootloader entries 0 and 1; nothing is downloaded or
+       rebuilt. Booting into it restores the old /usr; /etc keeps your changes; /var is
+       shared. If the system will not boot at all, pick the older entry in GRUB and run
+       this afterwards.
+H
+;;
+layer/deploy) cat <<'H'
+ostree-mgr layer deploy VERSION|COMMIT [--reboot]
+
+What:  Stage a specific image version instead of the newest.
+How:   `rpm-ostree deploy` searches the branch history (e.g. 44.20260920.0) or takes a
+       commit checksum, and builds a deployment from it with your layers applied.
+       Useful to step back to a known-good date.
+H
+;;
+layer/rebase) cat <<'H'
+ostree-mgr layer rebase REF [--reboot]
+
+What:  Switch to a different base image (new Fedora release, another variant, a custom
+       bootc image) while keeping layered packages and /etc changes.
+How:   `rpm-ostree rebase REF`. REF forms:
+         fedora:fedora/45/x86_64/silverblue                  (ostree branch)
+         ostree-image-signed:docker://quay.io/fedora/fedora-silverblue:45   (OCI, verified)
+         ostree-unverified-registry:ghcr.io/you/your-image:latest         (your own image)
+       The tool warns on unverified container refs and reminds you to pin first.
+H
+;;
+layer/branches) cat <<'H'
+ostree-mgr layer branches [FILTER]
+
+What:  List refs available on the "fedora" ostree remote (`ostree remote refs fedora`),
+       optionally filtered, to find valid rebase targets.
+H
+;;
+layer/pin) cat <<'H'
+ostree-mgr layer pin [INDEX|booted|pending|rollback]
+
+What:  Protect a deployment from garbage collection so you can always boot back into it.
+How:   `ostree admin pin INDEX`. Default is the booted deployment; its index is computed
+       from `rpm-ostree status`. Pinned deployments survive upgrades and `cleanup` until
+       unpinned. Pin before rebase, override remove, or kernel-arg experiments.
+H
+;;
+layer/unpin) cat <<'H'
+ostree-mgr layer unpin INDEX
+
+What:  Remove the pin (`ostree admin pin --unpin INDEX`); the deployment becomes eligible
+       for normal cleanup again.
+H
+;;
+layer/cleanup) cat <<'H'
+ostree-mgr layer cleanup [-p] [-r] [-b] [-m] | cleanup all
+
+What:  Free disk space / drop deployments (`rpm-ostree cleanup`).
+Options:
+  -p  delete the PENDING deployment (undo a staged install/upgrade before rebooting)
+  -r  delete the ROLLBACK deployment (frees most space; removes your safety net)
+  -b  remove transient base files left by interrupted operations
+  -m  clear cached repo metadata and partial downloads
+  all = -p -r -b -m.  With no flags the safe pair -b -m is used.
+H
+;;
+layer/cancel) cat <<'H'
+ostree-mgr layer cancel
+
+What:  Abort a running rpm-ostree transaction (`rpm-ostree cancel`), e.g. a stuck download.
+H
+;;
+layer/reset) cat <<'H'
+ostree-mgr layer reset [--overlays] [--overrides] [--initramfs]
+
+What:  Return to a stock image: drop ALL layered packages, overrides and local initramfs
+       settings (or only the selected kind).
+How:   `rpm-ostree reset` builds a new deployment from the pure base image; reboot to use.
+       Handy before a rebase that keeps failing on dependency conflicts.
+H
+;;
+layer/kargs) cat <<'H'
+ostree-mgr layer kargs show | append ARG... | delete ARG... | replace KEY=OLD=NEW
+
+What:  View or edit kernel command-line arguments.
+How:   `rpm-ostree kargs` writes a new deployment with the changed bootloader entry
+       (--append-if-missing / --delete-if-present / --replace). Active after reboot.
+       Requires an admin password even for passwordless-update users.
+Ex:    ostree-mgr layer kargs append mitigations=off
+H
+;;
+layer/unlock) cat <<'H'
+ostree-mgr layer unlock [--hotfix]
+
+What:  Make /usr writable.
+How:   default  — `rpm-ostree usroverlay` mounts a transient overlayfs on /usr. Anything
+                  written vanishes at reboot. For experiments only.
+       --hotfix — `ostree admin unlock --hotfix` clones the deployment and keeps the overlay
+                  across reboots. The next install/upgrade builds a fresh deployment WITHOUT
+                  the hotfix, so it is not a way to install software permanently.
+H
+;;
+layer/space) cat <<'H'
+ostree-mgr layer space
+
+What:  Disk usage of /sysroot, /var, /boot and the ostree repo/deploy directories, with a
+       reminder of which cleanup flags are safe.
+H
+;;
+# ----------------------------------------------------------------- app -----
+app/check) cat <<'H'
+ostree-mgr app check SCRIPT|URL
+
+What:  Read an install script (local file or URL) and report what will break on an
+       ostree system BEFORE running it. Exit 1 if blockers were found.
+How:   grep-based scan reporting:
+       READ-ONLY  writes to /usr/{bin,lib,share,...}, /bin, /lib   -> use --rewrite/--prefix
+       TOP-LEVEL  mkdir/cp of a new top-level dir like /nix        -> app bindmount
+       PKG-MGR    dnf/apt/yum install calls                        -> ostree-mgr pkg install
+       GPG        rpm --import                                     -> pkg repo add --key
+       FUSE       AppImage/FUSE2 use (removed from Fedora 44)      -> extract-and-run
+       OK         uses /opt, /usr/local, /etc or PREFIX variables
+       ROOT       sudo usage count, so you know it escalates
+H
+;;
+app/run) cat <<'H'
+ostree-mgr app run SCRIPT|URL [--name N] [--prefix DIR] [--rewrite] [--user] [--overlay] [-- ARGS]
+
+What:  Run a vendor install script so that it lands in writable locations, and record
+       what it installed so it can be removed later.
+How:   1. Downloads the script if URL, runs `check` and shows the report.
+       2. Exports PREFIX, INSTALL_DIR, BIN_DIR, BINDIR, INSTALL_PATH (= prefix or its bin/)
+          which most installers honour. Default prefix /usr/local (= /var/usrlocal).
+       3. --rewrite: sed-rewrites hard-coded /usr/bin, /usr/lib, /usr/share, /bin, /lib …
+          to PREFIX/... in a temp copy (shebangs and /usr/bin/env are left alone) and
+          shows the diff before running.
+       4. Runs via sudo (or as you with --user, prefix ~/.local).
+       5. Takes an mtime marker before and `find -newer` after over /usr/local, /var/opt,
+          /etc/systemd/system, /etc/profile.d, /etc/udev/rules.d (+ ~/.local/*), saving the
+          list to /var/lib/ostree-app/NAME.manifest (~/.local/state/ostree-app for --user).
+Options:
+  --name N    manifest name (default: script basename)
+  --prefix D  install prefix instead of /usr/local
+  --user      per-user install, no sudo
+  --overlay   run under a transient `rpm-ostree usroverlay` so writes to /usr succeed —
+              they disappear at reboot; testing only.
+  -- ARGS     passed through to the installer.
+Ex:    ostree-mgr app run https://example.com/install.sh --rewrite --name foo -- --version 2.1
+H
+;;
+app/tarball) cat <<'H'
+ostree-mgr app tarball NAME ARCHIVE|URL [--bin REL...] [--user]
+
+What:  Install a binary release tarball/zip "the ostree way".
+How:   Unpacks into /var/opt/NAME (visible as /opt/NAME; --user: ~/.local/opt/NAME),
+       strips the first path component (override with STRIP=0), and symlinks each --bin
+       path into /usr/local/bin (or ~/.local/bin). Files are recorded in a manifest.
+Ex:    ostree-mgr app tarball lazygit https://…/lazygit_linux_x86_64.tar.gz --bin lazygit
+H
+;;
+app/appimage) cat <<'H'
+ostree-mgr app appimage FILE|URL [--name NAME]
+
+What:  Install an AppImage for the current user with a desktop launcher.
+How:   Copies it to ~/.local/bin/NAME.AppImage (chmod 755) and writes
+       ~/.local/share/applications/NAME.desktop whose Exec sets
+       APPIMAGE_EXTRACT_AND_RUN=1, because Fedora 44 images no longer ship FUSE2 that
+       older AppImages need. Recorded in a manifest for uninstall.
+H
+;;
+app/container) cat <<'H'
+ostree-mgr app container NAME [--image IMG] [--export BIN...] [--export-app DESKTOP...] [-- CMD]
+
+What:  Keep software in a toolbox/distrobox container but use it like a host command.
+How:   Creates the container if missing (toolbox by default, distrobox if installed),
+       runs CMD inside it (e.g. `sudo dnf install -y gcc`), then for each --export BIN:
+         distrobox: `distrobox-export --bin` into ~/.local/bin
+         toolbox:   writes a 2-line wrapper  exec toolbox run -c NAME BIN "$@"
+       --export-app exports .desktop files (distrobox only). Nothing touches the host OS.
+Ex:    ostree-mgr app container dev --export gcc make -- sudo dnf install -y gcc make
+H
+;;
+app/bindmount) cat <<'H'
+ostree-mgr app bindmount SRC TARGET
+
+What:  Give software a writable top-level directory (e.g. /nix) backed by /var.
+How:   Creates SRC (must be under /var), writes /etc/systemd/system/<target>.mount
+       (Type=none, Options=bind, WantedBy=local-fs.target) and enables it. If TARGET does
+       not exist yet, / is read-only so it must be created at boot: the tool offers to set
+       `[root] transient = true` in /etc/ostree/prepare-root.conf and adds a tmpfiles.d
+       rule `d TARGET`. A reboot activates both. Alternative: build it into a custom image.
+Ex:    ostree-mgr app bindmount /var/lib/nix /nix
+H
+;;
+app/list|app/ls) cat <<'H'
+ostree-mgr app list
+
+What:  Show everything installed through `app run/tarball/appimage/container` with the
+       number of recorded files and the manifest path (/var/lib/ostree-app and
+       ~/.local/state/ostree-app).
+H
+;;
+app/uninstall|app/rm|app/remove) cat <<'H'
+ostree-mgr app uninstall NAME
+
+What:  Remove an app installed by this tool.
+How:   Prints the files recorded in NAME.manifest, asks, deletes them, removes empty
+       directories under /var/opt/NAME, /usr/local/NAME, ~/.local/opt/NAME, then deletes
+       the manifest. Containers themselves are not removed (toolbox rm NAME).
+H
+;;
+    *) return 1 ;;
+    esac
+}
+
+# =============================================================================
+# dispatcher
+# =============================================================================
+parse_common "$@"; set -- "${ARGS[@]+"${ARGS[@]}"}"
+(( $# )) || { usage; exit $(( WANT_HELP ? 0 : 1 )); }
+group=$1; shift
+case $group in help) usage; exit 0 ;; pkg|layer|app) ;; *) die "unknown group: $group (ostree-mgr -h)" ;; esac
+sub=${1:-}
+if [[ -z $sub || $sub == help ]]; then "${group}_help"; exit 0; fi
+shift
+if (( WANT_HELP )) || [[ ${1-} == help ]]; then
+    cmd_help "$group" "$sub" || die "no help for '$group $sub' (ostree-mgr $group -h)"; exit 0
+fi
+require_ostree
+case $group in
+    pkg)   require_cmd rpm-ostree rpm
+case $sub in
+    search|install|uninstall|list|info|override|repo|refresh) "pkg_$sub" "$@" ;;
+    remove|rm) pkg_uninstall "$@" ;;
+    add|in)    pkg_install "$@" ;;
+    ls)        pkg_list ;;
+    *) die "unknown command: $sub (ostree-mgr pkg -h)" ;;
+esac
+    ;;
+    layer) require_cmd rpm-ostree ostree
+case $sub in
+    status|pending|diff|upgrade|rollback|deploy|rebase|branches|pin|unpin|cleanup|cancel|reset|kargs|unlock|space)
+        "layer_$sub" "$@" ;;
+    st|ls) layer_status "$@" ;;
+    *) die "unknown command: $sub (ostree-mgr layer -h)" ;;
+esac
+    ;;
+    app)
+case $sub in
+    check|run|tarball|appimage|container|bindmount|list|uninstall) "app_$sub" "$@" ;;
+    rm|remove) app_uninstall "$@" ;;
+    ls) app_list ;;
+    *) die "unknown command: $sub (ostree-mgr app -h)" ;;
+esac
+    ;;
+    *) die "unknown group: $group (ostree-mgr -h)" ;;
+esac
