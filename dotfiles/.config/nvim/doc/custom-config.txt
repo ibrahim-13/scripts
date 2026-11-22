@@ -26,7 +26,7 @@ Index                                                    *custom-config:index*
 - |custom-config:key-bindings|            Key Bindings
 - |custom-config:telescope.nvim|          telescope.nvim
 - |custom-config:nvim-tree|               nvim-tree
-- |custom-config:Comment.nvim|            Comment.nvim
+- |custom-config:blink.cmp|               blink.cmp
 - |custom-config:codediff.nvim|           codediff.nvim
 - |custom-config:handling-binary-files|   Handling Binary Files
 - |custom-config:file-formats|            File Formats
@@ -55,8 +55,8 @@ Modes
 
 - `<LEADER>w`     n     Write current file
 - `<LEADER>a`     n     Select all
-- `gy`            nx    Copy to clipboard
-- `gp`            nx    Paste from clipboard
+- `<LEADER>y`     nx    Copy to system clipboard
+- `<LEADER>p`     nx    Paste from system clipboard
 - `x`             nx    Delete single character
 - `X`             nx    Delete
 - `<C-k>`         nx    Scroll up 7 lines
@@ -82,7 +82,7 @@ telescope.nvim
 - `<LEADER>fg`    n     Fuzzy live grep files
 - `<LEADER>fb`    n     Fuzzy find buffers
 - `<LEADER>fh`    n     Show help
-- `<LEADER>pp`    n     List build-in pickers and run them on `CR`
+- `<LEADER>fl`    n     List build-in pickers and run them on `CR`
 
 hop.nvim
 - `f`             ''    Find wtih 1 char in the visible buffer
@@ -93,20 +93,25 @@ hop.nvim
 Tabs
 - `gt`            n     Go to next tab, can use `3gt` to repeat
 - `gT`            n     Go to previous tab, can use `3gT` to repeat
-- `gn`            n     Creat the current buffer in new tab
-- `gc`            n     Close the current tab
+- `<LEADER>tc`    n     Creat the current buffer in new tab
+- `<LEADER>tx`    n     Close the current tab
 - `<C-Left>`      ni    Go to the previous tab
 - `<C-Right>`     ni    Go to the next tab
-- `<C-Up>`        ni    Move current tab to the previous tab
-- `<C-Down>`      ni    Move current tab to the next tab
+- `<C-Up>`        ni    Move current tab to left
+- `<C-Down>`      ni    Move current tab to right
+
+Comment
+- `<LEADER>cc`	x     Toggle line comment
+- `<LEADER>cb`	x     Toggle block comment
 
 Search
 - `/{pattern}`        Search forward
 - `?{pattern}`        Search backword
 - `/{pattern}\c`      Search case insensitive, `\C` for case sensitive
-- `n`                 Go to next match, `N` for previous match
+- `n`                 Go to next match
+- `N`                 Go to previous match
 - `*`                 Search current word under the cursor forward
-                      `#` for backword
+- `#`                 Search current word under the cursor backward
 
 Record
 - `q<register>`       Record key strokes, press `q` again to stop
@@ -212,16 +217,27 @@ Keymaps
 - `:NvimTreeFindFile`       Move the cursor in the tree for the current buffer, opening folders if needed
 - `:NvimTreeCollapse`       Collapses the nvim-tree recursively
 
+
 ------------------------------------------------------------------------------
-Comment.nvim                                      *custom-config:Comment.nvim*
+blink.cmp                                             *custom-config:blink.cmp*
 
-https://github.com/numToStr/Comment.nvim
+This are the default key-bindings:
+- `<C-space>`	Show documentation
+- `<C-e>`	Hide documentation
+- `<C-y>`	Select and accept
 
-- `gc`    Line comment leader
-- `gcc`   Toggle line comment
+- `<Up>`	Select previous
+- `<Down>`	Select next
+- `<C-p>`	Select previous
+- `<C-n>`	Select next
 
-- `gb`    Block comment leader
-- `gbc`   Toggle block comment
+- `<C-b>`	Scroll documentation up
+- `<C-f>`	Scroll documentation down
+
+- `<Tab>`	Snippet forward
+- `<S-Tab>`	Snippet backward
+
+- `<C-k>`	Show signature
 
 ------------------------------------------------------------------------------
 *codediff.nvim*                                   *custom-config:codediff.nvim*
@@ -326,6 +342,7 @@ Get LSP logs location: `lua = require('vim.lsp.log').get_filename()`
 Set log level in `init.lua`: `vim.lsp.set_log_level('debug')`
 
 - `:CmdShowLspLog`              Open lsp.log file
+- `:map`                        Show all key mapping
 
 View log messages: https://neovim.io/doc/user/message.html
 

@@ -160,8 +160,6 @@ local plugins_default = {
 	{ "lukas-reineke/indent-blankline.nvim",	main = "ibl",                                    opts = {} },
 	-- Hop
 	{ 'smoka7/hop.nvim',											version = "*" },
-	-- Comment
-	{ 'numToStr/Comment.nvim',								opts = {},                                       lazy = false, },
 	-- NvimTree
 	{ "nvim-tree/nvim-tree.lua",          		version = "*",      lazy = false, dependencies = { "nvim-tree/nvim-web-devicons" } },
 	-- codediff.nvim
@@ -169,14 +167,69 @@ local plugins_default = {
 }
 
 local plugins_extended = {
-	-- lsp-zero
-	{ 'williamboman/mason.nvim' },
-	{ 'williamboman/mason-lspconfig.nvim' },
-	{ 'VonHeikemen/lsp-zero.nvim',        branch = 'v3.x' },
-	{ 'neovim/nvim-lspconfig' },
-	{ 'hrsh7th/cmp-nvim-lsp' },
-	{ 'hrsh7th/nvim-cmp' },
-	{ 'L3MON4D3/LuaSnip' },
+    -- Mason for managing LSP
+	-- https://github.com/mason-org/mason.nvim
+	-- https://github.com/mason-org/mason-lspconfig.nvim
+	-- https://github.com/neovim/nvim-lspconfig
+    {
+        "mason-org/mason-lspconfig.nvim",
+        opts = {},
+        dependencies = {
+            { "mason-org/mason.nvim", opts = {} },
+            "neovim/nvim-lspconfig",
+        },
+    },
+    -- blick.cmp completion
+	-- https://github.com/saghen/blink.cmp
+    {
+      'saghen/blink.cmp',
+      -- optional: provides snippets for the snippet source
+      -- dependencies = { 'rafamadriz/friendly-snippets' },
+
+      -- use a release tag to download pre-built binaries
+      version = '1.*',
+
+      ---@module 'blink.cmp'
+      ---@type blink.cmp.Config
+      opts = {
+        -- 'default' (recommended) for mappings similar to built-in completions (C-y to accept)
+        -- 'super-tab' for mappings similar to vscode (tab to accept)
+        -- 'enter' for enter to accept
+        -- 'none' for no mappings
+        --
+        -- All presets have the following mappings:
+        -- C-space: Open menu or open docs if already open
+        -- C-n/C-p or Up/Down: Select next/previous item
+        -- C-e: Hide menu
+        -- C-k: Toggle signature help (if signature.enabled = true)
+        --
+        -- See :h blink-cmp-config-keymap for defining your own keymap
+        keymap = { preset = 'default' },
+
+        appearance = {
+          -- 'mono' (default) for 'Nerd Font Mono' or 'normal' for 'Nerd Font'
+          -- Adjusts spacing to ensure icons are aligned
+          nerd_font_variant = 'mono'
+        },
+
+        -- (Default) Only show the documentation popup when manually triggered
+        completion = { documentation = { auto_show = false } },
+
+        -- Default list of enabled providers defined so that you can extend it
+        -- elsewhere in your config, without redefining it, due to `opts_extend`
+        sources = {
+          default = { 'lsp', 'path', 'snippets', 'buffer' },
+        },
+
+        -- (Default) Rust fuzzy matcher for typo resistance and significantly better performance
+        -- You may use a lua implementation instead by using `implementation = "lua"` or fallback to the lua implementation,
+        -- when the Rust fuzzy matcher is not available, by using `implementation = "prefer_rust"`
+        --
+        -- See the fuzzy documentation for more information
+        fuzzy = { implementation = "lua" }
+      },
+      opts_extend = { "sources.default" }
+    },
 	-- Treesitter
 	{ "nvim-treesitter/nvim-treesitter",  build = ":TSUpdate" }
 }
@@ -191,39 +244,12 @@ end
 require("lazy").setup(plugins)
 
 if not isMinimal then
-	--[[
-	lsp-zero
-	--------
-	https://github.com/VonHeikemen/lsp-zero.nvim
-	--]]
-	local lsp_zero = require('lsp-zero')
-
-	lsp_zero.on_attach(function(client, bufnr)
-		-- see :help lsp-zero-keybindings
-		-- to learn the available actions
-		lsp_zero.default_keymaps({ buffer = bufnr })
-	end)
-
-	-- to learn how to use mason.nvim with lsp-zero
-	-- read this: https://github.com/VonHeikemen/lsp-zero.nvim/blob/v3.x/doc/md/guides/integrate-with-mason-nvim.md
-	require('mason').setup({})
-	require('mason-lspconfig').setup({
-		ensure_installed = {},
-		handlers = {
-			lsp_zero.default_setup,
-		},
-	})
-
 	-- Run command :Mason to manage packages
 	-- Commands are prefixed with Mason, they can be cycled by typing :Mason and then TAB
-	-- Alternatively, list of LSPs can be found here: https://github.com/williamboman/mason-lspconfig.nvim
-	require('mason').setup({})
-	require('mason-lspconfig').setup({
-		ensure_installed = { 'lua_ls' },
-		handlers = {
-			lsp_zero.default_setup,
-		},
-	})
+	-- Alternatively, list of LSPs can be found here: https://github.com/mason-org/mason-lspconfig.nvim
+    require("mason-lspconfig").setup {
+        automatic_enable = true
+    }
 
 	--[[
 	nvim-treesitter
@@ -235,26 +261,21 @@ if not isMinimal then
 		Installation Status	: TSInstallInfo
 	Commands are prefixed with TS, they can by cycled by typing :TS and then TAB
 	--]]
-	require("nvim-treesitter.configs").setup {
-		ensure_installed = { "lua" },
-		sync_install = false,
-		auto_install = false,
-		-- ignore_install = { "javascript" },
-		highlight = {
-			enable = true,
-			-- disable = { "javascript" },
-			--[[
-		disable = function(lang, bug)
-			local max_filesize = 100 * 1024 -- 100 KB
-			local ok, stats = pcall(vim.loop.fs_stat, vim.api.nvim_buf_get_name(buf))
-			if ok and stats and stats.size > max_filesize then
-				return true
-			end
-		end
-		--]]
-			additional_vim_regex_highlighting = false,
-		}
-	}
+    local treesitter = require('nvim-treesitter')
+    treesitter.setup {
+      -- Directory to install parsers and queries to (prepended to `runtimepath` to have priority)
+      install_dir = vim.fn.stdpath('data') .. '/site'
+    }
+    -- Install language support
+    -- treesitter.install { 'diff', 'dockerfile', 'helm', 'yaml', 'markdown', 'sql', 'lua', 'rust', 'python', 'javascript', 'css', 'typescript', 'tsx', 'go', 'templ', 'c', 'cpp'}
+
+    -- Enable highlighting
+    vim.api.nvim_create_autocmd('FileType', {
+      pattern = { '<filetype>' },
+      callback = function() vim.treesitter.start() end,
+    })
+    -- Enable indentation
+    vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
 end
 
 --[[
@@ -359,54 +380,6 @@ require("tokyonight").setup({
 
 -- set color scheme
 vim.cmd [[colorscheme tokyonight]]
-
---[[
-Comment.nvim
-https://github.com/numToStr/Comment.nvim
---]]
-require('Comment').setup({
-	---Add a space b/w comment and the line
-	padding = true,
-	---Whether the cursor should stay at its position
-	sticky = true,
-	---Lines to be ignored while (un)comment
-	ignore = nil,
-	---LHS of toggle mappings in NORMAL mode
-	toggler = {
-		---Line-comment toggle keymap
-		line = 'gcc',
-		---Block-comment toggle keymap
-		block = 'gbc',
-	},
-	---LHS of operator-pending mappings in NORMAL and VISUAL mode
-	opleader = {
-		---Line-comment keymap
-		line = 'gc',
-		---Block-comment keymap
-		block = 'gb',
-	},
-	---LHS of extra mappings
-	extra = {
-		---Add comment on the line above
-		-- above = 'gcO',
-		---Add comment on the line below
-		-- below = 'gco',
-		---Add comment at the end of line
-		-- eol = 'gcA',
-	},
-	---Enable keybindings
-	---NOTE: If given `false` then the plugin won't create any mappings
-	mappings = {
-		---Operator-pending mapping; `gcc` `gbc` `gc[count]{motion}` `gb[count]{motion}`
-		basic = true,
-		---Extra mapping; `gco`, `gcO`, `gcA`
-		extra = false,
-	},
-	---Function to call before (un)comment
-	pre_hook = nil,
-	---Function to call after (un)comment
-	post_hook = nil,
-})
 
 --[[
 -- tabline
@@ -547,74 +520,93 @@ o	: Operator-pending
 
 -- Set <leader> to space
 vim.g.mapleader = ' '
--- Write with 'space+w' in normal mode
-vim.keymap.set('n', '<LEADER>w', '<CMD>write<CR>', { desc = 'Save' })
--- Copy to clipboard with 'gy' in normal+visual mode
-vim.keymap.set({ 'n', 'x' }, 'gy', '"+y')
--- Paste from clipboard with 'gp' in normal+visual mode
-vim.keymap.set({ 'n', 'x' }, 'gp', '"+p')
--- While deleting in normal+visual mode, deleting with 'x' and 'X' with not change registers
-vim.keymap.set({ 'n', 'x' }, 'x', '"_x')
-vim.keymap.set({ 'n', 'x' }, 'X', '"_d')
--- Select all with 'space+a' in normal mode
-vim.keymap.set('n', '<LEADER>a', ':keepjumps normal! ggVG<CR>')
--- Scroll up 7 lines with ctrl+k when in normal+visual mode
-vim.keymap.set({ 'n', 'x' }, '<C-k>', '7<C-y>')
--- Scroll down 7 lines with ctrl+j when in normal+visual mode
-vim.keymap.set({ 'n', 'x' }, '<C-j>', '7<C-e>')
--- Cursor up with ctrl+k when in input mode
-vim.keymap.set('i', '<C-k>', '<Up>')
--- Cursor down with ctrl+j when in input mode
-vim.keymap.set('i', '<C-j>', '<Down>')
--- Cursor left with ctrl+k when in input mode
-vim.keymap.set('i', '<C-h>', '<Left>')
--- Cursor right with ctrl+j when in input mode
-vim.keymap.set('i', '<C-l>', '<Right>')
--- Wrap selection with double quote "" when in visual mode
-vim.keymap.set('x', '<LEADER>"', 'c"<C-r>""<ESC>')
--- Wrap selection with single quote '' when in visual mode
-vim.keymap.set('x', '<LEADER>\'', 'c\'<C-r>"\'<ESC>')
+-- File
+vim.keymap.set('n', '<LEADER>w', '<CMD>write<CR>', { desc = '[normal] Write to file' })
+-- Clipboard
+vim.keymap.set({ 'n', 'x' }, '<LEADER>y', '"+y', { desc = '[normal+visual] Copy to system clipboard' })
+vim.keymap.set({ 'n', 'x' }, '<LEADER>p', '"+p', { desc = '[normal+visual] Paste from system clipboard' })
+vim.keymap.set({ 'n', 'x' }, 'x', '"_x', { desc = '[normal+visual] Deleting does not change registers' })
+vim.keymap.set({ 'n', 'x' }, 'X', '"_d', { desc = '[normal+visual] Deleting does not change registers' })
+-- Selection
+vim.keymap.set('n', '<LEADER>a', ':keepjumps normal! ggVG<CR>', { desc = '[normal] Select all' })
+-- Scrolling
+vim.keymap.set({ 'n', 'x' }, '<C-k>', '7<C-y>', { desc = '[normal+visual] Scroll up 7 lines with when pressing CTRL+k' })
+vim.keymap.set({ 'n', 'x' }, '<C-j>', '7<C-e>', { desc = '[normal+visual] Scroll down 7 lines with when pressing CTRL+j' })
+-- Cursor navigation in input mode
+vim.keymap.set('i', '<C-k>', '<Up>', { desc = '[input] Cursor up when pressing CTRL+k' })
+vim.keymap.set('i', '<C-j>', '<Down>', { desc = '[input] Cursor down when pressing CTRL+j' })
+vim.keymap.set('i', '<C-h>', '<Left>', { desc = '[input] Cursor left when pressing CTRL+h' })
+vim.keymap.set('i', '<C-l>', '<Right>', { desc = '[input] Cursor right when pressing CTRL+l' })
+-- Wrap selection with quote
+vim.keymap.set('x', '<LEADER>"', 'c"<C-r>""<ESC>', { desc = '[visual] Wrap selection with double quote' })
+vim.keymap.set('x', '<LEADER>\'', 'c\'<C-r>"\'<ESC>', { desc = '[visual] Wrap selection with single quote' })
 
 -- telescope.nvim
 local builtin = require('telescope.builtin')
--- Fuzzy find files with 'ff' in normal mode
-vim.keymap.set('n', '<LEADER>ff', builtin.find_files, {})
--- Fuzzy live grep files with 'fg' in normal mode
-vim.keymap.set('n', '<LEADER>fg', builtin.live_grep, {})
--- Fuzzy find buffers with 'fb' in normal mode
-vim.keymap.set('n', '<LEADER>fb', builtin.buffers, {})
--- Show help with 'fh' in normal mode
-vim.keymap.set('n', '<LEADER>fh', builtin.help_tags, {})
--- List built-in pickers and run them on <CR>
-vim.keymap.set('n', '<LEADER>pp', builtin.builtin, {})
+vim.keymap.set('n', '<LEADER>ff', builtin.find_files, { desc = '[normal] Telescope fuzzy find files' })
+vim.keymap.set('n', '<LEADER>fg', builtin.live_grep, { desc = '[normal] Telescope fuzzy live grep' })
+vim.keymap.set('n', '<LEADER>fb', builtin.buffers, { desc = '[normal] Telescope fuzzy find buffers' })
+vim.keymap.set('n', '<LEADER>fh', builtin.help_tags, { desc = '[normal] Telescope help' })
+vim.keymap.set('n', '<LEADER>fl', builtin.builtin, { desc = '[normal] Telescope list pickers' })
 
 -- Tabs can be traversed with 'gt' and 'gT', thus the following
 -- bindings were also added with 'g' prefix
 -- use '1gtT', '2gt', '3gt', etc. to go to specific tab
 -- https://neovim.io/doc/user/tabpage.html
 
--- Create the current buffer in new tab with 'gn' in normal mode
-vim.keymap.set('n', 'gn', ':tab split<CR>')
--- Close the current tab with 'gc' in normal mode
-vim.keymap.set('n', 'gc', ':tabc<CR>')
--- Go to the previous tab with 'ctrl-left' in normal and input mode
-vim.keymap.set({ 'n', 'i' }, '<C-Left>', '<ESC>:tabnext -1<CR>', { remap = false })
--- Go to the next tab with 'ctrl-right' in normal and input mode
-vim.keymap.set({ 'n', 'i' }, '<C-Right>', '<ESC>:tabnext +1<CR>', { remap = false })
--- Move current tab to the previous tab with 'ctrl-up' in normal and input mode
-vim.keymap.set({ 'n', 'i' }, '<C-Up>', '<ESC>:tabm -1<CR>', { remap = false })
--- Move current tab to the next tab with 'ctrl-down' in normal and input mode
-vim.keymap.set({ 'n', 'i' }, '<C-Down>', '<ESC>:tabm +1<CR>', { remap = false })
+-- Tabs
+vim.keymap.set('n', '<LEADER>tc', ':tab split<CR>', { desc = '[normal] Create new tab with current buffer' })
+vim.keymap.set('n', '<LEADER>tx', ':tabc<CR>', { desc = '[normal] Close current tab' })
+vim.keymap.set({ 'n', 'i' }, '<C-Left>', '<ESC>:tabnext -1<CR>', { remap = false, desc = '[normal] Go to the previous tab' })
+vim.keymap.set({ 'n', 'i' }, '<C-Right>', '<ESC>:tabnext +1<CR>', { remap = false, desc = '[normal] Go to the next tab' })
+vim.keymap.set({ 'n', 'i' }, '<C-Up>', '<ESC>:tabm -1<CR>', { remap = false, desc = '[normal] Move current tab to left' })
+vim.keymap.set({ 'n', 'i' }, '<C-Down>', '<ESC>:tabm +1<CR>', { remap = false, desc = '[normal] Move current tab to right' })
 
 -- nvim-tree
--- Open/Close (toggle) NvimTree with '<leader>dd' when in normal mode
-vim.keymap.set('n', '<LEADER>dx', '<ESC>:NvimTreeToggle<CR>')
--- Open (if not open) and focus on NvimTree with '<leader>dd' when in normal mode
-vim.keymap.set('n', '<LEADER>dd', '<ESC>:NvimTreeFocus<CR>')
--- Find files in NvimTree with '<leader>df' when in normal mode
-vim.keymap.set('n', '<LEADER>df', '<ESC>:NvimTreeFindFile<CR>')
--- Collapse recursively in NvimTree with '<leader>dc' when in normal mode
-vim.keymap.set('n', '<LEADER>dc', '<ESC>:NvimTreeCollapse<CR>')
+vim.keymap.set('n', '<LEADER>dx', '<ESC>:NvimTreeToggle<CR>', { desc = '[normal] NvimTree toggle visibility' })
+vim.keymap.set('n', '<LEADER>dd', '<ESC>:NvimTreeFocus<CR>', { desc = '[normal] NvimTree toggle visible and focus' })
+vim.keymap.set('n', '<LEADER>df', '<ESC>:NvimTreeFindFile<CR>', { desc = '[normal] NvimTree toggle and find files' })
+vim.keymap.set('n', '<LEADER>dc', '<ESC>:NvimTreeCollapse<CR>', { desc = '[normal] NvimTree collapse recursively' })
+
+-- Block comment patterns
+local block_comments_pattern_fallback = {
+  lua = { "--[[", "]]" },
+  python = { '"""', '"""' },
+  sh = { ": <<'COMMENT'", "COMMENT" },
+}
+-- Line comments
+vim.keymap.set("x", "<LEADER>cc", "gc", { remap = true, desc = "[visual] Toggle line comment" })
+-- Block comments
+vim.keymap.set("x", "<LEADER>cb", function()
+  local buf = 0
+  local left, right = vim.bo[buf].commentstring:match("^(.-)%%s(.-)$")
+  left, right = left and vim.trim(left), right and vim.trim(right)
+
+  if not right or right == "" then
+    left, right = unpack(block_comments_pattern_fallback[vim.bo[buf].filetype] or {})
+  end
+
+  if not left or not right then
+    vim.notify("Block comment unavailable", vim.log.levels.WARN)
+    return
+  end
+
+  local s, e = vim.fn.line("'<"), vim.fn.line("'>")
+  local lines = vim.api.nvim_buf_get_lines(buf, s - 1, e, false)
+  local indent, content = lines[1]:match("^(%s*)(.*)$")
+  local commented = content:sub(1, #left) == left
+    and lines[#lines]:sub(-#right) == right
+
+  if commented then
+    lines[1] = indent .. content:sub(#left + 1):gsub("^%s?", "")
+    lines[#lines] = lines[#lines]:gsub("%s?" .. vim.pesc(right) .. "$", "")
+  else
+    lines[1] = indent .. left .. " " .. content
+    lines[#lines] = lines[#lines] .. " " .. right
+  end
+
+  vim.api.nvim_buf_set_lines(buf, s - 1, e, false, lines)
+end, { desc = "[visual] Toggle block comment" })
 
 --[[
 Custom Commands
